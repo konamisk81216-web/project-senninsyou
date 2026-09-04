@@ -2,6 +2,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
 import java.sql.ResultSet;
+import java.sql.PreparedStatement;
 
 public class DatabaseTest {
 
@@ -31,6 +32,17 @@ public class DatabaseTest {
         DriverManager.getConnection(jdbcUrl, user, password);
 
             System.out.println("🏯 Neonへの接続成功！");
+
+String sql = "INSERT INTO tasks (task_name) VALUES (?)";
+
+PreparedStatement insertStatement =
+        connection.prepareStatement(sql);
+
+insertStatement.setString(1, "Project千人将テスト任務");
+
+int rows = insertStatement.executeUpdate();
+
+System.out.println(rows + "件のタスクを登録しました！");
 
             Statement statement = connection.createStatement();
 
