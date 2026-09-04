@@ -1,5 +1,7 @@
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.Statement;
+import java.sql.ResultSet;
 
 public class DatabaseTest {
 
@@ -29,6 +31,20 @@ public class DatabaseTest {
         DriverManager.getConnection(jdbcUrl, user, password);
 
             System.out.println("🏯 Neonへの接続成功！");
+
+            Statement statement = connection.createStatement();
+
+ResultSet result = statement.executeQuery("SELECT * FROM tasks");
+
+while (result.next()) {
+    int id = result.getInt("id");
+    String taskName = result.getString("task_name");
+    String status = result.getString("status");
+
+    System.out.println(
+        id + " | " + taskName + " | " + status
+    );
+}
 
             connection.close();
 
