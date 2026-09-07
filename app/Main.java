@@ -68,6 +68,7 @@ String jdbcUrl = "jdbc:postgresql://"
         System.out.println("1. タスクを追加");
         System.out.println("2. タスク一覧");
         System.out.println("3. タスク状態を変更");
+        System.out.println("4. タスクを削除");
         System.out.println("0. メインメニューに戻る");
         System.out.println("========================");
 
@@ -153,17 +154,41 @@ String jdbcUrl = "jdbc:postgresql://"
         statement.close();
         connection.close();
 
-    } catch (Exception e) {
+    } 
+    catch (Exception e) {
         System.out.println("タスク一覧の取得に失敗しました。");
         e.printStackTrace();
             
-        }
     }
+}
 
-    if (taskCommand == 3) {
+        if (taskCommand == 3) {
 
-    System.out.println("状態を変更するタスクIDを入力してください");
-    int taskId = scanner.nextInt();
+        System.out.println("状態を変更するタスクIDを入力してください");
+        int taskId = scanner.nextInt();
+
+        try {
+        Connection connection =
+            DriverManager.getConnection(jdbcUrl, user, password);
+
+        String sql = "DELETE FROM tasks WHERE id = ?";
+
+        PreparedStatement deleteStatement =
+            connection.prepareStatement(sql);
+
+        deleteStatement.setInt(1, taskId);
+
+        int rows = deleteStatement.executeUpdate();
+
+        System.out.println(rows + "件のタスクを削除しました。");
+
+        deleteStatement.close();
+        connection.close();
+
+    } catch (Exception e) {
+        System.out.println("タスクの削除に失敗しました。");
+        e.printStackTrace();
+    }
 
     scanner.nextLine();
 
@@ -195,10 +220,41 @@ String jdbcUrl = "jdbc:postgresql://"
     catch (Exception e) {
     System.out.println("タスク状態の変更に失敗しました。");
     e.printStackTrace();
+
+        }
+    }
+
+    if (taskCommand == 4) {
+
+    System.out.println("削除するタスクIDを入力してください");
+    int taskId = scanner.nextInt();
+
+    try {
+    Connection connection =
+        DriverManager.getConnection(jdbcUrl, user, password);
+
+    String sql = "DELETE FROM tasks WHERE id = ?";
+
+    PreparedStatement deleteStatement =
+        connection.prepareStatement(sql);
+
+    deleteStatement.setInt(1, taskId);
+
+    int rows = deleteStatement.executeUpdate();
+
+    System.out.println(rows + "件のタスクを削除しました。");
+
+    deleteStatement.close();
+    connection.close();
+
+} catch (Exception e) {
+    System.out.println("タスクの削除に失敗しました。");
+    e.printStackTrace();
             }
         }
     }
 }
+
     if(command==3){
         System.out.println("収益化支援を起動します。");
     }
