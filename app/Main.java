@@ -1,6 +1,12 @@
 import java.util.Scanner;
 import java.util.ArrayList;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.Statement;
+import java.sql.ResultSet;
+
     public class Main{
 
         public static void main(String [] args){
@@ -8,6 +14,26 @@ import java.util.ArrayList;
         System.out.println("🏰 Project千人将 起動！");
 
         Scanner scanner = new Scanner(System.in, "MS932");
+
+        String url = System.getenv("DATABASE_URL");
+
+if (url == null) {
+    System.out.println("DATABASE_URLが見つかりません。");
+    return;
+}
+
+java.net.URI dbUri = java.net.URI.create(url);
+
+String userInfo = dbUri.getUserInfo();
+String[] userParts = userInfo.split(":", 2);
+
+String user = userParts[0];
+String password = userParts[1];
+
+String jdbcUrl = "jdbc:postgresql://"
+        + dbUri.getHost()
+        + dbUri.getPath()
+        + "?sslmode=require";
     
         ArrayList<String> tasks = new ArrayList<>();
 
@@ -57,15 +83,59 @@ import java.util.ArrayList;
             scanner.nextLine();
             String taskName = scanner.nextLine();
 
-            tasks.add(taskName);
+        try {
+            Connection connection =
+                    DriverManager.getConnection(jdbcUrl, user, password);
+
+            String sql = "INSERT INTO tasks (task_name) VALUES (?)";
+
+            PreparedStatement insertStatement =
+                    connection.prepareStatement(sql);
+
+            insertStatement.setString(1, taskName);
+
+            insertStatement.executeUpdate();
+
             System.out.println("タスク「" + taskName + "」を登録しました。");
+
+            insertStatement.close();
+            connection.close();
+
+        } catch (Exception e) {
+            System.out.println("タスクの登録に失敗しました。");
+            e.printStackTrace();
         }
+    }
     
     if(taskCommand == 2){
-        System.out.println("=====タスク一覧=====");
+    System.out.println("=====タスク一覧=====");
 
-        for (String task : tasks){
-            System.out.println(task);
+    try {
+        Connection connection =
+                DriverManager.getConnection(jdbcUrl, user, password);
+
+        Statement statement = connection.createStatement();
+
+        ResultSet result =
+                statement.executeQuery("SELECT * FROM tasks ORDER BY id");
+
+        while (result.next()) {
+            int id = result.getInt("id");
+            String taskName = result.getString("task_name");
+            String status = result.getString("status");
+
+            System.out.println(
+                    id + " | " + taskName + " | " + status
+            );
+        }
+
+        result.close();
+        statement.close();
+        connection.close();
+
+    } catch (Exception e) {
+        System.out.println("タスク一覧の取得に失敗しました。");
+        e.printStackTrace();
             }
         }
     }
