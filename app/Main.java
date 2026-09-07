@@ -67,6 +67,7 @@ String jdbcUrl = "jdbc:postgresql://"
         System.out.println("========================");
         System.out.println("1. タスクを追加");
         System.out.println("2. タスク一覧");
+        System.out.println("3. タスク状態を変更");
         System.out.println("0. メインメニューに戻る");
         System.out.println("========================");
 
@@ -155,6 +156,45 @@ String jdbcUrl = "jdbc:postgresql://"
     } catch (Exception e) {
         System.out.println("タスク一覧の取得に失敗しました。");
         e.printStackTrace();
+            
+        }
+    }
+
+    if (taskCommand == 3) {
+
+    System.out.println("状態を変更するタスクIDを入力してください");
+    int taskId = scanner.nextInt();
+
+    scanner.nextLine();
+
+    System.out.println("新しい状態を入力してください（未着手・進行中・完了）");
+    String newStatus = scanner.nextLine();
+
+    try {
+    Connection connection =
+        DriverManager.getConnection(jdbcUrl, user, password);
+
+    String sql =
+        "UPDATE tasks SET status = ? WHERE id = ?";
+
+    PreparedStatement updateStatement =
+        connection.prepareStatement(sql);
+
+    updateStatement.setString(1, newStatus);
+    updateStatement.setInt(2, taskId);
+
+    int rows = updateStatement.executeUpdate();
+
+    System.out.println(rows + "件のタスク状態を変更しました。");
+
+    updateStatement.close();
+    connection.close();
+
+    } 
+    
+    catch (Exception e) {
+    System.out.println("タスク状態の変更に失敗しました。");
+    e.printStackTrace();
             }
         }
     }
