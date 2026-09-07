@@ -1,5 +1,4 @@
 import java.util.Scanner;
-import java.util.ArrayList;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -34,8 +33,6 @@ String jdbcUrl = "jdbc:postgresql://"
         + dbUri.getHost()
         + dbUri.getPath()
         + "?sslmode=require";
-    
-        ArrayList<String> tasks = new ArrayList<>();
 
         int command = -1;
 
@@ -83,16 +80,24 @@ String jdbcUrl = "jdbc:postgresql://"
             scanner.nextLine();
             String taskName = scanner.nextLine();
 
+            System.out.println("優先度を入力してください（高・中・低）");
+            String priority = scanner.nextLine();
+
+            System.out.println("担当AIを入力してください（例：偵察AI、軍師AI）");
+            String assignedAgent = scanner.nextLine();
+
         try {
             Connection connection =
                     DriverManager.getConnection(jdbcUrl, user, password);
 
-            String sql = "INSERT INTO tasks (task_name) VALUES (?)";
+            String sql = "INSERT INTO tasks (task_name, priority, assigned_agent) VALUES (?, ?, ?)";
 
             PreparedStatement insertStatement =
                     connection.prepareStatement(sql);
 
             insertStatement.setString(1, taskName);
+            insertStatement.setString(2, priority);
+            insertStatement.setString(3, assignedAgent);
 
             insertStatement.executeUpdate();
 
@@ -120,14 +125,28 @@ String jdbcUrl = "jdbc:postgresql://"
                 statement.executeQuery("SELECT * FROM tasks ORDER BY id");
 
         while (result.next()) {
-            int id = result.getInt("id");
-            String taskName = result.getString("task_name");
-            String status = result.getString("status");
+    int id = result.getInt("id");
+    String taskName = result.getString("task_name");
+    String status = result.getString("status");
+    String priority = result.getString("priority");
+    String assignedAgent = result.getString("assigned_agent");
 
-            System.out.println(
-                    id + " | " + taskName + " | " + status
-            );
-        }
+    Task task = new Task(
+            id,
+            taskName,
+            status,
+            priority,
+            assignedAgent
+    );
+
+    System.out.println(
+            task.getId()
+            + " | " + task.getTaskName()
+            + " | " + task.getStatus()
+            + " | " + task.getPriority()
+            + " | " + task.getAssignedAgent()
+    );
+}
 
         result.close();
         statement.close();
