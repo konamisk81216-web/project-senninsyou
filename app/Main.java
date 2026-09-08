@@ -37,6 +37,8 @@ String jdbcUrl = "jdbc:postgresql://"
         TaskRepository repository =
     new TaskRepository(jdbcUrl, user, password);
 
+    AIService aiService = new AIService();
+
         int command = -1;
 
     while  (command != 0) {
@@ -55,8 +57,8 @@ String jdbcUrl = "jdbc:postgresql://"
 
     System.out.println("選択された命令：" + command);
 
-    if (command==1){
-        System.out.println("AI秘書を起動します。");
+    if (command == 1) {
+    aiService.startGeneral();
     }
 
     if(command==2){
@@ -143,7 +145,7 @@ String jdbcUrl = "jdbc:postgresql://"
 System.out.println();
 
 
-    scanner.close();
+
         }
     }
 }
