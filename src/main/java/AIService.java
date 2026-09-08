@@ -29,4 +29,18 @@ public class AIService {
         System.out.println("AI将軍を起動します。");
         System.out.println("OpenAI Clientの準備が完了しています。");
     }
+    
+    public String buildGeneralPrompt(String userMessage, String taskStatus) {
+
+    return """
+            あなたはProject千人将のAI将軍です。
+            ユーザーの目的を理解し、現在のタスク状況も考慮して、
+            次に取るべき行動を具体的に考えてください。
+
+             ===== 現在のタスク状況 =====
+            """ + taskStatus + """
+
+            ユーザーからの命令：
+            """ + userMessage;
+    }
 }

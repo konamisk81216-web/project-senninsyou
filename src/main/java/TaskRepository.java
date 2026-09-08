@@ -4,6 +4,9 @@ import java.sql.PreparedStatement;
 
 import java.sql.ResultSet;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class TaskRepository {
 
     private String jdbcUrl;
@@ -43,18 +46,22 @@ public class TaskRepository {
             e.printStackTrace();
         }
     }
-        public void showAllTasks() {
+        public List<Task> getAllTasks() {
 
-    try {
+    List<Task> tasks = new ArrayList<>();
+
+    String sql = "SELECT * FROM tasks ORDER BY id";
+
+    try (
         Connection connection =
             DriverManager.getConnection(jdbcUrl, user, password);
-
-        String sql = "SELECT * FROM tasks ORDER BY id";
 
         PreparedStatement statement =
             connection.prepareStatement(sql);
 
-        ResultSet result = statement.executeQuery();
+        ResultSet result =
+            statement.executeQuery()
+    ) {
 
         while (result.next()) {
 
@@ -72,24 +79,61 @@ public class TaskRepository {
                 assignedAgent
             );
 
-            System.out.println(
-                task.getId()
-                + " | " + task.getTaskName()
-                + " | " + task.getStatus()
-                + " | " + task.getPriority()
-                + " | " + task.getAssignedAgent()
-            );
+            tasks.add(task);
         }
-
-        result.close();
-        statement.close();
-        connection.close();
 
     } catch (Exception e) {
         System.out.println("タスク一覧の取得に失敗しました。");
         e.printStackTrace();
-            }
-        }
+    }
+
+    return tasks;
+}
+
+
+public void showAllTasks() {
+
+    List<Task> tasks = getAllTasks();
+
+    for (Task task : tasks) {
+
+        System.out.println(
+            task.getId()
+            + " | " + task.getTaskName()
+            + " | " + task.getStatus()
+            + " | " + task.getPriority()
+            + " | " + task.getAssignedAgent()
+        );
+    }
+}
+
+
+public String getAllTasksAsText() {
+
+    List<Task> tasks = getAllTasks();
+
+    if (tasks.isEmpty()) {
+        return "現在タスクはありません。";
+    }
+
+    StringBuilder text = new StringBuilder();
+
+    for (Task task : tasks) {
+
+        text.append(task.getId())
+            .append(" | ")
+            .append(task.getTaskName())
+            .append(" | ")
+            .append(task.getStatus())
+            .append(" | ")
+            .append(task.getPriority())
+            .append(" | ")
+            .append(task.getAssignedAgent())
+            .append("\n");
+    }
+
+    return text.toString();
+}
             public void updateTaskStatus(int taskId, String newStatus) {
 
     try {

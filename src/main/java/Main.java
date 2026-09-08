@@ -10,7 +10,7 @@ import java.sql.ResultSet;
 
         public static void main(String [] args){
 
-        System.out.println("🏰 Project千人将 起動！");
+        System.out.println("Project千人将 起動！");
 
         Scanner scanner = new Scanner(System.in, "MS932");
 
@@ -54,12 +54,25 @@ String jdbcUrl = "jdbc:postgresql://"
     System.out.println("命令を選択してください：");
 
     command = scanner.nextInt();
+    scanner.nextLine();
 
     System.out.println("選択された命令：" + command);
 
     if (command == 1) {
+
     aiService.startGeneral();
-    }
+
+    System.out.println("AI将軍への命令を入力してください：");
+    String userMessage = scanner.nextLine();
+
+    String taskStatus = repository.getAllTasksAsText();
+
+    String prompt =
+    aiService.buildGeneralPrompt(userMessage, taskStatus);
+
+    System.out.println("===== AI将軍への命令書 =====");
+    System.out.println(prompt);
+}
 
     if(command==2){
 
