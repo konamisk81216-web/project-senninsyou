@@ -34,6 +34,9 @@ String jdbcUrl = "jdbc:postgresql://"
         + dbUri.getPath()
         + "?sslmode=require";
 
+        TaskRepository repository =
+    new TaskRepository(jdbcUrl, user, password);
+
         int command = -1;
 
     while  (command != 0) {
@@ -88,140 +91,29 @@ String jdbcUrl = "jdbc:postgresql://"
             System.out.println("担当AIを入力してください（例：偵察AI、軍師AI）");
             String assignedAgent = scanner.nextLine();
 
-        try {
-            Connection connection =
-                    DriverManager.getConnection(jdbcUrl, user, password);
+        repository.addTask(taskName, priority, assignedAgent);
 
-            String sql = "INSERT INTO tasks (task_name, priority, assigned_agent) VALUES (?, ?, ?)";
+        System.out.println("タスク「" + taskName + "」を登録しました。");
 
-            PreparedStatement insertStatement =
-                    connection.prepareStatement(sql);
-
-            insertStatement.setString(1, taskName);
-            insertStatement.setString(2, priority);
-            insertStatement.setString(3, assignedAgent);
-
-            insertStatement.executeUpdate();
-
-            System.out.println("タスク「" + taskName + "」を登録しました。");
-
-            insertStatement.close();
-            connection.close();
-
-        } catch (Exception e) {
-            System.out.println("タスクの登録に失敗しました。");
-            e.printStackTrace();
         }
+
+        if (taskCommand == 2) {
+        System.out.println("=====タスク一覧=====");
+
+        repository.showAllTasks();
     }
-    
-    if(taskCommand == 2){
-    System.out.println("=====タスク一覧=====");
 
-    try {
-        Connection connection =
-                DriverManager.getConnection(jdbcUrl, user, password);
+    if (taskCommand == 3) {
 
-        Statement statement = connection.createStatement();
-
-        ResultSet result =
-                statement.executeQuery("SELECT * FROM tasks ORDER BY id");
-
-        while (result.next()) {
-    int id = result.getInt("id");
-    String taskName = result.getString("task_name");
-    String status = result.getString("status");
-    String priority = result.getString("priority");
-    String assignedAgent = result.getString("assigned_agent");
-
-    Task task = new Task(
-            id,
-            taskName,
-            status,
-            priority,
-            assignedAgent
-    );
-
-    System.out.println(
-            task.getId()
-            + " | " + task.getTaskName()
-            + " | " + task.getStatus()
-            + " | " + task.getPriority()
-            + " | " + task.getAssignedAgent()
-    );
-}
-
-        result.close();
-        statement.close();
-        connection.close();
-
-    } 
-    catch (Exception e) {
-        System.out.println("タスク一覧の取得に失敗しました。");
-        e.printStackTrace();
-            
-    }
-}
-
-        if (taskCommand == 3) {
-
-        System.out.println("状態を変更するタスクIDを入力してください");
-        int taskId = scanner.nextInt();
-
-        try {
-        Connection connection =
-            DriverManager.getConnection(jdbcUrl, user, password);
-
-        String sql = "DELETE FROM tasks WHERE id = ?";
-
-        PreparedStatement deleteStatement =
-            connection.prepareStatement(sql);
-
-        deleteStatement.setInt(1, taskId);
-
-        int rows = deleteStatement.executeUpdate();
-
-        System.out.println(rows + "件のタスクを削除しました。");
-
-        deleteStatement.close();
-        connection.close();
-
-    } catch (Exception e) {
-        System.out.println("タスクの削除に失敗しました。");
-        e.printStackTrace();
-    }
+    System.out.println("状態を変更するタスクIDを入力してください");
+    int taskId = scanner.nextInt();
 
     scanner.nextLine();
 
     System.out.println("新しい状態を入力してください（未着手・進行中・完了）");
     String newStatus = scanner.nextLine();
 
-    try {
-    Connection connection =
-        DriverManager.getConnection(jdbcUrl, user, password);
-
-    String sql =
-        "UPDATE tasks SET status = ? WHERE id = ?";
-
-    PreparedStatement updateStatement =
-        connection.prepareStatement(sql);
-
-    updateStatement.setString(1, newStatus);
-    updateStatement.setInt(2, taskId);
-
-    int rows = updateStatement.executeUpdate();
-
-    System.out.println(rows + "件のタスク状態を変更しました。");
-
-    updateStatement.close();
-    connection.close();
-
-    } 
-    
-    catch (Exception e) {
-    System.out.println("タスク状態の変更に失敗しました。");
-    e.printStackTrace();
-
-        }
+    repository.updateTaskStatus(taskId, newStatus);
     }
 
     if (taskCommand == 4) {
@@ -229,31 +121,11 @@ String jdbcUrl = "jdbc:postgresql://"
     System.out.println("削除するタスクIDを入力してください");
     int taskId = scanner.nextInt();
 
-    try {
-    Connection connection =
-        DriverManager.getConnection(jdbcUrl, user, password);
+    repository.deleteTask(taskId);
 
-    String sql = "DELETE FROM tasks WHERE id = ?";
-
-    PreparedStatement deleteStatement =
-        connection.prepareStatement(sql);
-
-    deleteStatement.setInt(1, taskId);
-
-    int rows = deleteStatement.executeUpdate();
-
-    System.out.println(rows + "件のタスクを削除しました。");
-
-    deleteStatement.close();
-    connection.close();
-
-} catch (Exception e) {
-    System.out.println("タスクの削除に失敗しました。");
-    e.printStackTrace();
             }
         }
     }
-}
 
     if(command==3){
         System.out.println("収益化支援を起動します。");
@@ -270,8 +142,8 @@ String jdbcUrl = "jdbc:postgresql://"
 
 System.out.println();
 
-    }
-    scanner.close();
 
+    scanner.close();
+        }
     }
 }
