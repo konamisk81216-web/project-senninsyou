@@ -1,6 +1,9 @@
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 public class AIService {
 
     private String apiKey;
@@ -41,6 +44,44 @@ public class AIService {
             """ + taskStatus + """
 
             ユーザーからの命令：
-            """ + userMessage;
+            """ + userMessage +"""
+
+
+            ===== 返答形式 =====
+            以下のJSON形式で返してください。
+
+            {
+              "summary": "状況の要約",
+              "nextTask": "次に実行するタスク",
+              "priority": "高・中・低",
+              "assignedAgent": "担当AI"
+              
+            }
+            """;
+    }
+    public TaskProposal parseTaskProposal(String jsonText) {
+
+    try {
+        ObjectMapper mapper = new ObjectMapper();
+
+        JsonNode json = mapper.readTree(jsonText);
+
+        String summary = json.get("summary").asText();
+        String nextTask = json.get("nextTask").asText();
+        String priority = json.get("priority").asText();
+        String assignedAgent = json.get("assignedAgent").asText();
+
+        return new TaskProposal(
+                summary,
+                nextTask,
+                priority,
+                assignedAgent
+        );
+
+        } catch (Exception e) {
+            System.out.println("AI将軍のJSON解析に失敗しました。");
+            e.printStackTrace();
+            return null;
+        }
     }
 }
