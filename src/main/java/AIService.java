@@ -152,4 +152,14 @@ public class AIService {
         return null;
         }
     }
+
+    public void close() {
+    if (client != null) {
+        try {
+            client.close();
+        } catch (Exception e) {
+            System.out.println("OpenAI Clientの終了処理に失敗しました。");
+            }
+        }
+    }
 }

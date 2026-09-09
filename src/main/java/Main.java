@@ -213,6 +213,7 @@ String jdbcUrl = "jdbc:postgresql://"
     repository.deleteTask(taskId);
 
             }
+
         }
     }
 
@@ -229,10 +230,10 @@ String jdbcUrl = "jdbc:postgresql://"
 
     }
 
-System.out.println();
-
-
+    System.out.println();
 
         }
+        aiService.close();
+        System.out.println("Project千人将を終了します。");
     }
 }
