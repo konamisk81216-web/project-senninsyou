@@ -72,6 +72,48 @@ String jdbcUrl = "jdbc:postgresql://"
 
     System.out.println("===== AI将軍への命令書 =====");
     System.out.println(prompt);
+
+    String fakeAiResponse = """
+    {
+      "summary": "現在のタスク状況を確認しました",
+      "nextTask": "競合AIサービスを3つ調査する",
+      "priority": "高",
+      "assignedAgent": "偵察AI"
+    }
+    """;
+
+TaskProposal proposal =
+    aiService.parseTaskProposal(fakeAiResponse);
+
+if (proposal != null) {
+    System.out.println("===== AI将軍の提案 =====");
+    System.out.println("要約：" + proposal.getSummary());
+    System.out.println("次の任務：" + proposal.getNextTask());
+    System.out.println("優先度：" + proposal.getPriority());
+    System.out.println("担当：" + proposal.getAssignedAgent());
+
+    System.out.println("この任務を登録しますか？");
+    System.out.println("1：はい");
+    System.out.println("0：いいえ");
+
+    int approval = scanner.nextInt();
+    scanner.nextLine();
+
+    if (approval == 1) {
+
+    repository.addTask(
+        proposal.getNextTask(),
+        proposal.getPriority(),
+        proposal.getAssignedAgent()
+    );
+
+    System.out.println("AI将軍の提案を任務として登録しました。");
+
+    } else {
+
+        System.out.println("AI将軍の提案を却下しました。");
+        }
+    }
 }
 
     if(command==2){
