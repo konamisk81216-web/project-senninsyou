@@ -1,3 +1,5 @@
+package com.senninsyou;
+
 public class TaskProposal {
 
     private String summary;

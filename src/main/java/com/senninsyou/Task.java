@@ -1,3 +1,5 @@
+package com.senninsyou;
+
 public class Task {
 
     private int id;

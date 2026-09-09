@@ -1,3 +1,5 @@
+package com.senninsyou;
+
 import java.util.Scanner;
 
 import java.sql.Connection;
@@ -234,6 +236,5 @@ String jdbcUrl = "jdbc:postgresql://"
 
         }
         aiService.close();
-        System.out.println("Project千人将を終了します。");
     }
 }
