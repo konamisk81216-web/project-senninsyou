@@ -69,10 +69,37 @@ public class AIService {
     }
     public TaskProposal parseTaskProposal(String jsonText) {
 
-    try {
+        if (jsonText == null || jsonText.isBlank()) {
+        System.out.println("AI将軍の返答が空です。");
+        return null;
+        }
+
+        try {
+
+        int start = jsonText.indexOf("{");
+        int end = jsonText.lastIndexOf("}");
+
+        if (start == -1 || end == -1 || start >= end) {
+
+            System.out.println("AI将軍の返答からJSONを見つけられませんでした。");
+            return null;
+        }
+
+        jsonText = jsonText.substring(start, end + 1);
+
         ObjectMapper mapper = new ObjectMapper();
 
         JsonNode json = mapper.readTree(jsonText);
+
+        if (
+            json.get("summary") == null ||
+            json.get("nextTask") == null ||
+            json.get("priority") == null ||
+            json.get("assignedAgent") == null
+        ) {
+            System.out.println("AI将軍のJSONに必要な項目が足りません。");
+            return null;
+        }
 
         String summary = json.get("summary").asText();
         String nextTask = json.get("nextTask").asText();
@@ -96,22 +123,33 @@ public class AIService {
     public String askGeneral(String prompt) {
 
     if (client == null) {
+        System.out.println("OpenAI APIを利用できません。");
         return null;
     }
 
-    ResponseCreateParams params = ResponseCreateParams.builder()
-        .input(prompt)
-        .model(ChatModel.GPT_5_2)
-        .build();
+    try {
 
-    Response response = client.responses().create(params);
+        ResponseCreateParams params = ResponseCreateParams.builder()
+            .input(prompt)
+            .model(ChatModel.GPT_5_2)
+            .build();
 
-    return response.output().stream()
-    .flatMap(item -> item.message().stream())
-    .flatMap(message -> message.content().stream())
-    .flatMap(content -> content.outputText().stream())
-    .map(outputText -> outputText.text())
-    .findFirst()
-    .orElse(null);
+        Response response = client.responses().create(params);
+
+        return response.output().stream()
+            .flatMap(item -> item.message().stream())
+            .flatMap(message -> message.content().stream())
+            .flatMap(content -> content.outputText().stream())
+            .map(outputText -> outputText.text())
+            .findFirst()
+            .orElse(null);
+
+    } catch (Exception e) {
+
+        System.out.println("AI将軍との通信に失敗しました。");
+        System.out.println("ネット接続やAPI設定を確認してください。");
+
+        return null;
+        }
     }
 }

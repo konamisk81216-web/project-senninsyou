@@ -53,8 +53,14 @@ String jdbcUrl = "jdbc:postgresql://"
     System.out.println("========================");
     System.out.println("命令を選択してください：");
 
+    if (scanner.hasNextInt()) {
     command = scanner.nextInt();
     scanner.nextLine();
+    } else {
+    System.out.println("数字で入力してください。");
+    scanner.nextLine();
+    continue;
+    }
 
     System.out.println("選択された命令：" + command);
 
@@ -75,6 +81,11 @@ String jdbcUrl = "jdbc:postgresql://"
 
     String aiResponse = aiService.askGeneral(prompt);
 
+    if (aiResponse == null || aiResponse.isBlank()) {
+    System.out.println("AI将軍から有効な返答を受け取れませんでした。");
+    continue;
+    }
+
     TaskProposal proposal =
     aiService.parseTaskProposal(aiResponse);
 
@@ -89,8 +100,19 @@ String jdbcUrl = "jdbc:postgresql://"
     System.out.println("1：はい");
     System.out.println("0：いいえ");
 
+    if (!scanner.hasNextInt()) {
+    System.out.println("0か1を数字で入力してください。");
+    scanner.nextLine();
+    continue;
+    }
+
     int approval = scanner.nextInt();
     scanner.nextLine();
+
+    if (approval != 0 && approval != 1) {
+    System.out.println("0か1を入力してください。");
+    continue;
+}
 
     if (approval == 1) {
 
@@ -127,7 +149,14 @@ String jdbcUrl = "jdbc:postgresql://"
 
         System.out.println("操作を選択してください");
 
+        if (scanner.hasNextInt()) {
         taskCommand = scanner.nextInt();
+        scanner.nextLine();
+        } else {
+        System.out.println("数字で入力してください。");
+        scanner.nextLine();
+        continue;
+        }
 
         if(taskCommand == 1) {
             System.out.println("タスク名を入力してください");
