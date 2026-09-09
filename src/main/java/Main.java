@@ -24,6 +24,10 @@ if (url == null) {
 java.net.URI dbUri = java.net.URI.create(url);
 
 String userInfo = dbUri.getUserInfo();
+if (userInfo == null || !userInfo.contains(":")) {
+    System.out.println("DATABASE_URLの形式が正しくありません。");
+    return;
+}
 String[] userParts = userInfo.split(":", 2);
 
 String user = userParts[0];
@@ -72,6 +76,12 @@ String jdbcUrl = "jdbc:postgresql://"
     String userMessage = scanner.nextLine();
 
     String taskStatus = repository.getAllTasksAsText();
+
+    if (taskStatus.equals("データベース接続に失敗しています。")) {
+    System.out.println("AI将軍を起動できません。");
+    System.out.println("データベース接続を確認してください。");
+    continue;
+    }
 
     String prompt =
     aiService.buildGeneralPrompt(userMessage, taskStatus);

@@ -82,13 +82,13 @@ public class TaskRepository {
             tasks.add(task);
         }
 
-    } catch (Exception e) {
+        } catch (Exception e) {
         System.out.println("タスク一覧の取得に失敗しました。");
-        e.printStackTrace();
+        System.out.println("データベース接続を確認してください。");
+        return null;
+        }
+        return tasks;
     }
-
-    return tasks;
-}
 
 
 public void showAllTasks() {
@@ -111,6 +111,10 @@ public void showAllTasks() {
 public String getAllTasksAsText() {
 
     List<Task> tasks = getAllTasks();
+
+    if (tasks == null) {
+    return "データベース接続に失敗しています。";
+    }
 
     if (tasks.isEmpty()) {
         return "現在タスクはありません。";
