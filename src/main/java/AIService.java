@@ -4,6 +4,10 @@ import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import com.openai.models.ChatModel;
+import com.openai.models.responses.Response;
+import com.openai.models.responses.ResponseCreateParams;
+
 public class AIService {
 
     private String apiKey;
@@ -46,6 +50,10 @@ public class AIService {
             ユーザーからの命令：
             """ + userMessage +"""
 
+            ===== 任務提案ルール =====
+            ・現在のタスク一覧にすでに存在する任務を、新しい任務として提案しないでください。
+            ・既存タスクを実行すべき場合は、そのタスクを進めるための具体的な次の作業を新しい任務として提案してください。
+            ・完了済みタスクを再提案しないでください。
 
             ===== 返答形式 =====
             以下のJSON形式で返してください。
@@ -83,5 +91,27 @@ public class AIService {
             e.printStackTrace();
             return null;
         }
+    }
+
+    public String askGeneral(String prompt) {
+
+    if (client == null) {
+        return null;
+    }
+
+    ResponseCreateParams params = ResponseCreateParams.builder()
+        .input(prompt)
+        .model(ChatModel.GPT_5_2)
+        .build();
+
+    Response response = client.responses().create(params);
+
+    return response.output().stream()
+    .flatMap(item -> item.message().stream())
+    .flatMap(message -> message.content().stream())
+    .flatMap(content -> content.outputText().stream())
+    .map(outputText -> outputText.text())
+    .findFirst()
+    .orElse(null);
     }
 }

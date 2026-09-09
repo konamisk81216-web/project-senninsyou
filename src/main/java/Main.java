@@ -73,19 +73,12 @@ String jdbcUrl = "jdbc:postgresql://"
     System.out.println("===== AI将軍への命令書 =====");
     System.out.println(prompt);
 
-    String fakeAiResponse = """
-    {
-      "summary": "現在のタスク状況を確認しました",
-      "nextTask": "競合AIサービスを3つ調査する",
-      "priority": "高",
-      "assignedAgent": "偵察AI"
-    }
-    """;
+    String aiResponse = aiService.askGeneral(prompt);
 
-TaskProposal proposal =
-    aiService.parseTaskProposal(fakeAiResponse);
+    TaskProposal proposal =
+    aiService.parseTaskProposal(aiResponse);
 
-if (proposal != null) {
+    if (proposal != null) {
     System.out.println("===== AI将軍の提案 =====");
     System.out.println("要約：" + proposal.getSummary());
     System.out.println("次の任務：" + proposal.getNextTask());
@@ -111,7 +104,7 @@ if (proposal != null) {
 
     } else {
 
-        System.out.println("AI将軍の提案を却下しました。");
+    System.out.println("AI将軍の提案を却下しました。");
         }
     }
 }
