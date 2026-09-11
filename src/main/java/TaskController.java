@@ -48,6 +48,10 @@ public class TaskController {
         TaskRepository repository =
             new TaskRepository(jdbcUrl, user, password);
 
-        return repository.getAllTasks();
+        List<Task> tasks = repository.getAllTasks();
+
+        System.out.println("タスク取得結果: " + (tasks == null ? "null" : tasks.size() + "件"));
+
+        return tasks;
     }
 }

@@ -1,0 +1,128 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #0b0b0d;
+    color: #f5f5f5;
+    font-family: Arial, Helvetica, sans-serif;
+    display: flex;
+    min-height: 100vh;
+}
+
+aside {
+    width: 240px;
+    background: #111114;
+    border-right: 1px solid #2a2a2f;
+    padding: 30px 20px;
+}
+
+aside h1 {
+    color: #d4af37;
+    font-size: 32px;
+    margin-bottom: 5px;
+}
+
+aside > p {
+    color: #777;
+    font-size: 12px;
+    letter-spacing: 3px;
+    margin-bottom: 40px;
+}
+
+nav p {
+    padding: 14px 10px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+nav p:hover {
+    background: #1b1b20;
+    color: #d4af37;
+}
+
+main {
+    flex: 1;
+    padding: 30px 40px;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+header h2 {
+    font-size: 28px;
+}
+
+header span {
+    color: #64ff8f;
+    font-size: 13px;
+}
+
+section {
+    background: #141418;
+    border: 1px solid #26262c;
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 20px;
+}
+
+section h2 {
+    color: #d4af37;
+    margin-bottom: 14px;
+}
+
+input {
+    width: 70%;
+    background: #0d0d10;
+    color: white;
+    border: 1px solid #33333a;
+    border-radius: 8px;
+    padding: 14px;
+    margin-top: 14px;
+}
+
+button {
+    background: #d4af37;
+    color: #111;
+    border: none;
+    padding: 14px 22px;
+    margin-left: 8px;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #f0cf5d;
+}
+
+#task-list {
+    margin-top: 10px;
+    color: #aaa;
+}
+
+.task-card {
+    background: #0d0d10;
+    border: 1px solid #2f2f35;
+    border-left: 4px solid #d4af37;
+    border-radius: 10px;
+    padding: 16px;
+    margin-top: 12px;
+}
+
+.task-card h3 {
+    color: #f5f5f5;
+    margin-bottom: 10px;
+}
+
+.task-card p {
+    color: #aaa;
+    margin: 5px 0;
+}
