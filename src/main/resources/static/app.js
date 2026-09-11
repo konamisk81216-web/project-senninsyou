@@ -33,3 +33,36 @@ async function loadTasks() {
 }
 
 loadTasks();
+
+async function sendCommand() {
+    const input = document.querySelector("input");
+    const command = input.value.trim();
+
+    if (command === "") {
+        return;
+    }
+
+    try {
+        const response = await fetch("/api/ai/command", {
+            method: "POST",
+            headers: {
+                "Content-Type": "text/plain"
+            },
+            body: command
+        });
+
+        const result = await response.text();
+
+        alert(result);
+
+        input.value = "";
+
+    } catch (error) {
+        alert("AI将軍への命令送信に失敗しました。");
+        console.error(error);
+    }
+}
+
+const commandButton = document.querySelector("button");
+
+commandButton.addEventListener("click", sendCommand);
