@@ -32,13 +32,14 @@ async function loadTasks() {
     }
 }
 
-loadTasks();
+    loadTasks();
 
-async function sendCommand() {
-    const input = document.querySelector("input");
+    async function sendCommand() {
+    const input = document.querySelector('input');
     const command = input.value.trim();
 
     if (command === "") {
+        alert("将軍への命令を入力してください。");
         return;
     }
 
@@ -52,8 +53,58 @@ async function sendCommand() {
         });
 
         const result = await response.text();
+        const data = JSON.parse(result);
 
-        alert(result);
+        const aiResponse = document.getElementById("ai-response");
+
+        aiResponse.innerHTML = `
+            <h3>👑 AI将軍の回答</h3>
+
+            <p><strong>📋 状況</strong></p>
+            <p>${data.summary}</p>
+
+            <p><strong>⚔️ 次の任務</strong></p>
+            <p>${data.nextTask}</p>
+
+            <p><strong>🔥 優先度</strong></p>
+            <p>${data.priority}</p>
+
+            <p><strong>🤖 担当</strong></p>
+            <p>${data.assignedAgent}</p>
+
+            <button id="approve-task">⚔️ この任務を登録</button>
+        `;
+
+        const approveButton = document.getElementById("approve-task");
+
+approveButton.addEventListener("click", async () => {
+    try {
+        const saveResponse = await fetch("/api/tasks", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                taskName: data.nextTask,
+                priority: data.priority,
+                assignedAgent: data.assignedAgent
+            })
+        });
+
+        if (!saveResponse.ok) {
+            throw new Error("任務登録に失敗しました。");
+        }
+
+        approveButton.disabled = true;
+        approveButton.textContent = "✅ 登録済み";
+
+        await loadTasks();
+
+    } catch (error) {
+        alert("任務の登録に失敗しました。");
+        console.error(error);
+    }
+    });
 
         input.value = "";
 
@@ -64,5 +115,4 @@ async function sendCommand() {
 }
 
 const commandButton = document.querySelector("button");
-
 commandButton.addEventListener("click", sendCommand);
