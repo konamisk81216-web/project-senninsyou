@@ -126,3 +126,32 @@ button:hover {
     color: #aaa;
     margin: 5px 0;
 }
+
+.task-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.status-button,
+.delete-button {
+    margin: 0;
+    padding: 10px 16px;
+}
+
+.delete-button {
+    background: #3a1f24;
+    color: #ff9aa7;
+    border: 1px solid #71313d;
+}
+
+.delete-button:hover {
+    background: #552a33;
+}
+
+.status-button:disabled,
+.delete-button:disabled {
+    cursor: wait;
+    opacity: 0.6;
+}

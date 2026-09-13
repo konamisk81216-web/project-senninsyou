@@ -48,6 +48,7 @@ public class TaskRepository {
             e.printStackTrace();
         }
     }
+
         public List<Task> getAllTasks() {
 
     List<Task> tasks = new ArrayList<>();
@@ -140,7 +141,7 @@ public String getAllTasksAsText() {
 
     return text.toString();
 }
-            public void updateTaskStatus(int taskId, String newStatus) {
+            public boolean updateTaskStatus(int taskId, String newStatus) {
 
     try {
         Connection connection =
@@ -161,14 +162,15 @@ public String getAllTasksAsText() {
 
         statement.close();
         connection.close();
+        return rows > 0;
 
     } catch (Exception e) {
         System.out.println("タスク状態の変更に失敗しました。");
         e.printStackTrace();
-
+        return false;
                 }
             }
-            public void deleteTask(int taskId) {
+            public boolean deleteTask(int taskId) {
 
     try {
         Connection connection =
@@ -188,10 +190,12 @@ public String getAllTasksAsText() {
 
         statement.close();
         connection.close();
+        return rows > 0;
 
     } catch (Exception e) {
         System.out.println("タスクの削除に失敗しました。");
         e.printStackTrace();
+        return false;
         }
     }
 }
