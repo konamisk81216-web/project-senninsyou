@@ -73,6 +73,17 @@ public class RevenueController {
         }
     }
 
+    @GetMapping("/task-analysis")
+    public ResponseEntity<?> getTaskAnalysis() {
+        try {
+            return ResponseEntity.ok(repository.getTaskAnalysis());
+        } catch (SQLException | IllegalStateException e) {
+            System.out.println("任務別収益分析の取得に失敗しました。");
+            return ResponseEntity.internalServerError()
+                    .body("任務別収益分析の取得に失敗しました。");
+        }
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<String> delete(@PathVariable long id) {
         try {

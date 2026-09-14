@@ -1,6 +1,7 @@
 package com.senninsyou;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URI;
 import java.sql.Connection;
 import java.sql.Date;
@@ -150,6 +151,50 @@ public class RevenueRepository {
         }
     }
 
+    public List<TaskRevenueAnalysis> getTaskAnalysis() throws SQLException {
+        String sql = """
+                SELECT
+                    r.task_id,
+                    COALESCE(t.task_name, '任務未関連') AS task_name,
+                    COALESCE(SUM(r.revenue), 0) AS total_revenue,
+                    COALESCE(SUM(r.expense), 0) AS total_expense,
+                    COALESCE(SUM(r.profit), 0) AS total_profit,
+                    COALESCE(SUM(r.work_minutes), 0) AS total_work_minutes,
+                    COUNT(*) AS record_count
+                FROM revenue_records r
+                LEFT JOIN tasks t ON t.id = r.task_id
+                GROUP BY r.task_id, t.task_name
+                ORDER BY total_profit DESC, total_work_minutes ASC
+                """;
+        List<TaskRevenueAnalysis> analyses = new ArrayList<>();
+
+        try (Connection connection = getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql);
+             ResultSet result = statement.executeQuery()) {
+
+            while (result.next()) {
+                BigDecimal totalRevenue = result.getBigDecimal("total_revenue");
+                BigDecimal totalExpense = result.getBigDecimal("total_expense");
+                BigDecimal totalProfit = result.getBigDecimal("total_profit");
+                int totalWorkMinutes = result.getInt("total_work_minutes");
+
+                analyses.add(new TaskRevenueAnalysis(
+                        result.getObject("task_id", Integer.class),
+                        result.getString("task_name"),
+                        totalRevenue,
+                        totalExpense,
+                        totalProfit,
+                        totalWorkMinutes,
+                        result.getInt("record_count"),
+                        percentage(totalProfit, totalRevenue),
+                        percentage(totalProfit, totalExpense),
+                        profitPerHour(totalProfit, totalWorkMinutes)));
+            }
+        }
+
+        return analyses;
+    }
+
     public boolean delete(long id) throws SQLException {
         String sql = "DELETE FROM revenue_records WHERE id = ?";
 
@@ -158,6 +203,24 @@ public class RevenueRepository {
             statement.setLong(1, id);
             return statement.executeUpdate() > 0;
         }
+    }
+
+    private BigDecimal percentage(BigDecimal numerator, BigDecimal denominator) {
+        if (denominator.signum() == 0) {
+            return null;
+        }
+
+        return numerator.multiply(BigDecimal.valueOf(100))
+                .divide(denominator, 1, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal profitPerHour(BigDecimal profit, int workMinutes) {
+        if (workMinutes == 0) {
+            return null;
+        }
+
+        return profit.multiply(BigDecimal.valueOf(60))
+                .divide(BigDecimal.valueOf(workMinutes), 0, RoundingMode.HALF_UP);
     }
 
     private RevenueRecord mapRecord(ResultSet result) throws SQLException {

@@ -187,17 +187,19 @@ async function loadRevenueDashboard() {
     const revenueList = document.getElementById("revenue-list");
 
     try {
-        const [summaryResponse, recordsResponse] = await Promise.all([
+        const [summaryResponse, recordsResponse, analysisResponse] = await Promise.all([
             fetch("/api/revenue/summary"),
-            fetch("/api/revenue")
+            fetch("/api/revenue"),
+            fetch("/api/revenue/task-analysis")
         ]);
 
-        if (!summaryResponse.ok || !recordsResponse.ok) {
+        if (!summaryResponse.ok || !recordsResponse.ok || !analysisResponse.ok) {
             throw new Error("収益情報の取得に失敗しました。");
         }
 
         const summary = await summaryResponse.json();
         const records = await recordsResponse.json();
+        const analyses = await analysisResponse.json();
 
         document.getElementById("total-revenue").textContent =
             formatYen(summary.totalRevenue);
@@ -209,10 +211,64 @@ async function loadRevenueDashboard() {
             formatWorkTime(summary.totalWorkMinutes);
 
         renderRevenueRecords(records);
+        renderTaskRevenueAnalysis(analyses);
     } catch (error) {
         revenueList.textContent = "収益記録の取得に失敗しました。";
         console.error(error);
     }
+}
+
+function formatPercent(value) {
+    return value == null ? "算出不可" : `${Number(value).toLocaleString("ja-JP")}%`;
+}
+
+function renderTaskRevenueAnalysis(analyses) {
+    const container = document.getElementById("task-revenue-analysis");
+    container.replaceChildren();
+
+    if (analyses.length === 0) {
+        container.textContent = "分析できる収益記録はまだありません。";
+        return;
+    }
+
+    analyses.forEach((analysis, index) => {
+        const card = document.createElement("article");
+        card.className = "task-analysis-card";
+
+        const heading = document.createElement("div");
+        heading.className = "task-analysis-card-heading";
+
+        const title = document.createElement("h4");
+        title.textContent = `${index + 1}位　${analysis.taskName}`;
+
+        const count = document.createElement("span");
+        count.textContent = `${analysis.recordCount}件の戦果`;
+        heading.append(title, count);
+
+        const metrics = document.createElement("div");
+        metrics.className = "task-analysis-metrics";
+
+        const metricValues = [
+            ["利益", formatYen(analysis.totalProfit)],
+            ["作業時間", formatWorkTime(analysis.totalWorkMinutes)],
+            ["1時間あたり利益", analysis.profitPerHour == null ? "算出不可" : formatYen(analysis.profitPerHour)],
+            ["利益率", formatPercent(analysis.profitMarginPercent)],
+            ["投資ROI", formatPercent(analysis.investmentRoiPercent)]
+        ];
+
+        metricValues.forEach(([label, value]) => {
+            const metric = document.createElement("div");
+            const labelElement = document.createElement("span");
+            const valueElement = document.createElement("strong");
+            labelElement.textContent = label;
+            valueElement.textContent = value;
+            metric.append(labelElement, valueElement);
+            metrics.appendChild(metric);
+        });
+
+        card.append(heading, metrics);
+        container.appendChild(card);
+    });
 }
 
 function renderRevenueRecords(records) {
