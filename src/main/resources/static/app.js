@@ -557,6 +557,9 @@ function renderRevenueRecords(records) {
             <p><strong>💰 収益判断</strong></p>
             <p>${data.revenueInsight ?? "収益実績に基づく判断はありません。"}</p>
 
+            <p><strong>📊 戦果評価</strong></p>
+            <p>${data.performanceDecision ?? "データ不足のため戦果評価はありません。"}</p>
+
             <p><strong>⚔️ 次の任務</strong></p>
             <p>${data.nextTask}</p>
 
