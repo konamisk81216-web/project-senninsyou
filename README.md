@@ -19,3 +19,7 @@ v0.1
 
 ## Status
 🚧 開発開始
+
+## クラウド公開
+
+Azure App Service への安全な公開方法は [docs/AZURE_DEPLOYMENT.md](docs/AZURE_DEPLOYMENT.md) を参照してください。
