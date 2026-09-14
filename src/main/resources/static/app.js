@@ -150,7 +150,7 @@ async function deleteTask(taskId) {
     loadTasks();
 
     async function sendCommand() {
-    const input = document.querySelector('input');
+    const input = document.getElementById("command-input");
     const command = input.value.trim();
 
     if (command === "") {
@@ -229,5 +229,13 @@ approveButton.addEventListener("click", async () => {
     }
 }
 
-const commandButton = document.querySelector("button");
+const commandButton = document.getElementById("command-button");
+const commandInput = document.getElementById("command-input");
+
 commandButton.addEventListener("click", sendCommand);
+
+commandInput.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+        sendCommand();
+    }
+});

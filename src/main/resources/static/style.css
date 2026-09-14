@@ -88,6 +88,11 @@ input {
     margin-top: 14px;
 }
 
+.command-controls {
+    display: flex;
+    align-items: flex-end;
+}
+
 button {
     background: #d4af37;
     color: #111;
@@ -154,4 +159,103 @@ button:hover {
 .delete-button:disabled {
     cursor: wait;
     opacity: 0.6;
+}
+
+@media (max-width: 768px) {
+    body {
+        display: block;
+    }
+
+    aside {
+        width: 100%;
+        padding: 18px 16px 12px;
+        border-right: 0;
+        border-bottom: 1px solid #2a2a2f;
+    }
+
+    aside h1 {
+        font-size: 26px;
+    }
+
+    aside > p {
+        margin-bottom: 16px;
+    }
+
+    nav {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding-bottom: 4px;
+        scrollbar-width: thin;
+    }
+
+    nav p {
+        flex: 0 0 auto;
+        padding: 10px 12px;
+        margin: 0;
+        white-space: nowrap;
+    }
+
+    main {
+        padding: 20px 16px;
+    }
+
+    header {
+        margin-bottom: 20px;
+    }
+
+    header h2 {
+        font-size: 24px;
+    }
+
+    section {
+        padding: 18px;
+    }
+
+    .command-controls {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    input {
+        width: 100%;
+    }
+
+    #command-button {
+        width: 100%;
+        min-height: 48px;
+        margin: 0;
+    }
+
+    .task-actions {
+        flex-direction: column;
+    }
+
+    .status-button,
+    .delete-button {
+        width: 100%;
+        min-height: 44px;
+    }
+}
+
+@media (max-width: 480px) {
+    header {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    section {
+        border-radius: 10px;
+        padding: 16px;
+    }
+
+    section h2 {
+        font-size: 20px;
+    }
+
+    .task-card {
+        padding: 14px;
+    }
 }
