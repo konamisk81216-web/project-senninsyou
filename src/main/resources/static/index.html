@@ -59,6 +59,60 @@
             <p id="completed-tasks">完了：--</p>
         </section>
 
+        <section id="opportunity-section">
+            <h2>📡 機会発見レーダー</h2>
+            <p class="section-description">収益候補を記録し、想定効率とリスクから比較します。</p>
+
+            <form id="opportunity-form">
+                <div class="opportunity-form-grid">
+                    <div class="wide-field">
+                        <label for="opportunity-title">機会名</label>
+                        <input id="opportunity-title" type="text" maxlength="255"
+                               placeholder="例：初心者向けAI活用記事を販売" required>
+                    </div>
+                    <div>
+                        <label for="opportunity-type">種別</label>
+                        <select id="opportunity-type">
+                            <option>コンテンツ</option>
+                            <option>AI受託</option>
+                            <option>新規事業</option>
+                            <option>投資分析</option>
+                            <option>その他</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="opportunity-revenue">想定収益（円）</label>
+                        <input id="opportunity-revenue" type="number" min="0" step="1" value="0">
+                    </div>
+                    <div>
+                        <label for="opportunity-minutes">必要時間（分）</label>
+                        <input id="opportunity-minutes" type="number" min="0" step="1" value="0">
+                    </div>
+                    <div>
+                        <label for="opportunity-risk">リスク</label>
+                        <select id="opportunity-risk">
+                            <option>低</option>
+                            <option selected>中</option>
+                            <option>高</option>
+                        </select>
+                    </div>
+                    <div class="wide-field">
+                        <label for="opportunity-notes">判断材料・情報源</label>
+                        <textarea id="opportunity-notes" rows="3"
+                                  placeholder="需要、競合、根拠、注意点など"></textarea>
+                    </div>
+                </div>
+                <button id="save-opportunity" type="submit">候補をレーダーへ登録</button>
+                <p id="opportunity-message" role="status"></p>
+            </form>
+
+            <div class="opportunity-list-heading">
+                <h3>収益機会ランキング</h3>
+                <span>想定時給 × リスク係数で比較</span>
+            </div>
+            <div id="opportunity-list">収益機会を読み込み中...</div>
+        </section>
+
         <section id="revenue-section">
             <h2>💰 収益トレーサビリティ</h2>
 

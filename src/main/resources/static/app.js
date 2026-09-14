@@ -183,6 +183,156 @@ function formatWorkTime(totalMinutes) {
     return hours > 0 ? `${hours}時間 ${minutes}分` : `${minutes}分`;
 }
 
+async function loadOpportunities() {
+    const list = document.getElementById("opportunity-list");
+
+    try {
+        const response = await fetch("/api/opportunities");
+        if (!response.ok) {
+            throw new Error(await response.text());
+        }
+        renderOpportunities(await response.json());
+    } catch (error) {
+        list.textContent = "収益機会の取得に失敗しました。";
+        console.error(error);
+    }
+}
+
+function renderOpportunities(opportunities) {
+    const list = document.getElementById("opportunity-list");
+    list.replaceChildren();
+
+    if (opportunities.length === 0) {
+        list.textContent = "収益機会はまだ登録されていません。";
+        return;
+    }
+
+    opportunities.forEach((opportunity, index) => {
+        const card = document.createElement("article");
+        card.className = `opportunity-card risk-${opportunity.riskLevel}`;
+
+        const heading = document.createElement("div");
+        heading.className = "opportunity-card-heading";
+        const title = document.createElement("h4");
+        title.textContent = `${index + 1}位　${opportunity.title}`;
+        const type = document.createElement("span");
+        type.textContent = opportunity.opportunityType;
+        heading.append(title, type);
+
+        const metrics = document.createElement("div");
+        metrics.className = "opportunity-metrics";
+        const hourly = opportunity.expectedRevenuePerHour == null
+            ? "算出不可"
+            : formatYen(opportunity.expectedRevenuePerHour);
+        [
+            ["想定収益", formatYen(opportunity.expectedRevenue)],
+            ["必要時間", formatWorkTime(opportunity.estimatedMinutes)],
+            ["想定時給", hourly],
+            ["リスク", opportunity.riskLevel],
+            ["比較スコア", opportunity.comparisonScore.toLocaleString("ja-JP")]
+        ].forEach(([label, value]) => {
+            const metric = document.createElement("div");
+            const labelElement = document.createElement("span");
+            const valueElement = document.createElement("strong");
+            labelElement.textContent = label;
+            valueElement.textContent = value;
+            metric.append(labelElement, valueElement);
+            metrics.appendChild(metric);
+        });
+
+        if (opportunity.notes) {
+            const notes = document.createElement("p");
+            notes.className = "opportunity-notes";
+            notes.textContent = opportunity.notes;
+            card.append(heading, metrics, notes);
+        } else {
+            card.append(heading, metrics);
+        }
+
+        const actions = document.createElement("div");
+        actions.className = "opportunity-actions";
+        const statusSelect = document.createElement("select");
+        ["未評価", "調査中", "有望", "保留", "却下"].forEach(status => {
+            const option = document.createElement("option");
+            option.value = status;
+            option.textContent = status;
+            option.selected = status === opportunity.status;
+            statusSelect.appendChild(option);
+        });
+        statusSelect.addEventListener("change", async () => {
+            await updateOpportunityStatus(opportunity.id, statusSelect.value);
+            await loadOpportunities();
+        });
+        actions.appendChild(statusSelect);
+
+        if (opportunity.status === "有望") {
+            const taskButton = document.createElement("button");
+            taskButton.type = "button";
+            taskButton.textContent = "⚔ 任務として登録";
+            taskButton.addEventListener("click", () => createTaskFromOpportunity(opportunity, taskButton));
+            actions.appendChild(taskButton);
+        }
+
+        const deleteButton = document.createElement("button");
+        deleteButton.type = "button";
+        deleteButton.className = "delete-button";
+        deleteButton.textContent = "削除";
+        deleteButton.addEventListener("click", async () => {
+            if (!window.confirm(`収益機会「${opportunity.title}」を削除しますか？`)) {
+                return;
+            }
+            const response = await fetch(`/api/opportunities/${opportunity.id}`, { method: "DELETE" });
+            if (!response.ok) {
+                alert("収益機会の削除に失敗しました。");
+                return;
+            }
+            await loadOpportunities();
+        });
+        actions.appendChild(deleteButton);
+        card.appendChild(actions);
+        list.appendChild(card);
+    });
+}
+
+async function updateOpportunityStatus(id, status) {
+    const response = await fetch(`/api/opportunities/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status })
+    });
+    if (!response.ok) {
+        throw new Error(await response.text());
+    }
+}
+
+async function createTaskFromOpportunity(opportunity, button) {
+    if (!window.confirm(`「${opportunity.title}」を任務として登録しますか？`)) {
+        return;
+    }
+
+    button.disabled = true;
+    try {
+        const response = await fetch("/api/tasks", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                taskName: opportunity.title,
+                priority: "高",
+                assignedAgent: "偵察AI"
+            })
+        });
+        if (!response.ok) {
+            throw new Error(await response.text());
+        }
+        button.textContent = "✅ 任務登録済み";
+        await loadTasks();
+    } catch (error) {
+        alert("任務の登録に失敗しました。");
+        button.disabled = false;
+        console.error(error);
+    }
+}
+
 async function loadRevenueDashboard() {
     const revenueList = document.getElementById("revenue-list");
 
@@ -339,6 +489,7 @@ function renderRevenueRecords(records) {
 }
 
     loadTasks();
+    loadOpportunities();
     loadRevenueDashboard();
 
     async function sendCommand() {
@@ -428,6 +579,7 @@ const commandButton = document.getElementById("command-button");
 const commandInput = document.getElementById("command-input");
 const revenueForm = document.getElementById("revenue-form");
 const revenueDate = document.getElementById("revenue-date");
+const opportunityForm = document.getElementById("opportunity-form");
 
 revenueDate.valueAsDate = new Date();
 
@@ -484,5 +636,42 @@ revenueForm.addEventListener("submit", async event => {
         console.error(error);
     } finally {
         saveButton.disabled = false;
+    }
+});
+
+opportunityForm.addEventListener("submit", async event => {
+    event.preventDefault();
+    const button = document.getElementById("save-opportunity");
+    const message = document.getElementById("opportunity-message");
+    const payload = {
+        title: document.getElementById("opportunity-title").value.trim(),
+        opportunityType: document.getElementById("opportunity-type").value,
+        expectedRevenue: Number(document.getElementById("opportunity-revenue").value || 0),
+        estimatedMinutes: Number(document.getElementById("opportunity-minutes").value || 0),
+        riskLevel: document.getElementById("opportunity-risk").value,
+        notes: document.getElementById("opportunity-notes").value.trim()
+    };
+
+    button.disabled = true;
+    message.textContent = "登録中...";
+    try {
+        const response = await fetch("/api/opportunities", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) {
+            throw new Error(await response.text());
+        }
+        opportunityForm.reset();
+        document.getElementById("opportunity-revenue").value = "0";
+        document.getElementById("opportunity-minutes").value = "0";
+        message.textContent = "✅ 収益機会を登録しました。";
+        await loadOpportunities();
+    } catch (error) {
+        message.textContent = "収益機会の登録に失敗しました。";
+        console.error(error);
+    } finally {
+        button.disabled = false;
     }
 });

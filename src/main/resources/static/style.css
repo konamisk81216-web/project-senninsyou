@@ -168,6 +168,133 @@ button:hover {
     margin-bottom: 24px;
 }
 
+.section-description {
+    color: #aaa;
+    margin-bottom: 18px;
+}
+
+#opportunity-form {
+    background: #0d0d10;
+    border: 1px solid #2f2f35;
+    border-radius: 10px;
+    padding: 18px;
+}
+
+.opportunity-form-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.opportunity-form-grid .wide-field {
+    grid-column: span 2;
+}
+
+#opportunity-form label {
+    color: #bbb;
+    display: block;
+    font-size: 13px;
+}
+
+#opportunity-form input,
+#opportunity-form select,
+#opportunity-form textarea,
+.opportunity-actions select {
+    width: 100%;
+    background: #111116;
+    color: #f5f5f5;
+    border: 1px solid #33333a;
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 6px;
+    font: inherit;
+}
+
+#save-opportunity {
+    margin: 16px 0 0;
+}
+
+#opportunity-message {
+    color: #64ff8f;
+    min-height: 20px;
+    margin-top: 10px;
+}
+
+.opportunity-list-heading,
+.opportunity-card-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+.opportunity-list-heading {
+    margin-top: 24px;
+}
+
+.opportunity-list-heading span,
+.opportunity-card-heading span {
+    color: #999;
+    font-size: 13px;
+}
+
+.opportunity-card {
+    background: #0d0d10;
+    border: 1px solid #2f2f35;
+    border-left: 4px solid #d4af37;
+    border-radius: 10px;
+    padding: 16px;
+    margin-top: 12px;
+}
+
+.opportunity-card.risk-低 { border-left-color: #64ff8f; }
+.opportunity-card.risk-高 { border-left-color: #ff667a; }
+
+.opportunity-metrics {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.opportunity-metrics div {
+    background: #141418;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.opportunity-metrics span,
+.opportunity-metrics strong {
+    display: block;
+}
+
+.opportunity-metrics span {
+    color: #999;
+    font-size: 12px;
+    margin-bottom: 6px;
+}
+
+.opportunity-notes {
+    color: #aaa;
+    margin-top: 12px;
+}
+
+.opportunity-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.opportunity-actions select {
+    max-width: 160px;
+    margin: 0;
+}
+
+.opportunity-actions button {
+    margin: 0;
+}
+
 .summary-card {
     background: #0d0d10;
     border: 1px solid #2f2f35;
@@ -402,7 +529,9 @@ button:hover {
 
     .revenue-summary,
     .revenue-form-grid,
-    .task-analysis-metrics {
+    .task-analysis-metrics,
+    .opportunity-form-grid,
+    .opportunity-metrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
@@ -435,8 +564,29 @@ button:hover {
 
     .revenue-summary,
     .revenue-form-grid,
-    .task-analysis-metrics {
+    .task-analysis-metrics,
+    .opportunity-form-grid,
+    .opportunity-metrics {
         grid-template-columns: 1fr;
+    }
+
+    .opportunity-form-grid .wide-field {
+        grid-column: span 1;
+    }
+
+    .opportunity-list-heading,
+    .opportunity-card-heading,
+    .opportunity-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .opportunity-actions select,
+    .opportunity-actions button,
+    #save-opportunity {
+        width: 100%;
+        max-width: none;
+        min-height: 48px;
     }
 
     .task-analysis-heading {
