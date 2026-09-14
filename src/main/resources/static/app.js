@@ -596,34 +596,36 @@ function renderRevenueRecords(records) {
         const aiResponse = document.getElementById("ai-response");
         const approveButton = renderAiResponse(aiResponse, data);
 
-approveButton.addEventListener("click", async () => {
-    try {
-        const saveResponse = await fetch("/api/tasks", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                taskName: data.nextTask,
-                priority: data.priority,
-                assignedAgent: data.assignedAgent
-            })
-        });
+        if (approveButton) {
+            approveButton.addEventListener("click", async () => {
+                try {
+                    const saveResponse = await fetch("/api/tasks", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            taskName: data.nextTask,
+                            priority: data.priority,
+                            assignedAgent: data.assignedAgent
+                        })
+                    });
 
-        if (!saveResponse.ok) {
-            throw new Error("任務登録に失敗しました。");
+                    if (!saveResponse.ok) {
+                        throw new Error("任務登録に失敗しました。");
+                    }
+
+                    approveButton.disabled = true;
+                    approveButton.textContent = "✅ 登録済み";
+
+                    await loadTasks();
+
+                } catch (error) {
+                    alert("任務の登録に失敗しました。");
+                    console.error(error);
+                }
+            });
         }
-
-        approveButton.disabled = true;
-        approveButton.textContent = "✅ 登録済み";
-
-        await loadTasks();
-
-    } catch (error) {
-        alert("任務の登録に失敗しました。");
-        console.error(error);
-    }
-    });
 
         input.value = "";
 
@@ -685,8 +687,16 @@ function renderAiResponse(container, data) {
     insightGrid.append(
         createInsightCard("📋", "状況", data.summary, "summary"),
         createInsightCard("💰", "収益判断", data.revenueInsight ?? "収益実績に基づく判断はありません。", "revenue"),
-        createInsightCard("📊", "戦果評価", data.performanceDecision ?? "データ不足のため戦果評価はありません。", "analysis")
+        createInsightCard("📊", "戦果評価", data.performanceDecision ?? "データ不足のため戦果評価はありません。", "analysis"),
+        createInsightCard("🚀", "市場機会", data.marketOpportunity ?? "市場機会の提案はありません。", "market")
     );
+
+    container.append(heading, insightGrid);
+
+    const hasNextTask = typeof data.nextTask === "string" && data.nextTask.trim() !== "";
+    if (!hasNextTask) {
+        return null;
+    }
 
     const mission = document.createElement("div");
     mission.className = "ai-next-mission";
@@ -713,7 +723,7 @@ function renderAiResponse(container, data) {
     approveButton.type = "button";
     approveButton.textContent = "⚔️ この任務を登録";
     footer.append(meta, approveButton);
-    container.append(heading, insightGrid, mission, footer);
+    container.append(mission, footer);
     return approveButton;
 }
 
