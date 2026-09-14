@@ -4,6 +4,7 @@ async function loadTasks() {
     try {
         const response = await fetch("/api/tasks");
         const tasks = await response.json();
+        populateRevenueTaskOptions(tasks);
 
         const totalTasks = document.getElementById("total-tasks");
         const inProgressTasks = document.getElementById("in-progress-tasks");
@@ -147,7 +148,142 @@ async function deleteTask(taskId) {
     }
 }
 
+function populateRevenueTaskOptions(tasks) {
+    const taskSelect = document.getElementById("revenue-task");
+    const selectedValue = taskSelect.value;
+
+    taskSelect.replaceChildren();
+
+    const emptyOption = document.createElement("option");
+    emptyOption.value = "";
+    emptyOption.textContent = "任務と関連付けない";
+    taskSelect.appendChild(emptyOption);
+
+    tasks.forEach(task => {
+        const option = document.createElement("option");
+        option.value = task.id;
+        option.textContent = task.taskName;
+        taskSelect.appendChild(option);
+    });
+
+    taskSelect.value = selectedValue;
+}
+
+function formatYen(value) {
+    return new Intl.NumberFormat("ja-JP", {
+        style: "currency",
+        currency: "JPY",
+        maximumFractionDigits: 0
+    }).format(value ?? 0);
+}
+
+function formatWorkTime(totalMinutes) {
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return hours > 0 ? `${hours}時間 ${minutes}分` : `${minutes}分`;
+}
+
+async function loadRevenueDashboard() {
+    const revenueList = document.getElementById("revenue-list");
+
+    try {
+        const [summaryResponse, recordsResponse] = await Promise.all([
+            fetch("/api/revenue/summary"),
+            fetch("/api/revenue")
+        ]);
+
+        if (!summaryResponse.ok || !recordsResponse.ok) {
+            throw new Error("収益情報の取得に失敗しました。");
+        }
+
+        const summary = await summaryResponse.json();
+        const records = await recordsResponse.json();
+
+        document.getElementById("total-revenue").textContent =
+            formatYen(summary.totalRevenue);
+        document.getElementById("total-expense").textContent =
+            formatYen(summary.totalExpense);
+        document.getElementById("total-profit").textContent =
+            formatYen(summary.totalProfit);
+        document.getElementById("total-work-time").textContent =
+            formatWorkTime(summary.totalWorkMinutes);
+
+        renderRevenueRecords(records);
+    } catch (error) {
+        revenueList.textContent = "収益記録の取得に失敗しました。";
+        console.error(error);
+    }
+}
+
+function renderRevenueRecords(records) {
+    const revenueList = document.getElementById("revenue-list");
+    revenueList.replaceChildren();
+
+    if (records.length === 0) {
+        revenueList.textContent = "収益記録はまだありません。";
+        return;
+    }
+
+    records.forEach(record => {
+        const card = document.createElement("article");
+        card.className = "revenue-record";
+
+        const title = document.createElement("h4");
+        title.textContent = record.description;
+
+        const result = document.createElement("p");
+        result.className = "revenue-result";
+        result.textContent =
+            `売上 ${formatYen(record.revenue)} − 経費 ${formatYen(record.expense)} = 利益 ${formatYen(record.profit)}`;
+
+        const details = document.createElement("p");
+        details.textContent =
+            `${record.occurredOn}・作業 ${formatWorkTime(record.workMinutes)}`;
+
+        card.append(title, result, details);
+
+        if (record.notes) {
+            const notes = document.createElement("p");
+            notes.textContent = record.notes;
+            card.appendChild(notes);
+        }
+
+        const deleteButton = document.createElement("button");
+        deleteButton.className = "delete-button revenue-delete";
+        deleteButton.type = "button";
+        deleteButton.textContent = "記録を削除";
+
+        deleteButton.addEventListener("click", async () => {
+            if (!window.confirm(`収益記録「${record.description}」を削除しますか？`)) {
+                return;
+            }
+
+            deleteButton.disabled = true;
+
+            try {
+                const response = await fetch(`/api/revenue/${record.id}`, {
+                    method: "DELETE"
+                });
+
+                if (!response.ok) {
+                    throw new Error(await response.text());
+                }
+
+                await loadRevenueDashboard();
+            } catch (error) {
+                alert("収益記録の削除に失敗しました。");
+                console.error(error);
+                deleteButton.disabled = false;
+            }
+        });
+
+        card.appendChild(deleteButton);
+        revenueList.appendChild(card);
+    });
+}
+
     loadTasks();
+    loadRevenueDashboard();
 
     async function sendCommand() {
     const input = document.getElementById("command-input");
@@ -231,11 +367,63 @@ approveButton.addEventListener("click", async () => {
 
 const commandButton = document.getElementById("command-button");
 const commandInput = document.getElementById("command-input");
+const revenueForm = document.getElementById("revenue-form");
+const revenueDate = document.getElementById("revenue-date");
+
+revenueDate.valueAsDate = new Date();
 
 commandButton.addEventListener("click", sendCommand);
 
 commandInput.addEventListener("keydown", event => {
     if (event.key === "Enter") {
         sendCommand();
+    }
+});
+
+revenueForm.addEventListener("submit", async event => {
+    event.preventDefault();
+
+    const saveButton = document.getElementById("save-revenue");
+    const message = document.getElementById("revenue-message");
+    const taskValue = document.getElementById("revenue-task").value;
+
+    const payload = {
+        taskId: taskValue === "" ? null : Number(taskValue),
+        description: document.getElementById("revenue-description").value.trim(),
+        revenue: Number(document.getElementById("revenue-amount").value || 0),
+        expense: Number(document.getElementById("expense-amount").value || 0),
+        workMinutes: Number(document.getElementById("work-minutes").value || 0),
+        occurredOn: revenueDate.value,
+        notes: document.getElementById("revenue-notes").value.trim()
+    };
+
+    saveButton.disabled = true;
+    message.textContent = "記録中...";
+
+    try {
+        const response = await fetch("/api/revenue", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            throw new Error(await response.text());
+        }
+
+        revenueForm.reset();
+        revenueDate.valueAsDate = new Date();
+        document.getElementById("revenue-amount").value = "0";
+        document.getElementById("expense-amount").value = "0";
+        document.getElementById("work-minutes").value = "0";
+        message.textContent = "✅ 戦果を記録しました。";
+        await loadRevenueDashboard();
+    } catch (error) {
+        message.textContent = "収益記録の登録に失敗しました。";
+        console.error(error);
+    } finally {
+        saveButton.disabled = false;
     }
 });

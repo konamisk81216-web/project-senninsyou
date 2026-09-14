@@ -59,6 +59,79 @@
             <p id="completed-tasks">完了：--</p>
         </section>
 
+        <section id="revenue-section">
+            <h2>💰 収益トレーサビリティ</h2>
+
+            <div class="revenue-summary">
+                <div class="summary-card">
+                    <span>累計売上</span>
+                    <strong id="total-revenue">--</strong>
+                </div>
+                <div class="summary-card">
+                    <span>累計経費</span>
+                    <strong id="total-expense">--</strong>
+                </div>
+                <div class="summary-card profit-card">
+                    <span>累計利益</span>
+                    <strong id="total-profit">--</strong>
+                </div>
+                <div class="summary-card">
+                    <span>作業時間</span>
+                    <strong id="total-work-time">--</strong>
+                </div>
+            </div>
+
+            <form id="revenue-form">
+                <h3>戦果を記録</h3>
+
+                <label for="revenue-description">内容</label>
+                <input
+                    id="revenue-description"
+                    type="text"
+                    maxlength="255"
+                    placeholder="例：note記事を販売"
+                    required
+                >
+
+                <label for="revenue-task">関連任務</label>
+                <select id="revenue-task">
+                    <option value="">任務と関連付けない</option>
+                </select>
+
+                <div class="revenue-form-grid">
+                    <div>
+                        <label for="revenue-amount">売上（円）</label>
+                        <input id="revenue-amount" type="number" min="0" step="1" value="0">
+                    </div>
+                    <div>
+                        <label for="expense-amount">経費（円）</label>
+                        <input id="expense-amount" type="number" min="0" step="1" value="0">
+                    </div>
+                    <div>
+                        <label for="work-minutes">作業時間（分）</label>
+                        <input id="work-minutes" type="number" min="0" step="1" value="0">
+                    </div>
+                    <div>
+                        <label for="revenue-date">発生日</label>
+                        <input id="revenue-date" type="date" required>
+                    </div>
+                </div>
+
+                <label for="revenue-notes">補足</label>
+                <textarea
+                    id="revenue-notes"
+                    rows="3"
+                    placeholder="成功要因や改善点など"
+                ></textarea>
+
+                <button id="save-revenue" type="submit">戦果を記録する</button>
+                <p id="revenue-message" role="status"></p>
+            </form>
+
+            <h3 class="revenue-history-title">収益履歴</h3>
+            <div id="revenue-list">収益記録を読み込み中...</div>
+        </section>
+
         <section>
             <h2>⚔ 優先任務</h2>
 
