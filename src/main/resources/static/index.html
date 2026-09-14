@@ -12,25 +12,42 @@
 <body>
 
     <aside>
-        <h1>千人将</h1>
-        <p>SENNINSYOU</p>
+        <div class="brand-copy">
+            <h1>千人将</h1>
+            <p>ONE-PERSON AI OS</p>
+        </div>
 
-        <nav>
-            <p>🏯 司令本部</p>
-            <p>⚔ 任務管理</p>
-            <p>🤖 AI部隊</p>
-            <p>💰 収益化サポート</p>
-            <p>📊 戦況分析</p>
+        <nav aria-label="主要メニュー">
+            <button class="nav-button active" type="button" data-page="command" aria-current="page">
+                <span>🏯</span> 司令本部
+            </button>
+            <button class="nav-button" type="button" data-page="tasks">
+                <span>⚔️</span> 任務管理
+            </button>
+            <button class="nav-button" type="button" data-page="opportunities">
+                <span>📡</span> 機会レーダー
+            </button>
+            <button class="nav-button" type="button" data-page="revenue">
+                <span>💰</span> 収益・戦果
+            </button>
         </nav>
+
+        <div class="sidebar-status">
+            <span></span>
+            SYSTEM ONLINE
+        </div>
     </aside>
 
     <main>
         <header>
-            <h2>司令室</h2>
-            <span>● SYSTEM ONLINE</span>
+            <div>
+                <p class="header-eyebrow">PROJECT SENNINSYOU</p>
+                <h2 id="page-title">司令本部</h2>
+            </div>
+            <span class="header-badge">千人将専用</span>
         </header>
 
-        <section>
+        <section class="page-panel" data-page-panel="command">
             <h2>👑 AI将軍</h2>
             <p>将軍への伝令をいれてください。</p>
 
@@ -44,22 +61,64 @@
                 <button id="command-button" type="button">命令する</button>
             </div>
 
+            <div class="quick-commands" aria-label="AI将軍クイックコマンド">
+                <button class="quick-command urgent" type="button"
+                        data-command="現在の状況から、今日着手すべき最優先任務を1つ決めて。">
+                    🔥 最優先を決める
+                </button>
+                <button class="quick-command revenue" type="button"
+                        data-command="収益実績と機会を分析して、収益を増やす次の一手を提案して。">
+                    💰 収益改善を考える
+                </button>
+                <button class="quick-command analysis" type="button"
+                        data-command="任務別戦果を分析して、継続・改善・停止候補を判断して。">
+                    📊 戦果を分析する
+                </button>
+            </div>
+
             <div id="ai-response">
                 <p>将軍からの回答がここに表示されます。</p>
             </div>
             
         </section>
 
-        <section>
-            <h2>本日の戦況</h2>
+        <section class="page-panel" data-page-panel="command">
+            <h2>📈 経営速報</h2>
+            <div class="command-dashboard">
+                <div class="command-dashboard-card">
+                    <div class="dashboard-card-heading">
+                        <h3>売上速報</h3>
+                        <button class="text-button" type="button" data-open-page="revenue">詳細を見る →</button>
+                    </div>
+                    <div class="hq-revenue-summary">
+                        <div><span>累計売上</span><strong id="hq-total-revenue">--</strong></div>
+                        <div><span>累計利益</span><strong id="hq-total-profit">--</strong></div>
+                        <div><span>作業時間</span><strong id="hq-total-work-time">--</strong></div>
+                    </div>
+                </div>
 
-            <p id="total-tasks">総任務：--</p>
-            <p id="in-progress-tasks">進行中：--</p>
-            <p id="not-started-tasks">未着手：--</p>
-            <p id="completed-tasks">完了：--</p>
+                <div class="command-dashboard-card priority-command-card">
+                    <div class="dashboard-card-heading">
+                        <h3>最優先任務</h3>
+                        <button class="text-button" type="button" data-open-page="tasks">任務一覧 →</button>
+                    </div>
+                    <div id="hq-priority-tasks">任務を読み込み中...</div>
+                </div>
+            </div>
         </section>
 
-        <section id="opportunity-section">
+        <section class="page-panel" data-page-panel="command">
+            <h2>📍 本日の戦況</h2>
+
+            <div class="battle-summary">
+                <div><span>総任務</span><strong id="total-tasks">--</strong></div>
+                <div><span>進行中</span><strong id="in-progress-tasks">--</strong></div>
+                <div><span>未着手</span><strong id="not-started-tasks">--</strong></div>
+                <div><span>完了</span><strong id="completed-tasks">--</strong></div>
+            </div>
+        </section>
+
+        <section id="opportunity-section" class="page-panel" data-page-panel="opportunities" hidden>
             <h2>📡 機会発見レーダー</h2>
             <p class="section-description">収益候補を記録し、想定効率とリスクから比較します。</p>
 
@@ -113,7 +172,7 @@
             <div id="opportunity-list">収益機会を読み込み中...</div>
         </section>
 
-        <section id="revenue-section">
+        <section id="revenue-section" class="page-panel" data-page-panel="revenue" hidden>
             <h2>💰 収益トレーサビリティ</h2>
 
             <div class="revenue-summary">
@@ -197,7 +256,7 @@
             <div id="revenue-list">収益記録を読み込み中...</div>
         </section>
 
-        <section>
+        <section class="page-panel" data-page-panel="tasks" hidden>
             <h2>⚔ 優先任務</h2>
 
             <div id="task-list">

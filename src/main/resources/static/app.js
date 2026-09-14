@@ -15,27 +15,30 @@ async function loadTasks() {
         const completedCount = tasks.filter(task => task.status === "完了").length;
         const notStartedCount = tasks.filter(task => task.status === "未着手").length;
 
-        totalTasks.textContent = `総任務：${tasks.length}`;
-        inProgressTasks.textContent = `進行中：${inProgressCount}`;
-        completedTasks.textContent = `完了：${completedCount}`;
-        notStartedTasks.textContent = `未着手：${notStartedCount}`;
+        totalTasks.textContent = tasks.length;
+        inProgressTasks.textContent = inProgressCount;
+        completedTasks.textContent = completedCount;
+        notStartedTasks.textContent = notStartedCount;
 
         if (!tasks || tasks.length === 0) {
-            taskList.innerHTML = "<p>現在、任務はありません。</p>";
+            renderEmptyState(taskList, "⚔️", "任務はありません", "AI将軍の提案から最初の任務を登録できます。");
             return;
         }
 
         taskList.innerHTML = "";
 
+        renderHeadquartersTasks(tasks);
+
         tasks.forEach(task => {
             const taskCard = document.createElement("div");
-            taskCard.className = "task-card";
+            taskCard.className = `task-card priority-${priorityClass(task.priority)}`;
 
             const title = document.createElement("h3");
             title.textContent = task.taskName;
 
-            const priority = document.createElement("p");
-            priority.textContent = `優先度：${task.priority}`;
+            const priority = document.createElement("span");
+            priority.className = `priority-badge priority-${priorityClass(task.priority)}`;
+            priority.textContent = `優先度 ${task.priority}`;
 
             const assignedAgent = document.createElement("p");
             assignedAgent.textContent = `担当：${task.assignedAgent ?? "未設定"}`;
@@ -107,6 +110,44 @@ async function loadTasks() {
         taskList.innerHTML = "<p>任務の取得に失敗しました。</p>";
         console.error(error);
     }
+}
+
+function priorityClass(priority) {
+    if (priority === "高") return "high";
+    if (priority === "低") return "low";
+    return "medium";
+}
+
+function renderHeadquartersTasks(tasks) {
+    const container = document.getElementById("hq-priority-tasks");
+    container.replaceChildren();
+
+    const priorityOrder = { "高": 0, "中": 1, "低": 2 };
+    const activeTasks = tasks
+        .filter(task => task.status !== "完了")
+        .sort((left, right) =>
+            (priorityOrder[left.priority] ?? 9) - (priorityOrder[right.priority] ?? 9))
+        .slice(0, 3);
+
+    if (activeTasks.length === 0) {
+        container.textContent = "現在、着手すべき任務はありません。";
+        return;
+    }
+
+    activeTasks.forEach((task, index) => {
+        const item = document.createElement("article");
+        item.className = `hq-task-item priority-${priorityClass(task.priority)}`;
+        const rank = document.createElement("strong");
+        rank.textContent = index === 0 ? "最優先" : `${index + 1}番手`;
+        const content = document.createElement("div");
+        const title = document.createElement("h4");
+        title.textContent = task.taskName;
+        const detail = document.createElement("p");
+        detail.textContent = `${task.status}・${task.assignedAgent ?? "担当未設定"}`;
+        content.append(title, detail);
+        item.append(rank, content);
+        container.appendChild(item);
+    });
 }
 
 function getNextStatus(currentStatus) {
@@ -203,7 +244,7 @@ function renderOpportunities(opportunities) {
     list.replaceChildren();
 
     if (opportunities.length === 0) {
-        list.textContent = "収益機会はまだ登録されていません。";
+        renderEmptyState(list, "📡", "収益機会はありません", "上のフォームから最初の候補をレーダーへ登録しましょう。");
         return;
     }
 
@@ -389,6 +430,12 @@ async function loadRevenueDashboard() {
             formatYen(summary.totalProfit);
         document.getElementById("total-work-time").textContent =
             formatWorkTime(summary.totalWorkMinutes);
+        document.getElementById("hq-total-revenue").textContent =
+            formatYen(summary.totalRevenue);
+        document.getElementById("hq-total-profit").textContent =
+            formatYen(summary.totalProfit);
+        document.getElementById("hq-total-work-time").textContent =
+            formatWorkTime(summary.totalWorkMinutes);
 
         renderRevenueRecords(records);
         renderTaskRevenueAnalysis(analyses);
@@ -407,7 +454,7 @@ function renderTaskRevenueAnalysis(analyses) {
     container.replaceChildren();
 
     if (analyses.length === 0) {
-        container.textContent = "分析できる収益記録はまだありません。";
+        renderEmptyState(container, "📊", "分析データがありません", "任務に関連付けた戦果を記録すると、効率とROIを比較できます。");
         return;
     }
 
@@ -456,7 +503,7 @@ function renderRevenueRecords(records) {
     revenueList.replaceChildren();
 
     if (records.length === 0) {
-        revenueList.textContent = "収益記録はまだありません。";
+        renderEmptyState(revenueList, "💰", "戦果はまだありません", "最初の売上・経費・作業時間を記録しましょう。");
         return;
     }
 
@@ -547,32 +594,7 @@ function renderRevenueRecords(records) {
         const data = JSON.parse(result);
 
         const aiResponse = document.getElementById("ai-response");
-
-        aiResponse.innerHTML = `
-            <h3>👑 AI将軍の回答</h3>
-
-            <p><strong>📋 状況</strong></p>
-            <p>${data.summary}</p>
-
-            <p><strong>💰 収益判断</strong></p>
-            <p>${data.revenueInsight ?? "収益実績に基づく判断はありません。"}</p>
-
-            <p><strong>📊 戦果評価</strong></p>
-            <p>${data.performanceDecision ?? "データ不足のため戦果評価はありません。"}</p>
-
-            <p><strong>⚔️ 次の任務</strong></p>
-            <p>${data.nextTask}</p>
-
-            <p><strong>🔥 優先度</strong></p>
-            <p>${data.priority}</p>
-
-            <p><strong>🤖 担当</strong></p>
-            <p>${data.assignedAgent}</p>
-
-            <button id="approve-task">⚔️ この任務を登録</button>
-        `;
-
-        const approveButton = document.getElementById("approve-task");
+        const approveButton = renderAiResponse(aiResponse, data);
 
 approveButton.addEventListener("click", async () => {
     try {
@@ -616,6 +638,126 @@ const commandInput = document.getElementById("command-input");
 const revenueForm = document.getElementById("revenue-form");
 const revenueDate = document.getElementById("revenue-date");
 const opportunityForm = document.getElementById("opportunity-form");
+const pageTitle = document.getElementById("page-title");
+const navButtons = document.querySelectorAll(".nav-button");
+const pagePanels = document.querySelectorAll("[data-page-panel]");
+
+const pageTitles = {
+    command: "司令本部",
+    tasks: "任務管理",
+    opportunities: "機会発見レーダー",
+    revenue: "収益・戦果分析"
+};
+
+function showPage(page) {
+    navButtons.forEach(button => {
+        const active = button.dataset.page === page;
+        button.classList.toggle("active", active);
+        if (active) {
+            button.setAttribute("aria-current", "page");
+        } else {
+            button.removeAttribute("aria-current");
+        }
+    });
+
+    pagePanels.forEach(panel => {
+        panel.hidden = panel.dataset.pagePanel !== page;
+    });
+
+    pageTitle.textContent = pageTitles[page] ?? "司令本部";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function renderAiResponse(container, data) {
+    container.replaceChildren();
+    container.className = "ai-result";
+
+    const heading = document.createElement("div");
+    heading.className = "ai-result-heading";
+    const title = document.createElement("h3");
+    title.textContent = "👑 AI将軍の回答";
+    const badge = document.createElement("span");
+    badge.textContent = "戦略提案";
+    heading.append(title, badge);
+
+    const insightGrid = document.createElement("div");
+    insightGrid.className = "ai-insight-grid";
+    insightGrid.append(
+        createInsightCard("📋", "状況", data.summary, "summary"),
+        createInsightCard("💰", "収益判断", data.revenueInsight ?? "収益実績に基づく判断はありません。", "revenue"),
+        createInsightCard("📊", "戦果評価", data.performanceDecision ?? "データ不足のため戦果評価はありません。", "analysis")
+    );
+
+    const mission = document.createElement("div");
+    mission.className = "ai-next-mission";
+    const missionLabel = document.createElement("span");
+    missionLabel.textContent = "⚔️ 次の任務";
+    const missionText = document.createElement("p");
+    missionText.textContent = data.nextTask;
+    mission.append(missionLabel, missionText);
+
+    const footer = document.createElement("div");
+    footer.className = "ai-result-footer";
+    const meta = document.createElement("div");
+    meta.className = "ai-result-meta";
+    const priority = document.createElement("span");
+    priority.className = `priority-badge priority-${priorityClass(data.priority)}`;
+    priority.textContent = `優先度 ${data.priority}`;
+    const agent = document.createElement("span");
+    agent.className = "agent-badge";
+    agent.textContent = `🤖 ${data.assignedAgent}`;
+    meta.append(priority, agent);
+
+    const approveButton = document.createElement("button");
+    approveButton.id = "approve-task";
+    approveButton.type = "button";
+    approveButton.textContent = "⚔️ この任務を登録";
+    footer.append(meta, approveButton);
+    container.append(heading, insightGrid, mission, footer);
+    return approveButton;
+}
+
+function createInsightCard(icon, title, content, variant) {
+    const card = document.createElement("article");
+    card.className = `ai-insight-card ${variant}`;
+    const heading = document.createElement("h4");
+    heading.textContent = `${icon} ${title}`;
+    const text = document.createElement("p");
+    text.textContent = content;
+    card.append(heading, text);
+    return card;
+}
+
+function renderEmptyState(container, icon, title, description) {
+    container.replaceChildren();
+    const empty = document.createElement("div");
+    empty.className = "empty-state";
+    const iconElement = document.createElement("span");
+    iconElement.textContent = icon;
+    const content = document.createElement("div");
+    const heading = document.createElement("strong");
+    heading.textContent = title;
+    const text = document.createElement("p");
+    text.textContent = description;
+    content.append(heading, text);
+    empty.append(iconElement, content);
+    container.appendChild(empty);
+}
+
+navButtons.forEach(button => {
+    button.addEventListener("click", () => showPage(button.dataset.page));
+});
+
+document.querySelectorAll("[data-open-page]").forEach(button => {
+    button.addEventListener("click", () => showPage(button.dataset.openPage));
+});
+
+document.querySelectorAll(".quick-command").forEach(button => {
+    button.addEventListener("click", () => {
+        commandInput.value = button.dataset.command;
+        commandInput.focus();
+    });
+});
 
 revenueDate.valueAsDate = new Date();
 
