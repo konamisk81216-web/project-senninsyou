@@ -42,14 +42,27 @@ public class AIService {
     }
     
     public String buildGeneralPrompt(String userMessage, String taskStatus) {
+        return buildGeneralPrompt(
+                userMessage,
+                taskStatus,
+                "収益記録はまだ参照されていません。");
+    }
+
+    public String buildGeneralPrompt(
+            String userMessage,
+            String taskStatus,
+            String revenueStatus) {
 
     return """
             あなたはProject千人将のAI将軍です。
-            ユーザーの目的を理解し、現在のタスク状況も考慮して、
+            ユーザーの目的を理解し、現在のタスク状況と収益実績を考慮して、
             次に取るべき行動を具体的に考えてください。
 
-             ===== 現在のタスク状況 =====
+            ===== 現在のタスク状況 =====
             """ + taskStatus + """
+
+            ===== 現在の収益実績 =====
+            """ + revenueStatus + """
 
             ユーザーからの命令：
             """ + userMessage +"""
@@ -58,12 +71,16 @@ public class AIService {
             ・現在のタスク一覧にすでに存在する任務を、新しい任務として提案しないでください。
             ・既存タスクを実行すべき場合は、そのタスクを進めるための具体的な次の作業を新しい任務として提案してください。
             ・完了済みタスクを再提案しないでください。
+            ・収益実績がある場合は、利益と作業時間を判断材料にしてください。
+            ・収益記録がない場合や取得できない場合は、実績を推測・創作しないでください。
+            ・外部への応募、投稿、決済、投資を自動実行せず、必要な場合は人間の承認を求めてください。
 
             ===== 返答形式 =====
             以下のJSON形式で返してください。
 
             {
               "summary": "状況の要約",
+              "revenueInsight": "収益実績に基づく判断。実績がなければ、その旨を明記",
               "nextTask": "次に実行するタスク",
               "priority": "高・中・低",
               "assignedAgent": "担当AI"

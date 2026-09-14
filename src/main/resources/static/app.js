@@ -314,6 +314,9 @@ function renderRevenueRecords(records) {
             <p><strong>📋 状況</strong></p>
             <p>${data.summary}</p>
 
+            <p><strong>💰 収益判断</strong></p>
+            <p>${data.revenueInsight ?? "収益実績に基づく判断はありません。"}</p>
+
             <p><strong>⚔️ 次の任務</strong></p>
             <p>${data.nextTask}</p>
 

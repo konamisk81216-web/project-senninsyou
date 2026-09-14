@@ -10,6 +10,8 @@ public class AIController {
 
     private final AIService aiService = new AIService();
     private final TaskRepository repository;
+    private final RevenueContextService revenueContextService =
+            new RevenueContextService();
 
     public AIController() {
 
@@ -58,8 +60,11 @@ public class AIController {
             return "AI将軍を起動できません。データベース接続を確認してください。";
         }
 
+        String revenueStatus = revenueContextService.buildContext();
+
         String prompt =
-                aiService.buildGeneralPrompt(command, taskStatus);
+                aiService.buildGeneralPrompt(
+                        command, taskStatus, revenueStatus);
 
         String response =
                 aiService.askGeneral(prompt);

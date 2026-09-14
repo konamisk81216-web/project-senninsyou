@@ -98,6 +98,33 @@ public class RevenueRepository {
         return records;
     }
 
+    public List<RevenueRecord> getRecent(int limit) throws SQLException {
+        if (limit <= 0) {
+            throw new IllegalArgumentException("取得件数は1以上で指定してください。");
+        }
+
+        String sql = """
+                SELECT *
+                FROM revenue_records
+                ORDER BY occurred_on DESC, id DESC
+                LIMIT ?
+                """;
+        List<RevenueRecord> records = new ArrayList<>();
+
+        try (Connection connection = getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, limit);
+
+            try (ResultSet result = statement.executeQuery()) {
+                while (result.next()) {
+                    records.add(mapRecord(result));
+                }
+            }
+        }
+
+        return records;
+    }
+
     public RevenueSummary getSummary() throws SQLException {
         String sql = """
                 SELECT
