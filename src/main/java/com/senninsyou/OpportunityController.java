@@ -73,6 +73,21 @@ public class OpportunityController {
         }
     }
 
+    @PostMapping("/{id}/task")
+    public ResponseEntity<?> createLinkedTask(@PathVariable long id) {
+        try {
+            Opportunity opportunity = repository.createLinkedTask(id);
+            if (opportunity == null) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.ok(opportunity);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (SQLException | IllegalStateException e) {
+            return ResponseEntity.internalServerError().body("任務の登録と関連付けに失敗しました。");
+        }
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<String> delete(@PathVariable long id) {
         try {

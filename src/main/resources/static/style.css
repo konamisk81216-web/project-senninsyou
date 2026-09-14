@@ -279,6 +279,48 @@ button:hover {
     margin-top: 12px;
 }
 
+.opportunity-trace {
+    background: #15151a;
+    border: 1px solid #35353d;
+    border-radius: 8px;
+    margin-top: 14px;
+    padding: 14px;
+}
+
+.opportunity-trace h5 {
+    color: #d4af37;
+    font-size: 15px;
+    margin-bottom: 8px;
+}
+
+.opportunity-trace p {
+    color: #bbb;
+}
+
+.opportunity-trace-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.opportunity-trace-metrics div {
+    background: #0d0d10;
+    border-radius: 7px;
+    padding: 10px;
+}
+
+.opportunity-trace-metrics span,
+.opportunity-trace-metrics strong {
+    display: block;
+}
+
+.opportunity-trace-metrics span {
+    color: #999;
+    font-size: 12px;
+    margin-bottom: 5px;
+}
+
 .opportunity-actions {
     display: flex;
     align-items: center;
@@ -531,7 +573,8 @@ button:hover {
     .revenue-form-grid,
     .task-analysis-metrics,
     .opportunity-form-grid,
-    .opportunity-metrics {
+    .opportunity-metrics,
+    .opportunity-trace-metrics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
@@ -566,7 +609,8 @@ button:hover {
     .revenue-form-grid,
     .task-analysis-metrics,
     .opportunity-form-grid,
-    .opportunity-metrics {
+    .opportunity-metrics,
+    .opportunity-trace-metrics {
         grid-template-columns: 1fr;
     }
 

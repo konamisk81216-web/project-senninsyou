@@ -12,6 +12,13 @@ public record Opportunity(
         String riskLevel,
         String status,
         String notes,
+        Integer linkedTaskId,
+        String linkedTaskName,
+        String linkedTaskStatus,
+        BigDecimal actualRevenue,
+        BigDecimal actualExpense,
+        BigDecimal actualProfit,
+        BigDecimal revenueVariance,
         BigDecimal expectedRevenuePerHour,
         int comparisonScore,
         OffsetDateTime createdAt) {

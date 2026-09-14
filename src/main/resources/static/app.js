@@ -249,6 +249,36 @@ function renderOpportunities(opportunities) {
             card.append(heading, metrics);
         }
 
+        if (opportunity.linkedTaskId != null) {
+            const trace = document.createElement("div");
+            trace.className = "opportunity-trace";
+
+            const traceTitle = document.createElement("h5");
+            traceTitle.textContent = "🔗 任務・戦果トレーサビリティ";
+            const taskState = document.createElement("p");
+            taskState.textContent = `関連任務：${opportunity.linkedTaskName}（${opportunity.linkedTaskStatus}）`;
+
+            const traceMetrics = document.createElement("div");
+            traceMetrics.className = "opportunity-trace-metrics";
+            [
+                ["想定収益", formatYen(opportunity.expectedRevenue)],
+                ["実売上", formatYen(opportunity.actualRevenue)],
+                ["実利益", formatYen(opportunity.actualProfit)],
+                ["想定との差", formatSignedYen(opportunity.revenueVariance)]
+            ].forEach(([label, value]) => {
+                const metric = document.createElement("div");
+                const labelElement = document.createElement("span");
+                const valueElement = document.createElement("strong");
+                labelElement.textContent = label;
+                valueElement.textContent = value;
+                metric.append(labelElement, valueElement);
+                traceMetrics.appendChild(metric);
+            });
+
+            trace.append(traceTitle, taskState, traceMetrics);
+            card.appendChild(trace);
+        }
+
         const actions = document.createElement("div");
         actions.className = "opportunity-actions";
         const statusSelect = document.createElement("select");
@@ -265,7 +295,7 @@ function renderOpportunities(opportunities) {
         });
         actions.appendChild(statusSelect);
 
-        if (opportunity.status === "有望") {
+        if (opportunity.status === "有望" && opportunity.linkedTaskId == null) {
             const taskButton = document.createElement("button");
             taskButton.type = "button";
             taskButton.textContent = "⚔ 任務として登録";
@@ -312,25 +342,25 @@ async function createTaskFromOpportunity(opportunity, button) {
 
     button.disabled = true;
     try {
-        const response = await fetch("/api/tasks", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                taskName: opportunity.title,
-                priority: "高",
-                assignedAgent: "偵察AI"
-            })
+        const response = await fetch(`/api/opportunities/${opportunity.id}/task`, {
+            method: "POST"
         });
         if (!response.ok) {
             throw new Error(await response.text());
         }
         button.textContent = "✅ 任務登録済み";
-        await loadTasks();
+        await Promise.all([loadTasks(), loadOpportunities()]);
     } catch (error) {
         alert("任務の登録に失敗しました。");
         button.disabled = false;
         console.error(error);
     }
+}
+
+function formatSignedYen(value) {
+    const number = Number(value ?? 0);
+    const prefix = number > 0 ? "+" : "";
+    return `${prefix}${formatYen(number)}`;
 }
 
 async function loadRevenueDashboard() {
@@ -475,7 +505,10 @@ function renderRevenueRecords(records) {
                     throw new Error(await response.text());
                 }
 
-                await loadRevenueDashboard();
+                await Promise.all([
+                    loadRevenueDashboard(),
+                    loadOpportunities()
+                ]);
             } catch (error) {
                 alert("収益記録の削除に失敗しました。");
                 console.error(error);
@@ -630,7 +663,10 @@ revenueForm.addEventListener("submit", async event => {
         document.getElementById("expense-amount").value = "0";
         document.getElementById("work-minutes").value = "0";
         message.textContent = "✅ 戦果を記録しました。";
-        await loadRevenueDashboard();
+        await Promise.all([
+            loadRevenueDashboard(),
+            loadOpportunities()
+        ]);
     } catch (error) {
         message.textContent = "収益記録の登録に失敗しました。";
         console.error(error);
