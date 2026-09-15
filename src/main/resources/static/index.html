@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project 千人将 | 司令室</title>
 
-    <link rel="stylesheet" href="/style.css?v=20260915-4">
+    <link rel="stylesheet" href="/style.css?v=20260915-5">
 </head>
 
 <body>
@@ -93,6 +93,12 @@
                 >
                 <button id="command-button" type="button">将軍と話す</button>
             </div>
+            <div class="voice-controls">
+                <button id="voice-input-button" class="secondary-button" type="button">🎙️ 声で入力</button>
+                <button id="voice-read-button" class="secondary-button" type="button" hidden>🔊 返答を読む</button>
+                <button id="voice-stop-button" class="secondary-button" type="button" hidden>■ 読み上げ停止</button>
+            </div>
+            <p id="voice-status" class="voice-status" role="status" aria-live="polite">声で入力した内容は送信前に確認できます。ブラウザによっては音声が認識サービスへ送られます。</p>
 
             <div class="quick-commands" aria-label="AI将軍クイックコマンド">
                 <button class="quick-command urgent" type="button"
@@ -312,7 +318,7 @@
         </section>
     </main>
 
-        <script src="/app.js?v=20260915-3"></script>
+        <script src="/app.js?v=20260915-5"></script>
 </body>
 
 </html>

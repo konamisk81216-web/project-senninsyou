@@ -617,6 +617,7 @@ function renderRevenueRecords(records) {
         const answer = data.summary ?? "回答を受け取れませんでした。";
         appendConversationMessage(aiResponse, "AI将軍", answer, data, mode);
         conversation.push({role: "利用者", text: command}, {role: "AI将軍", text: answer});
+        document.getElementById("voice-read-button").hidden = false;
         proposalButton.hidden = false;
         document.getElementById("continue-conversation-button").hidden = false;
 
@@ -694,6 +695,98 @@ function appendConversationMessage(container, speaker, message, data, mode) {
 
 const commandButton = document.getElementById("command-button");
 const commandInput = document.getElementById("command-input");
+const voiceInputButton = document.getElementById("voice-input-button");
+const voiceReadButton = document.getElementById("voice-read-button");
+const voiceStopButton = document.getElementById("voice-stop-button");
+const voiceStatus = document.getElementById("voice-status");
+const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
+let voiceRecognition = null;
+let voiceListening = false;
+let voiceRecognized = false;
+
+if (!SpeechRecognitionClass) {
+    voiceInputButton.disabled = true;
+    voiceStatus.textContent = "このブラウザは声での入力に対応していません。文字入力は引き続き使えます。";
+}
+if (!window.speechSynthesis) {
+    voiceReadButton.disabled = true;
+}
+
+voiceInputButton.addEventListener("click", () => {
+    if (!SpeechRecognitionClass) return;
+    if (voiceListening) {
+        voiceRecognition.stop();
+        return;
+    }
+    voiceRecognized = false;
+    voiceRecognition = new SpeechRecognitionClass();
+    voiceRecognition.lang = "ja-JP";
+    voiceRecognition.continuous = false;
+    voiceRecognition.interimResults = false;
+    voiceRecognition.onstart = () => {
+        voiceListening = true;
+        voiceInputButton.textContent = "■ 聞き取り停止";
+        voiceStatus.textContent = "聞き取り中... 話し終わると入力欄へ表示します。";
+    };
+    voiceRecognition.onresult = event => {
+        const transcript = Array.from(event.results)
+            .filter(result => result.isFinal)
+            .map(result => result[0].transcript)
+            .join(" ").trim();
+        if (transcript) {
+            commandInput.value = transcript.slice(0, 2000);
+            voiceRecognized = true;
+            voiceStatus.textContent = "聞き取りました。内容を確認してから「将軍と話す」を押してください。";
+            commandInput.focus();
+        }
+    };
+    voiceRecognition.onerror = event => {
+        voiceStatus.textContent = event.error === "not-allowed"
+            ? "マイクの利用が許可されませんでした。ブラウザの権限を確認してください。"
+            : "音声を聞き取れませんでした。もう一度試すか、文字で入力してください。";
+    };
+    voiceRecognition.onend = () => {
+        voiceListening = false;
+        voiceInputButton.textContent = "🎙️ 声で入力";
+        if (!voiceRecognized && voiceStatus.textContent.startsWith("聞き取り中")) {
+            voiceStatus.textContent = "音声が認識されませんでした。もう一度試してください。";
+        }
+    };
+    try {
+        voiceRecognition.start();
+    } catch (error) {
+        voiceStatus.textContent = "音声入力を開始できませんでした。文字入力をお使いください。";
+    }
+});
+
+voiceReadButton.addEventListener("click", () => {
+    const answer = conversation.at(-1)?.text;
+    if (!answer || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(answer);
+    utterance.lang = "ja-JP";
+    utterance.rate = 1;
+    utterance.onstart = () => {
+        voiceStopButton.hidden = false;
+        voiceStatus.textContent = "AI将軍の返答を読み上げています。";
+    };
+    utterance.onend = () => {
+        voiceStopButton.hidden = true;
+        voiceStatus.textContent = "読み上げが終わりました。";
+    };
+    utterance.onerror = event => {
+        if (event.error === "interrupted" || event.error === "canceled") return;
+        voiceStopButton.hidden = true;
+        voiceStatus.textContent = "読み上げに失敗しました。画面の返答を確認してください。";
+    };
+    window.speechSynthesis.speak(utterance);
+});
+
+voiceStopButton.addEventListener("click", () => {
+    window.speechSynthesis.cancel();
+    voiceStopButton.hidden = true;
+    voiceStatus.textContent = "読み上げを停止しました。";
+});
 const revenueForm = document.getElementById("revenue-form");
 const revenueDate = document.getElementById("revenue-date");
 const opportunityForm = document.getElementById("opportunity-form");
