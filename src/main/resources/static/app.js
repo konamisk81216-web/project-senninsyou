@@ -572,29 +572,50 @@ function renderRevenueRecords(records) {
     loadOpportunities();
     loadRevenueDashboard();
 
-    async function sendCommand() {
+    const conversation = [];
+
+    async function sendCommand(mode = "discuss") {
     const input = document.getElementById("command-input");
-    const command = input.value.trim();
+    const command = mode === "propose"
+        ? "これまで話した内容を踏まえ、登録前に確認する任務案を1件まとめて。"
+        : input.value.trim();
 
     if (command === "") {
-        alert("将軍への命令を入力してください。");
+        alert("相談したいことを入力してください。");
         return;
     }
 
+    const commandButton = document.getElementById("command-button");
+    const proposalButton = document.getElementById("propose-task-button");
+    commandButton.disabled = true;
+    proposalButton.disabled = true;
     try {
         const response = await fetch("/api/ai/command", {
             method: "POST",
             headers: {
-                "Content-Type": "text/plain"
+                "Content-Type": "application/json"
             },
-            body: command
+            body: JSON.stringify({
+                message: command,
+                history: conversation.slice(-8).map(item => `${item.role}: ${item.text}`).join("\n"),
+                mode
+            })
         });
 
-        const result = await response.text();
-        const data = JSON.parse(result);
+        if (!response.ok) throw new Error(await response.text());
+        const data = await response.json();
 
         const aiResponse = document.getElementById("ai-response");
-        const approveButton = renderAiResponse(aiResponse, data);
+        aiResponse.querySelectorAll(".ai-result").forEach(element => element.remove());
+        if (mode !== "propose") {
+            appendConversationMessage(aiResponse, "あなた", command);
+        }
+        const answer = data.summary ?? "回答を受け取れませんでした。";
+        appendConversationMessage(aiResponse, "AI将軍", answer, data, mode);
+        conversation.push({role: "利用者", text: command}, {role: "AI将軍", text: answer});
+        proposalButton.hidden = false;
+
+        const approveButton = mode === "propose" ? renderAiResponse(aiResponse, data) : null;
 
         if (approveButton) {
             approveButton.addEventListener("click", async () => {
@@ -627,12 +648,37 @@ function renderRevenueRecords(records) {
             });
         }
 
-        input.value = "";
+        if (mode !== "propose") input.value = "";
 
     } catch (error) {
         alert("AI将軍への命令送信に失敗しました。");
         console.error(error);
+    } finally {
+        commandButton.disabled = false;
+        proposalButton.disabled = false;
     }
+}
+
+function appendConversationMessage(container, speaker, message, data, mode) {
+    if (!container.querySelector(".conversation-message")) container.replaceChildren();
+    const entry = document.createElement("article");
+    entry.className = `conversation-message ${speaker === "あなた" ? "from-user" : "from-general"}`;
+    const label = document.createElement("strong");
+    label.textContent = speaker;
+    const text = document.createElement("p");
+    text.textContent = message;
+    entry.append(label, text);
+    if (data && mode !== "propose") {
+        const details = document.createElement("details");
+        const summary = document.createElement("summary");
+        summary.textContent = "判断の内訳を見る";
+        details.append(summary,
+            createInsightCard("💰", "収益判断", data.revenueInsight, "revenue"),
+            createInsightCard("📊", "戦果評価", data.performanceDecision, "analysis"),
+            createInsightCard("🚀", "市場機会", data.marketOpportunity, "market"));
+        entry.appendChild(details);
+    }
+    container.appendChild(entry);
 }
 
 const commandButton = document.getElementById("command-button");
@@ -671,8 +717,8 @@ function showPage(page) {
 }
 
 function renderAiResponse(container, data) {
-    container.replaceChildren();
-    container.className = "ai-result";
+    const proposal = document.createElement("div");
+    proposal.className = "ai-result";
 
     const heading = document.createElement("div");
     heading.className = "ai-result-heading";
@@ -682,19 +728,11 @@ function renderAiResponse(container, data) {
     badge.textContent = "戦略提案";
     heading.append(title, badge);
 
-    const insightGrid = document.createElement("div");
-    insightGrid.className = "ai-insight-grid";
-    insightGrid.append(
-        createInsightCard("📋", "状況", data.summary, "summary"),
-        createInsightCard("💰", "収益判断", data.revenueInsight ?? "収益実績に基づく判断はありません。", "revenue"),
-        createInsightCard("📊", "戦果評価", data.performanceDecision ?? "データ不足のため戦果評価はありません。", "analysis"),
-        createInsightCard("🚀", "市場機会", data.marketOpportunity ?? "市場機会の提案はありません。", "market")
-    );
-
-    container.append(heading, insightGrid);
+    proposal.appendChild(heading);
 
     const hasNextTask = typeof data.nextTask === "string" && data.nextTask.trim() !== "";
     if (!hasNextTask) {
+        container.appendChild(proposal);
         return null;
     }
 
@@ -723,7 +761,8 @@ function renderAiResponse(container, data) {
     approveButton.type = "button";
     approveButton.textContent = "⚔️ この任務を登録";
     footer.append(meta, approveButton);
-    container.append(mission, footer);
+    proposal.append(mission, footer);
+    container.appendChild(proposal);
     return approveButton;
 }
 
@@ -733,7 +772,7 @@ function createInsightCard(icon, title, content, variant) {
     const heading = document.createElement("h4");
     heading.textContent = `${icon} ${title}`;
     const text = document.createElement("p");
-    text.textContent = content;
+    text.textContent = content ?? "記録がありません。";
     card.append(heading, text);
     return card;
 }
@@ -848,7 +887,8 @@ document.addEventListener("click", event => {
 
 revenueDate.valueAsDate = new Date();
 
-commandButton.addEventListener("click", sendCommand);
+commandButton.addEventListener("click", () => sendCommand());
+document.getElementById("propose-task-button").addEventListener("click", () => sendCommand("propose"));
 
 commandInput.addEventListener("keydown", event => {
     if (event.key === "Enter") {

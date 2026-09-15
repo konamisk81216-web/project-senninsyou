@@ -179,6 +179,20 @@ input {
     margin-top: 18px;
 }
 
+.conversation-message {
+    border: 1px solid #32323a;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    padding: 14px 18px;
+}
+.conversation-message.from-user { background: #242017; }
+.conversation-message.from-general { background: #141418; }
+.conversation-message p { margin: 6px 0 0; white-space: pre-wrap; }
+.conversation-message details { margin-top: 12px; }
+.conversation-message summary { color: #d4af37; cursor: pointer; }
+.conversation-message details .ai-insight-card { margin-top: 10px; }
+#propose-task-button { margin-top: 6px; }
+
 .ai-result {
     background: #0b0b0e;
     border:1px solid #32323a;

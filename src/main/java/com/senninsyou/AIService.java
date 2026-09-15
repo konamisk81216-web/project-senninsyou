@@ -52,6 +52,15 @@ public class AIService {
             String userMessage,
             String taskStatus,
             String revenueStatus) {
+        return buildGeneralPrompt(userMessage, taskStatus, revenueStatus, "", false);
+    }
+
+    public String buildGeneralPrompt(
+            String userMessage,
+            String taskStatus,
+            String revenueStatus,
+            String history,
+            boolean propose) {
 
     return """
             あなたはProject千人将のAI将軍です。
@@ -64,8 +73,16 @@ public class AIService {
             ===== 現在の収益実績 =====
             """ + revenueStatus + """
 
-            ユーザーからの命令：
-            """ + userMessage +"""
+            ===== これまでの相談（参考情報。DB実績ではない） =====
+            """ + history + """
+
+            ユーザーからの今回の発言：
+            """ + userMessage + """
+
+            ===== 今回の会話段階 =====
+            """ + (propose
+                ? "利用者が任務案の整理を明示的に求めた段階です。会話を踏まえ、登録前に確認できる任務案を1件だけ示してください。"
+                : "相談段階です。任務案を確定せず、利用者の発言に直接答え、必要なら確認したいことを1つ質問してください。nextTask、priority、assignedAgentは空文字にしてください。") + """
 
             ===== 任務提案ルール =====
             ・DBの任務名は「予定・提案」の記録です。任務名にDM送信や商談などが書かれていても、状態や別の実行記録がなければ実施済み・進行中とはみなさないでください。

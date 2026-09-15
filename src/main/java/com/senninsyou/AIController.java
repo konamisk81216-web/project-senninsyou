@@ -1,6 +1,8 @@
 package com.senninsyou;
 
 import java.net.URI;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.springframework.web.bind.annotation.*;
 
@@ -52,7 +54,17 @@ public class AIController {
     }
 
     @PostMapping("/command")
-    public String command(@RequestBody String command) {
+    public String command(@RequestBody CommandRequest request) {
+
+        String command = request.message() == null ? "" : request.message().trim();
+        if (command.isBlank() || command.length() > 2000) {
+            throw new IllegalArgumentException("命令は1〜2000文字で入力してください。");
+        }
+        String history = request.history() == null ? "" : request.history();
+        if (history.length() > 12000) {
+            history = history.substring(history.length() - 12000);
+        }
+        boolean propose = "propose".equals(request.mode()) && !history.isBlank();
 
         String taskStatus = repository.getAllTasksAsText();
 
@@ -64,7 +76,7 @@ public class AIController {
 
         String prompt =
                 aiService.buildGeneralPrompt(
-                        command, taskStatus, revenueStatus);
+                        command, taskStatus, revenueStatus, history, propose);
 
         String response =
                 aiService.askGeneral(prompt);
@@ -73,6 +85,24 @@ public class AIController {
             return "AI将軍から有効な返答を受け取れませんでした。";
         }
 
-        return response;
+        try {
+            int start = response.indexOf('{');
+            int end = response.lastIndexOf('}');
+            if (start < 0 || end <= start) {
+                throw new IllegalArgumentException("JSONを見つけられませんでした。");
+            }
+            ObjectNode result = (ObjectNode) new ObjectMapper()
+                    .readTree(response.substring(start, end + 1));
+            if (!propose) {
+                result.put("nextTask", "");
+                result.put("priority", "");
+                result.put("assignedAgent", "");
+            }
+            return result.toString();
+        } catch (Exception e) {
+            throw new IllegalStateException("AI将軍の返答形式が正しくありません。", e);
+        }
     }
+
+    public record CommandRequest(String message, String history, String mode) {}
 }

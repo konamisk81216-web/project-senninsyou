@@ -49,16 +49,16 @@
 
         <section class="page-panel" data-page-panel="command">
             <h2>👑 AI将軍</h2>
-            <p>将軍への伝令をいれてください。</p>
+            <p>まず相談しましょう。任務は話し合ってから登録できます。</p>
 
             <div class="command-controls">
                 <input
                     id="command-input"
                     type="text"
-                    placeholder="将軍に命令を入力..."
+                    placeholder="相談したいことを入力..."
                     autocomplete="off"
                 >
-                <button id="command-button" type="button">命令する</button>
+                <button id="command-button" type="button">将軍と話す</button>
             </div>
 
             <div class="quick-commands" aria-label="AI将軍クイックコマンド">
@@ -80,9 +80,10 @@
                 </button>
             </div>
 
-            <div id="ai-response">
-                <p>将軍からの回答がここに表示されます。</p>
+            <div id="ai-response" aria-live="polite">
+                <p>会話がここに表示されます。</p>
             </div>
+            <button id="propose-task-button" class="secondary-button" type="button" hidden>話した内容から任務案をまとめる</button>
             
         </section>
 
