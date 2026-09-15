@@ -50,6 +50,7 @@ public class RevenueContextService {
             context.append("収益記録数: ")
                     .append(summary.getRecordCount())
                     .append("件\n");
+            context.append("注意: 以下は利用者が入力した記録です。受注・販売・入金などの事実は別途確認が必要です。動作確認やテストの記録は事業実績として扱わないでください。\n");
 
             if (recentRecords.isEmpty()) {
                 context.append("直近の収益記録: まだありません。\n");
