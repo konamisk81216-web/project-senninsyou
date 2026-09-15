@@ -80,16 +80,16 @@ public class RevenueContextService {
             return context.toString();
         } catch (SQLException | IllegalStateException e) {
             System.out.println("AI将軍用の収益情報を取得できませんでした。");
-            return "収益情報を取得できませんでした。任務情報のみで判断してください。";
+            return "収益情報を取得できませんでした。タスク情報のみで判断してください。";
         }
     }
 
     private void appendTaskAnalysis(
             StringBuilder context,
             List<TaskRevenueAnalysis> analyses) {
-        context.append("\n任務別戦果分析:\n");
+        context.append("\nタスク別実績分析:\n");
         if (analyses.isEmpty()) {
-            context.append("- 分析できる任務別収益記録はありません。\n");
+            context.append("- 分析できるタスク別収益記録はありません。\n");
             return;
         }
 
@@ -116,13 +116,13 @@ public class RevenueContextService {
                 .toList();
 
         if (linkedOpportunities.isEmpty()) {
-            context.append("- 任務・戦果まで関連付いた収益機会はありません。\n");
+            context.append("- タスク・実績まで関連付いた収益機会はありません。\n");
             return;
         }
 
         linkedOpportunities.forEach(opportunity -> context.append("- ")
                 .append(opportunity.title())
-                .append(" | 任務状態 ")
+                .append(" | タスク状態 ")
                 .append(opportunity.linkedTaskStatus())
                 .append(" | 想定収益 ")
                 .append(opportunity.expectedRevenue().toPlainString())

@@ -180,6 +180,10 @@ input {
     max-width: 1000px;
 }
 
+#ai-response.is-thinking {
+    opacity: 0.7;
+}
+
 .conversation-message {
     border: 1px solid #3a3a42;
     border-radius: 12px;

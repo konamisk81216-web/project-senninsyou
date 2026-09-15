@@ -4,9 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project 千人将 | 司令室</title>
+    <title>Project 千人将 | ダッシュボード</title>
 
-    <link rel="stylesheet" href="/style.css?v=20260915-5">
+    <link rel="stylesheet" href="/style.css?v=20260915-6">
 </head>
 
 <body>
@@ -19,16 +19,16 @@
 
         <nav aria-label="主要メニュー">
             <button class="nav-button active" type="button" data-page="command" aria-current="page">
-                <span>🏯</span> 司令本部
+                <span>🏯</span> ダッシュボード
             </button>
             <button class="nav-button" type="button" data-page="tasks">
-                <span>⚔️</span> 任務管理
+                <span>⚔️</span> タスク管理
             </button>
             <button class="nav-button" type="button" data-page="opportunities">
                 <span>📡</span> 機会レーダー
             </button>
             <button class="nav-button" type="button" data-page="revenue">
-                <span>💰</span> 収益・戦果
+                <span>💰</span> 収益・実績
             </button>
             <button class="nav-button" type="button" data-page="video">
                 <span>🎬</span> 動画制作
@@ -45,7 +45,7 @@
         <header>
             <div>
                 <p class="header-eyebrow">PROJECT SENNINSYOU</p>
-                <h2 id="page-title">司令本部</h2>
+                <h2 id="page-title">ダッシュボード</h2>
             </div>
             <span class="header-badge">千人将専用</span>
         </header>
@@ -66,7 +66,7 @@
                     <label for="video-source-notes">素材・伝えたいこと</label>
                     <textarea id="video-source-notes" maxlength="1000" placeholder="素材の内容、伝えたい価値、避けたい表現など"></textarea>
                     <button id="video-plan-button" type="button">将軍と編集案を相談する</button>
-                    <p class="video-note">回答は司令本部の会話に表示されます。投稿や任務登録は自動では行いません。</p>
+                    <p class="video-note">回答はダッシュボードの会話に表示されます。投稿やタスク登録は自動では行いません。</p>
                 </div>
                 <div class="video-step">
                     <h3>2. PCで編集・書き出し</h3>
@@ -82,7 +82,7 @@
 
         <section class="page-panel" data-page-panel="command">
             <h2>👑 AI将軍</h2>
-            <p>まず相談しましょう。任務は話し合ってから登録できます。</p>
+            <p>まず相談しましょう。タスクは話し合ってから登録できます。</p>
 
             <div class="command-controls">
                 <input
@@ -95,14 +95,14 @@
             </div>
             <div class="voice-controls">
                 <button id="voice-input-button" class="secondary-button" type="button">🎙️ 声で入力</button>
-                <button id="voice-read-button" class="secondary-button" type="button" hidden>🔊 返答を読む</button>
+                <button id="voice-read-button" class="secondary-button" type="button" hidden>🔊 もう一度聞く</button>
                 <button id="voice-stop-button" class="secondary-button" type="button" hidden>■ 読み上げ停止</button>
             </div>
-            <p id="voice-status" class="voice-status" role="status" aria-live="polite">声で入力した内容は送信前に確認できます。ブラウザによっては音声が認識サービスへ送られます。</p>
+            <p id="voice-status" class="voice-status" role="status" aria-live="polite">声で入力すると、聞き取り後に自動送信し、返答を読み上げます。ブラウザによっては音声が認識サービスへ送られます。</p>
 
             <div class="quick-commands" aria-label="AI将軍クイックコマンド">
                 <button class="quick-command urgent" type="button"
-                        data-command="現在の状況から、今日着手すべき最優先任務を1つ決めて。">
+                        data-command="現在の状況から、今日着手すべき最優先タスクを1つ決めて。">
                     🔥 優先順位を相談
                 </button>
                 <button class="quick-command revenue" type="button"
@@ -114,8 +114,8 @@
                     🚀 新しい市場を探す
                 </button>
                 <button class="quick-command analysis" type="button"
-                        data-command="任務別戦果を分析して、継続・改善・停止候補を判断して。">
-                    📊 戦果を分析する
+                        data-command="タスク別の収益実績を分析して、継続・改善・停止候補を判断して。">
+                    📊 実績を分析する
                 </button>
             </div>
 
@@ -125,7 +125,7 @@
             </div>
             <div class="conversation-actions">
                 <button id="continue-conversation-button" class="secondary-button" type="button" hidden>続きを相談する ↑</button>
-                <button id="propose-task-button" type="button" hidden>話した内容から任務案をまとめる</button>
+                <button id="propose-task-button" type="button" hidden>話した内容からタスク案をまとめる</button>
             </div>
             
         </section>
@@ -147,19 +147,19 @@
 
                 <div class="command-dashboard-card priority-command-card">
                     <div class="dashboard-card-heading">
-                        <h3>最優先任務</h3>
-                        <button class="text-button" type="button" data-open-page="tasks">任務一覧 →</button>
+                        <h3>最優先タスク</h3>
+                        <button class="text-button" type="button" data-open-page="tasks">タスク一覧 →</button>
                     </div>
-                    <div id="hq-priority-tasks">任務を読み込み中...</div>
+                    <div id="hq-priority-tasks">タスクを読み込み中...</div>
                 </div>
             </div>
         </section>
 
         <section class="page-panel" data-page-panel="command">
-            <h2>📍 本日の戦況</h2>
+            <h2>📍 タスク状況</h2>
 
             <div class="battle-summary">
-                <div><span>総任務</span><strong id="total-tasks">--</strong></div>
+                <div><span>総タスク</span><strong id="total-tasks">--</strong></div>
                 <div><span>進行中</span><strong id="in-progress-tasks">--</strong></div>
                 <div><span>未着手</span><strong id="not-started-tasks">--</strong></div>
                 <div><span>完了</span><strong id="completed-tasks">--</strong></div>
@@ -247,16 +247,16 @@
             <div class="task-analysis-panel">
                 <div class="task-analysis-heading">
                     <div>
-                        <h3>📊 任務別 戦果分析</h3>
-                        <p>利益・投下時間・効率を任務ごとに比較します。</p>
+                        <h3>📊 タスク別 実績分析</h3>
+                        <p>利益・投下時間・効率をタスクごとに比較します。</p>
                     </div>
                     <span>ROI = 利益 ÷ 経費</span>
                 </div>
-                <div id="task-revenue-analysis">任務別の戦果を読み込み中...</div>
+                <div id="task-revenue-analysis">タスク別の実績を読み込み中...</div>
             </div>
 
             <form id="revenue-form">
-                <h3>戦果を記録</h3>
+                <h3>実績を記録</h3>
 
                 <label for="revenue-description">内容</label>
                 <input
@@ -267,9 +267,9 @@
                     required
                 >
 
-                <label for="revenue-task">関連任務</label>
+                <label for="revenue-task">関連タスク</label>
                 <select id="revenue-task">
-                    <option value="">任務と関連付けない</option>
+                    <option value="">タスクと関連付けない</option>
                 </select>
 
                 <div class="revenue-form-grid">
@@ -301,7 +301,7 @@
                     placeholder="成功要因や改善点など"
                 ></textarea>
 
-                <button id="save-revenue" type="submit">戦果を記録する</button>
+                <button id="save-revenue" type="submit">実績を記録する</button>
                 <p id="revenue-message" role="status"></p>
             </form>
 
@@ -310,15 +310,15 @@
         </section>
 
         <section class="page-panel" data-page-panel="tasks" hidden>
-            <h2>⚔ 優先任務</h2>
+            <h2>⚔ 優先タスク</h2>
 
             <div id="task-list">
-                任務を読み込み中...
+                タスクを読み込み中...
             </div>
         </section>
     </main>
 
-        <script src="/app.js?v=20260915-5"></script>
+        <script src="/app.js?v=20260915-6"></script>
 </body>
 
 </html>

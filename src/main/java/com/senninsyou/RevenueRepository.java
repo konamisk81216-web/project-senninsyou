@@ -155,7 +155,7 @@ public class RevenueRepository {
         String sql = """
                 SELECT
                     r.task_id,
-                    COALESCE(t.task_name, '任務未関連') AS task_name,
+                    COALESCE(t.task_name, 'タスク未関連') AS task_name,
                     COALESCE(SUM(r.revenue), 0) AS total_revenue,
                     COALESCE(SUM(r.expense), 0) AS total_expense,
                     COALESCE(SUM(r.profit), 0) AS total_profit,

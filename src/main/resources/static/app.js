@@ -21,7 +21,7 @@ async function loadTasks() {
         notStartedTasks.textContent = notStartedCount;
 
         if (!tasks || tasks.length === 0) {
-            renderEmptyState(taskList, "⚔️", "任務はありません", "AI将軍の提案から最初の任務を登録できます。");
+            renderEmptyState(taskList, "⚔️", "タスクはありません", "AI将軍の提案から最初のタスクを登録できます。");
             return;
         }
 
@@ -67,7 +67,7 @@ async function loadTasks() {
                         await updateTaskStatus(task.id, nextStatus);
                         await loadTasks();
                     } catch (error) {
-                        alert("任務状態の更新に失敗しました。");
+                        alert("タスク状態の更新に失敗しました。");
                         console.error(error);
                         statusButton.disabled = false;
                     }
@@ -78,11 +78,11 @@ async function loadTasks() {
 
             const deleteButton = document.createElement("button");
             deleteButton.className = "delete-button";
-            deleteButton.textContent = "🗑 任務を削除";
+            deleteButton.textContent = "🗑 タスクを削除";
 
             deleteButton.addEventListener("click", async () => {
                 const shouldDelete = window.confirm(
-                    `任務「${task.taskName}」を削除しますか？\nこの操作は元に戻せません。`
+                    `タスク「${task.taskName}」を削除しますか？\nこの操作は元に戻せません。`
                 );
 
                 if (!shouldDelete) {
@@ -95,7 +95,7 @@ async function loadTasks() {
                     await deleteTask(task.id);
                     await loadTasks();
                 } catch (error) {
-                    alert("任務の削除に失敗しました。");
+                    alert("タスクの削除に失敗しました。");
                     console.error(error);
                     deleteButton.disabled = false;
                 }
@@ -107,7 +107,7 @@ async function loadTasks() {
         });
 
     } catch (error) {
-        taskList.innerHTML = "<p>任務の取得に失敗しました。</p>";
+        taskList.innerHTML = "<p>タスクの取得に失敗しました。</p>";
         console.error(error);
     }
 }
@@ -130,7 +130,7 @@ function renderHeadquartersTasks(tasks) {
         .slice(0, 3);
 
     if (activeTasks.length === 0) {
-        container.textContent = "現在、着手すべき任務はありません。";
+        container.textContent = "現在、着手すべきタスクはありません。";
         return;
     }
 
@@ -197,7 +197,7 @@ function populateRevenueTaskOptions(tasks) {
 
     const emptyOption = document.createElement("option");
     emptyOption.value = "";
-    emptyOption.textContent = "任務と関連付けない";
+    emptyOption.textContent = "タスクと関連付けない";
     taskSelect.appendChild(emptyOption);
 
     tasks.forEach(task => {
@@ -295,9 +295,9 @@ function renderOpportunities(opportunities) {
             trace.className = "opportunity-trace";
 
             const traceTitle = document.createElement("h5");
-            traceTitle.textContent = "🔗 任務・戦果トレーサビリティ";
+            traceTitle.textContent = "🔗 タスク・実績トレーサビリティ";
             const taskState = document.createElement("p");
-            taskState.textContent = `関連任務：${opportunity.linkedTaskName}（${opportunity.linkedTaskStatus}）`;
+            taskState.textContent = `関連タスク：${opportunity.linkedTaskName}（${opportunity.linkedTaskStatus}）`;
 
             const traceMetrics = document.createElement("div");
             traceMetrics.className = "opportunity-trace-metrics";
@@ -339,7 +339,7 @@ function renderOpportunities(opportunities) {
         if (opportunity.status === "有望" && opportunity.linkedTaskId == null) {
             const taskButton = document.createElement("button");
             taskButton.type = "button";
-            taskButton.textContent = "⚔ 任務として登録";
+            taskButton.textContent = "⚔ タスクとして登録";
             taskButton.addEventListener("click", () => createTaskFromOpportunity(opportunity, taskButton));
             actions.appendChild(taskButton);
         }
@@ -377,7 +377,7 @@ async function updateOpportunityStatus(id, status) {
 }
 
 async function createTaskFromOpportunity(opportunity, button) {
-    if (!window.confirm(`「${opportunity.title}」を任務として登録しますか？`)) {
+    if (!window.confirm(`「${opportunity.title}」をタスクとして登録しますか？`)) {
         return;
     }
 
@@ -389,10 +389,10 @@ async function createTaskFromOpportunity(opportunity, button) {
         if (!response.ok) {
             throw new Error(await response.text());
         }
-        button.textContent = "✅ 任務登録済み";
+        button.textContent = "✅ タスク登録済み";
         await Promise.all([loadTasks(), loadOpportunities()]);
     } catch (error) {
-        alert("任務の登録に失敗しました。");
+        alert("タスクの登録に失敗しました。");
         button.disabled = false;
         console.error(error);
     }
@@ -454,7 +454,7 @@ function renderTaskRevenueAnalysis(analyses) {
     container.replaceChildren();
 
     if (analyses.length === 0) {
-        renderEmptyState(container, "📊", "分析データがありません", "任務に関連付けた戦果を記録すると、効率とROIを比較できます。");
+        renderEmptyState(container, "📊", "分析データがありません", "タスクに関連付けた実績を記録すると、効率とROIを比較できます。");
         return;
     }
 
@@ -469,7 +469,7 @@ function renderTaskRevenueAnalysis(analyses) {
         title.textContent = `${index + 1}位　${analysis.taskName}`;
 
         const count = document.createElement("span");
-        count.textContent = `${analysis.recordCount}件の戦果`;
+        count.textContent = `${analysis.recordCount}件の実績`;
         heading.append(title, count);
 
         const metrics = document.createElement("div");
@@ -503,7 +503,7 @@ function renderRevenueRecords(records) {
     revenueList.replaceChildren();
 
     if (records.length === 0) {
-        renderEmptyState(revenueList, "💰", "戦果はまだありません", "最初の売上・経費・作業時間を記録しましょう。");
+        renderEmptyState(revenueList, "💰", "実績はまだありません", "最初の売上・経費・作業時間を記録しましょう。");
         return;
     }
 
@@ -574,10 +574,10 @@ function renderRevenueRecords(records) {
 
     const conversation = [];
 
-    async function sendCommand(mode = "discuss") {
+async function sendCommand(mode = "discuss", options = {}) {
     const input = document.getElementById("command-input");
     const command = mode === "propose"
-        ? "これまで話した内容を踏まえ、登録前に確認する任務案を1件まとめて。"
+        ? "これまで話した内容を踏まえ、登録前に確認するタスク案を1件まとめて。"
         : input.value.trim();
 
     if (command === "") {
@@ -590,9 +590,11 @@ function renderRevenueRecords(records) {
     const status = document.getElementById("command-status");
     commandButton.disabled = true;
     proposalButton.disabled = true;
+    voiceInputButton.disabled = true;
     commandButton.textContent = "考え中...";
-    status.textContent = mode === "propose" ? "任務案を整理しています..." : "AI将軍が考えています...";
+    status.textContent = mode === "propose" ? "タスク案を整理しています..." : "新しい返答を作成中です。下は前回の会話です。";
     status.hidden = false;
+    document.getElementById("ai-response").classList.add("is-thinking");
     try {
         const response = await fetch("/api/ai/command", {
             method: "POST",
@@ -618,6 +620,13 @@ function renderRevenueRecords(records) {
         appendConversationMessage(aiResponse, "AI将軍", answer, data, mode);
         conversation.push({role: "利用者", text: command}, {role: "AI将軍", text: answer});
         document.getElementById("voice-read-button").hidden = false;
+        if (options.speak) {
+            if (window.speechSynthesis) {
+                speakAnswer(answer);
+            } else {
+                voiceStatus.textContent = "返答は表示されましたが、このブラウザでは自動読み上げに対応していません。";
+            }
+        }
         proposalButton.hidden = false;
         document.getElementById("continue-conversation-button").hidden = false;
 
@@ -639,7 +648,7 @@ function renderRevenueRecords(records) {
                     });
 
                     if (!saveResponse.ok) {
-                        throw new Error("任務登録に失敗しました。");
+                        throw new Error("タスク登録に失敗しました。");
                     }
 
                     approveButton.disabled = true;
@@ -648,7 +657,7 @@ function renderRevenueRecords(records) {
                     await loadTasks();
 
                 } catch (error) {
-                    alert("任務の登録に失敗しました。");
+                    alert("タスクの登録に失敗しました。");
                     console.error(error);
                 }
             });
@@ -657,13 +666,16 @@ function renderRevenueRecords(records) {
         if (mode !== "propose") input.value = "";
 
     } catch (error) {
-        alert("AI将軍への命令送信に失敗しました。");
+        if (options.speak) voiceStatus.textContent = "AI将軍の返答を取得できませんでした。もう一度試してください。";
+        alert("AI将軍への送信に失敗しました。");
         console.error(error);
     } finally {
         commandButton.disabled = false;
         proposalButton.disabled = false;
+        voiceInputButton.disabled = !SpeechRecognitionClass;
         commandButton.textContent = "将軍と話す";
         status.hidden = true;
+        document.getElementById("ai-response").classList.remove("is-thinking");
     }
 }
 
@@ -684,8 +696,8 @@ function appendConversationMessage(container, speaker, message, data, mode) {
         const grid = document.createElement("div");
         grid.className = "conversation-insight-grid";
         grid.append(
-            createInsightCard("💰", "収益判断", data.revenueInsight, "revenue"),
-            createInsightCard("📊", "戦果評価", data.performanceDecision, "analysis"),
+            createInsightCard("💰", "収益分析", data.revenueInsight, "revenue"),
+            createInsightCard("📊", "実績分析", data.performanceDecision, "analysis"),
             createInsightCard("🚀", "市場機会", data.marketOpportunity, "market"));
         details.append(summary, grid);
         entry.appendChild(details);
@@ -703,6 +715,8 @@ const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRe
 let voiceRecognition = null;
 let voiceListening = false;
 let voiceRecognized = false;
+let voiceCanceled = false;
+let voiceError = false;
 
 if (!SpeechRecognitionClass) {
     voiceInputButton.disabled = true;
@@ -715,10 +729,13 @@ if (!window.speechSynthesis) {
 voiceInputButton.addEventListener("click", () => {
     if (!SpeechRecognitionClass) return;
     if (voiceListening) {
+        voiceCanceled = true;
         voiceRecognition.stop();
         return;
     }
     voiceRecognized = false;
+    voiceCanceled = false;
+    voiceError = false;
     voiceRecognition = new SpeechRecognitionClass();
     voiceRecognition.lang = "ja-JP";
     voiceRecognition.continuous = false;
@@ -726,7 +743,7 @@ voiceInputButton.addEventListener("click", () => {
     voiceRecognition.onstart = () => {
         voiceListening = true;
         voiceInputButton.textContent = "■ 聞き取り停止";
-        voiceStatus.textContent = "聞き取り中... 話し終わると入力欄へ表示します。";
+        voiceStatus.textContent = "聞き取り中... 話し終わると自動で将軍へ送ります。停止すると送信しません。";
     };
     voiceRecognition.onresult = event => {
         const transcript = Array.from(event.results)
@@ -736,11 +753,12 @@ voiceInputButton.addEventListener("click", () => {
         if (transcript) {
             commandInput.value = transcript.slice(0, 2000);
             voiceRecognized = true;
-            voiceStatus.textContent = "聞き取りました。内容を確認してから「将軍と話す」を押してください。";
-            commandInput.focus();
+            voiceStatus.textContent = "聞き取りました。将軍へ送信します...";
         }
     };
     voiceRecognition.onerror = event => {
+        voiceCanceled = true;
+        voiceError = true;
         voiceStatus.textContent = event.error === "not-allowed"
             ? "マイクの利用が許可されませんでした。ブラウザの権限を確認してください。"
             : "音声を聞き取れませんでした。もう一度試すか、文字で入力してください。";
@@ -748,6 +766,15 @@ voiceInputButton.addEventListener("click", () => {
     voiceRecognition.onend = () => {
         voiceListening = false;
         voiceInputButton.textContent = "🎙️ 声で入力";
+        if (voiceRecognized && !voiceCanceled) {
+            sendCommand("discuss", { speak: true });
+            return;
+        }
+        if (voiceCanceled && !voiceError) {
+            voiceStatus.textContent = "音声入力を停止しました。送信していません。";
+            return;
+        }
+        if (voiceError) return;
         if (!voiceRecognized && voiceStatus.textContent.startsWith("聞き取り中")) {
             voiceStatus.textContent = "音声が認識されませんでした。もう一度試してください。";
         }
@@ -759,8 +786,7 @@ voiceInputButton.addEventListener("click", () => {
     }
 });
 
-voiceReadButton.addEventListener("click", () => {
-    const answer = conversation.at(-1)?.text;
+function speakAnswer(answer) {
     if (!answer || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(answer);
@@ -780,6 +806,10 @@ voiceReadButton.addEventListener("click", () => {
         voiceStatus.textContent = "読み上げに失敗しました。画面の返答を確認してください。";
     };
     window.speechSynthesis.speak(utterance);
+}
+
+voiceReadButton.addEventListener("click", () => {
+    speakAnswer(conversation.at(-1)?.text);
 });
 
 voiceStopButton.addEventListener("click", () => {
@@ -795,10 +825,10 @@ const navButtons = document.querySelectorAll(".nav-button");
 const pagePanels = document.querySelectorAll("[data-page-panel]");
 
 const pageTitles = {
-    command: "司令本部",
-    tasks: "任務管理",
+    command: "ダッシュボード",
+    tasks: "タスク管理",
     opportunities: "機会発見レーダー",
-    revenue: "収益・戦果分析",
+    revenue: "収益・実績分析",
     video: "動画制作・確認"
 };
 
@@ -817,7 +847,7 @@ function showPage(page) {
         panel.hidden = panel.dataset.pagePanel !== page;
     });
 
-    pageTitle.textContent = pageTitles[page] ?? "司令本部";
+    pageTitle.textContent = pageTitles[page] ?? "ダッシュボード";
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -828,7 +858,7 @@ function renderAiResponse(container, data) {
     const heading = document.createElement("div");
     heading.className = "ai-result-heading";
     const title = document.createElement("h3");
-    title.textContent = "⚔️ 登録前の任務案";
+    title.textContent = "⚔️ 登録前のタスク案";
     const badge = document.createElement("span");
     badge.textContent = "未登録";
     heading.append(title, badge);
@@ -838,7 +868,7 @@ function renderAiResponse(container, data) {
     const hasNextTask = typeof data.nextTask === "string" && data.nextTask.trim() !== "";
     if (!hasNextTask) {
         const empty = document.createElement("p");
-        empty.textContent = "まだ任務案はまとまっていません。続きを相談してから再度お試しください。";
+        empty.textContent = "まだタスク案はまとまっていません。続きを相談してから再度お試しください。";
         proposal.appendChild(empty);
         container.appendChild(proposal);
         return null;
@@ -847,7 +877,7 @@ function renderAiResponse(container, data) {
     const mission = document.createElement("div");
     mission.className = "ai-next-mission";
     const missionLabel = document.createElement("span");
-    missionLabel.textContent = "⚔️ 次の任務";
+    missionLabel.textContent = "⚔️ 次のタスク";
     const missionText = document.createElement("p");
     missionText.textContent = data.nextTask;
     mission.append(missionLabel, missionText);
@@ -867,7 +897,7 @@ function renderAiResponse(container, data) {
     const approveButton = document.createElement("button");
     approveButton.id = "approve-task";
     approveButton.type = "button";
-    approveButton.textContent = "⚔️ この任務を登録";
+    approveButton.textContent = "⚔️ このタスクを登録";
     footer.append(meta, approveButton);
     proposal.append(mission, footer);
     container.appendChild(proposal);
@@ -1016,7 +1046,7 @@ document.getElementById("video-plan-button").addEventListener("click", () => {
         document.getElementById("video-topic").focus();
         return;
     }
-    const prompt = `制作AIとして、${platform}向け短尺動画の編集案を相談したい。テーマ：${topic}。素材・要望：${notes || "未指定"}。冒頭のフック、構成、短いナレーション案、画面に出す文字、編集手順、公開前の確認項目を具体的に示して。素材を実際に見ていないこと、需要や効果は未検証であることを明記して。動画の自動編集や投稿、任務登録はしないで。`;
+    const prompt = `制作AIとして、${platform}向け短尺動画の編集案を相談したい。テーマ：${topic}。素材・要望：${notes || "未指定"}。冒頭のフック、構成、短いナレーション案、画面に出す文字、編集手順、公開前の確認項目を具体的に示して。素材を実際に見ていないこと、需要や効果は未検証であることを明記して。動画の自動編集や投稿、タスク登録はしないで。`;
     if (prompt.length > 2000) {
         alert("入力が長すぎます。素材・要望を短くしてください。");
         return;
@@ -1104,7 +1134,7 @@ revenueForm.addEventListener("submit", async event => {
         document.getElementById("revenue-amount").value = "";
         document.getElementById("expense-amount").value = "";
         document.getElementById("work-minutes").value = "";
-        message.textContent = "✅ 戦果を記録しました。";
+        message.textContent = "✅ 実績を記録しました。";
         await Promise.all([
             loadRevenueDashboard(),
             loadOpportunities()
