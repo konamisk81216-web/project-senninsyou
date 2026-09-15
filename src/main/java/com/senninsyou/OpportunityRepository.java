@@ -47,8 +47,10 @@ public class OpportunityRepository {
                     (title, opportunity_type, expected_revenue,
                      estimated_minutes, risk_level, notes)
                 VALUES (?, ?, ?, ?, ?, ?)
-                RETURNING *
+                RETURNING id
                 """;
+
+        long opportunityId;
 
         try (Connection connection = getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -61,9 +63,11 @@ public class OpportunityRepository {
 
             try (ResultSet result = statement.executeQuery()) {
                 result.next();
-                return mapOpportunity(result);
+                opportunityId = result.getLong("id");
             }
         }
+
+        return getById(opportunityId);
     }
 
     public List<Opportunity> getAll() throws SQLException {

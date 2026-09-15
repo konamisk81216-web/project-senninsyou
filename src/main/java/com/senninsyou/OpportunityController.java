@@ -19,6 +19,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/opportunities")
 public class OpportunityController {
 
+    private static final System.Logger LOGGER =
+            System.getLogger(OpportunityController.class.getName());
     private static final Set<String> RISK_LEVELS = Set.of("低", "中", "高");
     private static final Set<String> STATUSES =
             Set.of("未評価", "調査中", "有望", "保留", "却下");
@@ -51,6 +53,7 @@ public class OpportunityController {
             return ResponseEntity.created(
                     URI.create("/api/opportunities/" + opportunity.id())).body(opportunity);
         } catch (SQLException | IllegalStateException e) {
+            LOGGER.log(System.Logger.Level.ERROR, "収益機会の登録に失敗しました。", e);
             return ResponseEntity.internalServerError().body("収益機会の登録に失敗しました。");
         }
     }
