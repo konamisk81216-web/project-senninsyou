@@ -769,6 +769,17 @@ document.querySelectorAll(".quick-command").forEach(button => {
     });
 });
 
+document.querySelectorAll('input[type="number"]').forEach(input => {
+    const selectDefaultZero = () => {
+        if (input.value === "0") {
+            input.select();
+        }
+    };
+
+    input.addEventListener("focus", selectDefaultZero);
+    input.addEventListener("click", selectDefaultZero);
+});
+
 revenueDate.valueAsDate = new Date();
 
 commandButton.addEventListener("click", sendCommand);
