@@ -825,9 +825,9 @@ revenueForm.addEventListener("submit", async event => {
 
         revenueForm.reset();
         revenueDate.valueAsDate = new Date();
-        document.getElementById("revenue-amount").value = "0";
-        document.getElementById("expense-amount").value = "0";
-        document.getElementById("work-minutes").value = "0";
+        document.getElementById("revenue-amount").value = "";
+        document.getElementById("expense-amount").value = "";
+        document.getElementById("work-minutes").value = "";
         message.textContent = "✅ 戦果を記録しました。";
         await Promise.all([
             loadRevenueDashboard(),
@@ -866,8 +866,8 @@ opportunityForm.addEventListener("submit", async event => {
             throw new Error(await response.text());
         }
         opportunityForm.reset();
-        document.getElementById("opportunity-revenue").value = "0";
-        document.getElementById("opportunity-minutes").value = "0";
+        document.getElementById("opportunity-revenue").value = "";
+        document.getElementById("opportunity-minutes").value = "";
         message.textContent = "✅ 収益機会を登録しました。";
         await loadOpportunities();
     } catch (error) {
