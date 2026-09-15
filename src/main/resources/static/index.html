@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project 千人将 | 司令室</title>
 
-    <link rel="stylesheet" href="/style.css?v=20260915-2">
+    <link rel="stylesheet" href="/style.css?v=20260915-3">
 </head>
 
 <body>
@@ -30,6 +30,9 @@
             <button class="nav-button" type="button" data-page="revenue">
                 <span>💰</span> 収益・戦果
             </button>
+            <button class="nav-button" type="button" data-page="video">
+                <span>🎬</span> 動画制作
+            </button>
         </nav>
 
         <div class="sidebar-status">
@@ -46,6 +49,36 @@
             </div>
             <span class="header-badge">千人将専用</span>
         </header>
+
+        <section class="page-panel" data-page-panel="video" hidden>
+            <h2>🎬 動画制作・確認</h2>
+            <p>有料の動画APIは使いません。将軍と編集方針を相談し、書き出した動画はこの画面で確認します。</p>
+            <div class="video-workflow">
+                <div class="video-step">
+                    <h3>1. 編集案を作る</h3>
+                    <label for="video-topic">動画のテーマ</label>
+                    <input id="video-topic" type="text" maxlength="300" placeholder="例：AI業務効率化サービスの紹介">
+                    <label for="video-platform">公開先</label>
+                    <select id="video-platform">
+                        <option value="Instagram Reels">Instagram Reels</option>
+                        <option value="TikTok">TikTok</option>
+                    </select>
+                    <label for="video-source-notes">素材・伝えたいこと</label>
+                    <textarea id="video-source-notes" maxlength="1000" placeholder="素材の内容、伝えたい価値、避けたい表現など"></textarea>
+                    <button id="video-plan-button" type="button">将軍と編集案を相談する</button>
+                    <p class="video-note">回答は司令本部の会話に表示されます。投稿や任務登録は自動では行いません。</p>
+                </div>
+                <div class="video-step">
+                    <h3>2. PCで編集・書き出し</h3>
+                    <p>編集案を参考に、手元の編集ソフトで動画を書き出してください。現在のアプリは動画を自動編集しません。</p>
+                    <h3>3. 書き出し後の確認</h3>
+                    <label for="video-file">動画ファイルを選択</label>
+                    <input id="video-file" type="file" accept="video/*">
+                    <div id="video-check-result" class="video-check-result" role="status" aria-live="polite">ファイルを選ぶと、サイズ・縦横比・長さを端末内で確認します。動画はサーバーへ送信しません。</div>
+                    <p class="video-note">音声、字幕、事実確認、権利、各SNSの最新規約は目視・試聴で確認してから公開してください。</p>
+                </div>
+            </div>
+        </section>
 
         <section class="page-panel" data-page-panel="command">
             <h2>👑 AI将軍</h2>
@@ -279,7 +312,7 @@
         </section>
     </main>
 
-        <script src="/app.js?v=20260915-2"></script>
+        <script src="/app.js?v=20260915-3"></script>
 </body>
 
 </html>

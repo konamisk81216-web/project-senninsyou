@@ -705,7 +705,8 @@ const pageTitles = {
     command: "司令本部",
     tasks: "任務管理",
     opportunities: "機会発見レーダー",
-    revenue: "収益・戦果分析"
+    revenue: "収益・戦果分析",
+    video: "動画制作・確認"
 };
 
 function showPage(page) {
@@ -912,6 +913,64 @@ commandInput.addEventListener("keydown", event => {
     if (event.key === "Enter") {
         sendCommand();
     }
+});
+
+document.getElementById("video-plan-button").addEventListener("click", () => {
+    const topic = document.getElementById("video-topic").value.trim();
+    const notes = document.getElementById("video-source-notes").value.trim();
+    const platform = document.getElementById("video-platform").value;
+    if (!topic) {
+        document.getElementById("video-topic").focus();
+        return;
+    }
+    const prompt = `制作AIとして、${platform}向け短尺動画の編集案を相談したい。テーマ：${topic}。素材・要望：${notes || "未指定"}。冒頭のフック、構成、短いナレーション案、画面に出す文字、編集手順、公開前の確認項目を具体的に示して。素材を実際に見ていないこと、需要や効果は未検証であることを明記して。動画の自動編集や投稿、任務登録はしないで。`;
+    if (prompt.length > 2000) {
+        alert("入力が長すぎます。素材・要望を短くしてください。");
+        return;
+    }
+    commandInput.value = prompt;
+    showPage("command");
+    sendCommand();
+});
+
+let videoPreviewUrl = null;
+document.getElementById("video-file").addEventListener("change", event => {
+    const file = event.target.files[0];
+    const result = document.getElementById("video-check-result");
+    if (videoPreviewUrl) {
+        URL.revokeObjectURL(videoPreviewUrl);
+        videoPreviewUrl = null;
+    }
+    result.replaceChildren();
+    if (!file) return;
+    result.textContent = "動画情報を確認中...";
+    videoPreviewUrl = URL.createObjectURL(file);
+    const preview = document.createElement("video");
+    preview.preload = "metadata";
+    preview.src = videoPreviewUrl;
+    preview.onloadedmetadata = () => {
+        const seconds = Math.round(preview.duration);
+        const portrait = preview.videoHeight > preview.videoWidth;
+        const ratio = preview.videoWidth / preview.videoHeight;
+        const closeToNineSixteen = portrait && Math.abs(ratio - 9 / 16) < 0.03;
+        result.replaceChildren();
+        const lines = [
+            `ファイル：${file.name}（${(file.size / 1024 / 1024).toFixed(1)} MB）`,
+            `画面：${preview.videoWidth} × ${preview.videoHeight} — ${closeToNineSixteen ? "縦型9:16に近い" : "縦型9:16ではない可能性があります"}`,
+            `長さ：${seconds}秒 — ${seconds > 0 && seconds <= 60 ? "短尺" : "公開先の長さ条件を確認してください"}`,
+            "確認待ち：音声・字幕・事実・素材の権利・最後の呼びかけ"
+        ];
+        lines.forEach(line => {
+            const paragraph = document.createElement("p");
+            paragraph.textContent = line;
+            result.appendChild(paragraph);
+        });
+        preview.removeAttribute("src");
+        preview.load();
+    };
+    preview.onerror = () => {
+        result.textContent = "この動画形式の情報をブラウザで読み取れませんでした。PCの動画編集ソフトで確認してください。";
+    };
 });
 
 revenueForm.addEventListener("submit", async event => {
