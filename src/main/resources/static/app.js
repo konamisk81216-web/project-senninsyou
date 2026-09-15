@@ -769,15 +769,81 @@ document.querySelectorAll(".quick-command").forEach(button => {
     });
 });
 
-document.querySelectorAll('input[type="number"]').forEach(input => {
-    const selectDefaultZero = () => {
-        if (input.value === "0") {
-            input.select();
-        }
-    };
+const numberOptionSets = {
+    amount: [
+        ["1000", "1,000円"],
+        ["3000", "3,000円"],
+        ["5000", "5,000円"],
+        ["10000", "10,000円"],
+        ["30000", "30,000円"],
+        ["50000", "50,000円"],
+        ["100000", "100,000円"]
+    ],
+    time: [
+        ["30", "30分"],
+        ["60", "1時間"],
+        ["90", "1時間30分"],
+        ["120", "2時間"],
+        ["180", "3時間"],
+        ["240", "4時間"],
+        ["480", "8時間"]
+    ]
+};
 
-    input.addEventListener("focus", selectDefaultZero);
-    input.addEventListener("click", selectDefaultZero);
+document.querySelectorAll("[data-number-options]").forEach(input => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "number-picker";
+    input.before(wrapper);
+    wrapper.appendChild(input);
+
+    const toggle = document.createElement("button");
+    toggle.className = "number-picker-toggle";
+    toggle.type = "button";
+    toggle.textContent = "▼";
+    toggle.setAttribute("aria-label", "候補を表示");
+    toggle.setAttribute("aria-expanded", "false");
+
+    const menu = document.createElement("div");
+    menu.className = "number-picker-menu";
+    menu.hidden = true;
+
+    numberOptionSets[input.dataset.numberOptions].forEach(([value, label]) => {
+        const option = document.createElement("button");
+        option.type = "button";
+        option.textContent = label;
+        option.addEventListener("click", () => {
+            input.value = value;
+            menu.hidden = true;
+            toggle.setAttribute("aria-expanded", "false");
+            input.focus();
+        });
+        menu.appendChild(option);
+    });
+
+    toggle.addEventListener("click", () => {
+        const willOpen = menu.hidden;
+        document.querySelectorAll(".number-picker-menu").forEach(otherMenu => {
+            otherMenu.hidden = true;
+        });
+        document.querySelectorAll(".number-picker-toggle").forEach(otherToggle => {
+            otherToggle.setAttribute("aria-expanded", "false");
+        });
+        menu.hidden = !willOpen;
+        toggle.setAttribute("aria-expanded", String(willOpen));
+    });
+
+    wrapper.append(toggle, menu);
+});
+
+document.addEventListener("click", event => {
+    if (!event.target.closest(".number-picker")) {
+        document.querySelectorAll(".number-picker-menu").forEach(menu => {
+            menu.hidden = true;
+        });
+        document.querySelectorAll(".number-picker-toggle").forEach(toggle => {
+            toggle.setAttribute("aria-expanded", "false");
+        });
+    }
 });
 
 revenueDate.valueAsDate = new Date();
