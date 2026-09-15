@@ -803,6 +803,16 @@ button:hover {
 
 .number-picker input {
     padding-right: 48px !important;
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+
+.number-picker input::-webkit-inner-spin-button,
+.number-picker input::-webkit-outer-spin-button,
+.number-picker input::-webkit-calendar-picker-indicator {
+    display: none;
+    margin: 0;
+    -webkit-appearance: none;
 }
 
 .number-picker-toggle {
