@@ -64,7 +64,7 @@
             <div class="quick-commands" aria-label="AI将軍クイックコマンド">
                 <button class="quick-command urgent" type="button"
                         data-command="現在の状況から、今日着手すべき最優先任務を1つ決めて。">
-                    🔥 最優先を決める
+                    🔥 優先順位を相談
                 </button>
                 <button class="quick-command revenue" type="button"
                         data-command="収益実績と機会を分析して、収益を増やす次の一手を提案して。">
@@ -80,10 +80,14 @@
                 </button>
             </div>
 
+            <p id="command-status" class="command-status" role="status" aria-live="polite" hidden></p>
             <div id="ai-response" aria-live="polite">
                 <p>会話がここに表示されます。</p>
             </div>
-            <button id="propose-task-button" class="secondary-button" type="button" hidden>話した内容から任務案をまとめる</button>
+            <div class="conversation-actions">
+                <button id="continue-conversation-button" class="secondary-button" type="button" hidden>続きを相談する ↑</button>
+                <button id="propose-task-button" type="button" hidden>話した内容から任務案をまとめる</button>
+            </div>
             
         </section>
 

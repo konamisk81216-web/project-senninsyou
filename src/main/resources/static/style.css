@@ -175,29 +175,93 @@ input {
 }
 
 #ai-response {
-    line-height: 1.65;
+    line-height: 1.7;
     margin-top: 18px;
+    max-width: 1000px;
 }
 
 .conversation-message {
-    border: 1px solid #32323a;
+    border: 1px solid #3a3a42;
     border-radius: 12px;
     margin-bottom: 12px;
-    padding: 14px 18px;
+    padding: 16px 20px;
 }
-.conversation-message.from-user { background: #242017; }
-.conversation-message.from-general { background: #141418; }
-.conversation-message p { margin: 6px 0 0; white-space: pre-wrap; }
-.conversation-message details { margin-top: 12px; }
-.conversation-message summary { color: #d4af37; cursor: pointer; }
-.conversation-message details .ai-insight-card { margin-top: 10px; }
-#propose-task-button { margin-top: 6px; }
+.conversation-message.from-user {
+    background: #211e17;
+    border-left: 3px solid #d4af37;
+    margin-left: clamp(0px, 5vw, 48px);
+}
+.conversation-message.from-general {
+    background: #141418;
+    border-left: 3px solid #797985;
+    margin-right: clamp(0px, 5vw, 48px);
+}
+.conversation-message strong { color: #f2d470; }
+.conversation-message.from-general strong { color: #f5f5f5; }
+.conversation-message p {
+    color: #e4e4e8;
+    font-size: 16px;
+    margin: 8px 0 0;
+    white-space: pre-wrap;
+}
+.conversation-insights {
+    border-top: 1px solid #35353d;
+    margin-top: 18px;
+    padding-top: 10px;
+}
+.conversation-insights summary {
+    color: #f0cf5d;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    list-style: none;
+    padding: 7px 0;
+}
+.conversation-insights summary::-webkit-details-marker { display: none; }
+.conversation-insights summary::before { content: "▸"; display: inline-block; margin-right: 8px; }
+.conversation-insights[open] summary::before { content: "▾"; }
+.conversation-insight-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+}
+.conversation-insight-grid .ai-insight-card {
+    background: #1b1b21;
+    border: 1px solid #383841;
+    border-left: 3px solid #777;
+    border-radius: 9px;
+    padding: 16px;
+}
+.conversation-insight-grid .ai-insight-card.revenue { border-left-color: #64ff8f; }
+.conversation-insight-grid .ai-insight-card.analysis { border-left-color: #64a9ff; }
+.conversation-insight-grid .ai-insight-card.market {
+    border-left-color: #c18cff;
+    grid-column: 1 / -1;
+}
+.conversation-insight-grid .ai-insight-card h4 { font-size: 15px; margin-bottom: 8px; }
+.conversation-insight-grid .ai-insight-card p { font-size: 14px; line-height: 1.65; margin: 0; }
+.conversation-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+}
+.conversation-actions button { margin: 0; }
+.conversation-actions .secondary-button {
+    background: #24242b;
+    border: 1px solid #55555f;
+    color: #f0f0f2;
+}
+.conversation-actions .secondary-button:hover { background: #34343c; }
+.command-status { color: #f0cf5d; margin-top: 16px; }
 
 .ai-result {
     background: #0b0b0e;
     border:1px solid #32323a;
     border-radius: 12px;
     padding: 18px;
+    max-width: 1000px;
 }
 
 .ai-result-heading,
@@ -1020,6 +1084,11 @@ button:hover {
     .ai-insight-grid {
         grid-template-columns: 1fr;
     }
+
+    .conversation-insight-grid { grid-template-columns: 1fr; }
+    .conversation-message.from-user,
+    .conversation-message.from-general { margin-left: 0; margin-right: 0; }
+    .conversation-actions button { width: 100%; min-height: 44px; }
 
     .status-button,
     .delete-button {

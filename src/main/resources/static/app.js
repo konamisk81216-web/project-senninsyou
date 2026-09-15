@@ -587,8 +587,12 @@ function renderRevenueRecords(records) {
 
     const commandButton = document.getElementById("command-button");
     const proposalButton = document.getElementById("propose-task-button");
+    const status = document.getElementById("command-status");
     commandButton.disabled = true;
     proposalButton.disabled = true;
+    commandButton.textContent = "考え中...";
+    status.textContent = mode === "propose" ? "任務案を整理しています..." : "AI将軍が考えています...";
+    status.hidden = false;
     try {
         const response = await fetch("/api/ai/command", {
             method: "POST",
@@ -614,6 +618,7 @@ function renderRevenueRecords(records) {
         appendConversationMessage(aiResponse, "AI将軍", answer, data, mode);
         conversation.push({role: "利用者", text: command}, {role: "AI将軍", text: answer});
         proposalButton.hidden = false;
+        document.getElementById("continue-conversation-button").hidden = false;
 
         const approveButton = mode === "propose" ? renderAiResponse(aiResponse, data) : null;
 
@@ -656,6 +661,8 @@ function renderRevenueRecords(records) {
     } finally {
         commandButton.disabled = false;
         proposalButton.disabled = false;
+        commandButton.textContent = "将軍と話す";
+        status.hidden = true;
     }
 }
 
@@ -670,12 +677,16 @@ function appendConversationMessage(container, speaker, message, data, mode) {
     entry.append(label, text);
     if (data && mode !== "propose") {
         const details = document.createElement("details");
+        details.className = "conversation-insights";
         const summary = document.createElement("summary");
         summary.textContent = "判断の内訳を見る";
-        details.append(summary,
+        const grid = document.createElement("div");
+        grid.className = "conversation-insight-grid";
+        grid.append(
             createInsightCard("💰", "収益判断", data.revenueInsight, "revenue"),
             createInsightCard("📊", "戦果評価", data.performanceDecision, "analysis"),
             createInsightCard("🚀", "市場機会", data.marketOpportunity, "market"));
+        details.append(summary, grid);
         entry.appendChild(details);
     }
     container.appendChild(entry);
@@ -723,15 +734,18 @@ function renderAiResponse(container, data) {
     const heading = document.createElement("div");
     heading.className = "ai-result-heading";
     const title = document.createElement("h3");
-    title.textContent = "👑 AI将軍の回答";
+    title.textContent = "⚔️ 登録前の任務案";
     const badge = document.createElement("span");
-    badge.textContent = "戦略提案";
+    badge.textContent = "未登録";
     heading.append(title, badge);
 
     proposal.appendChild(heading);
 
     const hasNextTask = typeof data.nextTask === "string" && data.nextTask.trim() !== "";
     if (!hasNextTask) {
+        const empty = document.createElement("p");
+        empty.textContent = "まだ任務案はまとまっていません。続きを相談してから再度お試しください。";
+        proposal.appendChild(empty);
         container.appendChild(proposal);
         return null;
     }
@@ -889,6 +903,10 @@ revenueDate.valueAsDate = new Date();
 
 commandButton.addEventListener("click", () => sendCommand());
 document.getElementById("propose-task-button").addEventListener("click", () => sendCommand("propose"));
+document.getElementById("continue-conversation-button").addEventListener("click", () => {
+    commandInput.scrollIntoView({ behavior: "smooth", block: "center" });
+    commandInput.focus({ preventScroll: true });
+});
 
 commandInput.addEventListener("keydown", event => {
     if (event.key === "Enter") {
