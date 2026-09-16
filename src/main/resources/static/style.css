@@ -623,10 +623,24 @@ button:hover {
     background: #242116;
 }
 .note-next-action h3, .note-next-action p { margin: 0 0 8px; }
+.note-next-action #note-stage-next { margin: 16px 0 0; }
+.note-next-action #note-stage-message { margin-top: 12px; color: #75f39d; }
+.note-stage-checklist {
+    display: grid;
+    gap: 10px;
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid #4b462f;
+}
+.note-stage-checklist h4 { margin: 0 0 2px; }
+.note-stage-checklist label { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.note-stage-checklist input { width: 20px; height: 20px; accent-color: #d9b13b; }
+.note-stage-correction { color: #aaaab4; }
+.note-stage-correction summary { width: fit-content; cursor: pointer; color: #c7c7cf; }
+.note-stage-correction[open] summary { margin-bottom: 14px; }
 .note-stage-controls { display: grid; gap: 10px; justify-items: start; }
 .note-stage-controls select { max-width: 340px; }
 .note-stage-controls button { margin: 0; }
-.note-stage-controls #note-stage-next { margin-bottom: 12px; }
 .note-stage-controls #note-stage-save { background: #28282e; color: #e8e8ee; border: 1px solid #51515c; }
 .note-related-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .note-related-grid > div {

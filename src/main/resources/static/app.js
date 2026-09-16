@@ -938,6 +938,13 @@ const noteNextActions = {
     "販売": "告知経路を選び、SNSや導線を試し、反応を記録する。",
     "実績": "実際の売上・経費・作業時間を記録し、改善点を決める。"
 };
+const noteStageChecks = {
+    "企画": ["対象読者と悩みを決めた", "記事の価値と価格を決めた", "競合との差を確認した"],
+    "制作": ["記事本文を仕上げた", "画像と販売ページを整えた", "誤字・事実関係を確認した"],
+    "公開": ["記事内容を最終確認した", "画像・引用・権利を確認した", "本人がnoteで公開し、URLを確認した"],
+    "販売": ["SNS用の投稿文を用意した", "投稿内容を本人が確認した", "告知して反応を記録した"],
+    "実績": ["売上と経費を記録した", "作業時間を記録した", "次の改善点を決めた"]
+};
 let noteWorkflowData = null;
 
 async function loadNoteWorkflow() {
@@ -967,6 +974,7 @@ async function loadNoteWorkflow() {
         if (!selected) {
             status.textContent = "タスクがありません。まずAI将軍と相談してnote販売のタスクを登録してください。";
             document.getElementById("note-stages").replaceChildren();
+            document.getElementById("note-stage-checklist").replaceChildren();
             document.getElementById("note-next-text").textContent = "タスク登録後に進行段階を管理できます。";
             document.getElementById("note-stage-save").disabled = true;
             document.getElementById("note-stage-next").disabled = true;
@@ -993,17 +1001,18 @@ function renderNoteWorkflow() {
     document.getElementById("note-stage-select").value = stage;
     const nextButton = document.getElementById("note-stage-next");
     const nextStage = noteStageNames[stageIndex + 1];
-    nextButton.disabled = !nextStage;
+    nextButton.disabled = true;
     nextButton.textContent = nextStage
         ? `「${stage}」を完了して「${nextStage}」へ進む`
         : "最終段階です";
     document.getElementById("note-next-text").textContent = noteNextActions[stage];
+    renderNoteStageChecklist(stage, Boolean(nextStage));
     const stages = document.getElementById("note-stages");
     stages.replaceChildren();
     noteStageNames.forEach((name, index) => {
         const item = document.createElement("div");
         item.className = `note-stage ${index === stageIndex ? "current" : index < stageIndex ? "passed" : "future"}`;
-        item.textContent = `${index + 1}. ${name}${index === stageIndex ? "（現在）" : ""}`;
+        item.textContent = `${index < stageIndex ? "✓ " : `${index + 1}. `}${name}${index === stageIndex ? "（現在）" : ""}`;
         stages.appendChild(item);
     });
     const opportunityList = document.getElementById("note-opportunity-list");
@@ -1026,7 +1035,40 @@ function renderNoteWorkflow() {
     }
 }
 
-document.getElementById("note-task-select").addEventListener("change", renderNoteWorkflow);
+function renderNoteStageChecklist(stage, canAdvance) {
+    const checklist = document.getElementById("note-stage-checklist");
+    checklist.replaceChildren();
+    const heading = document.createElement("h4");
+    heading.textContent = canAdvance ? "完了前の確認" : "最終確認";
+    checklist.appendChild(heading);
+    for (const [index, text] of noteStageChecks[stage].entries()) {
+        const label = document.createElement("label");
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.dataset.stageCheck = String(index);
+        label.append(checkbox, document.createTextNode(text));
+        checklist.appendChild(label);
+    }
+    if (!canAdvance) {
+        const note = document.createElement("p");
+        note.textContent = "この段階で販売結果を振り返ります。タスク完了や売上登録は自動では行いません。";
+        checklist.appendChild(note);
+    }
+}
+
+document.getElementById("note-stage-checklist").addEventListener("change", () => {
+    const checks = [...document.querySelectorAll("#note-stage-checklist input[type='checkbox']")];
+    const taskId = Number(document.getElementById("note-task-select").value);
+    const task = noteWorkflowData?.tasks.find(item => item.id === taskId);
+    const stage = noteStageNames.includes(task?.noteStage) ? task.noteStage : "企画";
+    const hasNextStage = noteStageNames.indexOf(stage) < noteStageNames.length - 1;
+    document.getElementById("note-stage-next").disabled = !hasNextStage || checks.some(check => !check.checked);
+});
+
+document.getElementById("note-task-select").addEventListener("change", () => {
+    document.getElementById("note-stage-message").textContent = "";
+    renderNoteWorkflow();
+});
 async function saveNoteStage(taskId, stage, successText) {
     const saveButton = document.getElementById("note-stage-save");
     const nextButton = document.getElementById("note-stage-next");
