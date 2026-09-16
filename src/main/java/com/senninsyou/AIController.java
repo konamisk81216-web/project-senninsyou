@@ -124,7 +124,7 @@ public class AIController {
             result.put("paidSection", writerSection(response, "[PAID]", "[SALES]"));
             result.put("salesDescription", writerSection(response, "[SALES]", "[SNS]"));
             result.put("snsPost", writerSection(response, "[SNS]", "[REVIEW]"));
-            result.put("reviewNotes", writerSection(response, "[REVIEW]", "[END]"));
+            result.put("reviewNotes", writerLastSection(response, "[REVIEW]", "[END]"));
             for (String field : new String[]{"title", "freeSection", "paidSection", "salesDescription", "snsPost", "reviewNotes"}) {
                 if (!result.hasNonNull(field)
                         || !result.get(field).isTextual()
@@ -145,6 +145,17 @@ public class AIController {
             throw new IllegalArgumentException("必要な区切りが不足しています。");
         }
         return response.substring(start + startMarker.length(), end).trim();
+    }
+
+    private String writerLastSection(String response, String startMarker, String optionalEndMarker) {
+        int start = response.indexOf(startMarker);
+        if (start < 0) {
+            throw new IllegalArgumentException("必要な区切りが不足しています。");
+        }
+        int contentStart = start + startMarker.length();
+        int end = response.indexOf(optionalEndMarker, contentStart);
+        if (end < 0) end = response.length();
+        return response.substring(contentStart, end).trim();
     }
 
     private String cleanWriterInput(String value, String label, int maxLength, boolean required) {
