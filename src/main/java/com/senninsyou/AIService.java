@@ -11,6 +11,8 @@ import com.openai.models.ChatModel;
 import com.openai.models.responses.Response;
 import com.openai.models.responses.ResponseCreateParams;
 
+import java.util.stream.Collectors;
+
 
 public class AIService {
 
@@ -236,13 +238,14 @@ public class AIService {
                     .maxOutputTokens(6000)
                     .build();
             Response response = client.responses().create(params);
-            return response.output().stream()
+            String combinedOutput = response.output().stream()
                     .flatMap(item -> item.message().stream())
                     .flatMap(message -> message.content().stream())
                     .flatMap(content -> content.outputText().stream())
                     .map(outputText -> outputText.text())
-                    .findFirst()
-                    .orElse(null);
+                    .filter(text -> text != null && !text.isBlank())
+                    .collect(Collectors.joining("\n"));
+            return combinedOutput.isBlank() ? null : combinedOutput;
         } catch (Exception e) {
             System.out.println("ライターAIとの通信に失敗しました。");
             return null;
