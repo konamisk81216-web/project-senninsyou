@@ -52,6 +52,38 @@ public class TaskController {
         }
     }
 
+    @PutMapping("/api/tasks/{id}/note-stage")
+    public ResponseEntity<String> updateNoteStage(@PathVariable int id,
+            @RequestBody Map<String, String> taskData) {
+        String noteStage = taskData.get("noteStage");
+        if (id <= 0 || noteStage == null
+                || !List.of("企画", "制作", "公開", "販売", "実績").contains(noteStage)) {
+            return ResponseEntity.badRequest().body("正しい進行段階を指定してください。");
+        }
+        String databaseUrl = System.getenv("DATABASE_URL");
+        if (databaseUrl == null) {
+            return ResponseEntity.internalServerError().body("DATABASE_URLが設定されていません。");
+        }
+        URI dbUri = URI.create(databaseUrl);
+        String userInfo = dbUri.getUserInfo();
+        if (userInfo == null || !userInfo.contains(":")) {
+            return ResponseEntity.internalServerError().body("DATABASE_URLの形式が正しくありません。");
+        }
+        String[] credentials = userInfo.split(":", 2);
+        int port = dbUri.getPort() == -1 ? 5432 : dbUri.getPort();
+        String jdbcUrl = "jdbc:postgresql://" + dbUri.getHost() + ":" + port
+                + dbUri.getPath() + "?sslmode=require";
+        TaskRepository repository = new TaskRepository(jdbcUrl, credentials[0], credentials[1]);
+        try {
+            if (!repository.updateNoteStage(id, noteStage)) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.ok("進行段階を更新しました。");
+        } catch (IllegalStateException e) {
+            return ResponseEntity.internalServerError().body("進行段階の更新に失敗しました。");
+        }
+    }
+
     @GetMapping("/api/tasks")
     public List<Task> getTasks() {
 

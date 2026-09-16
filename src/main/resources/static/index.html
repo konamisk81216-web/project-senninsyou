@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project 千人将 | ダッシュボード</title>
 
-    <link rel="stylesheet" href="/style.css?v=20260915-6">
+    <link rel="stylesheet" href="/style.css?v=20260916-1">
 </head>
 
 <body>
@@ -23,6 +23,9 @@
             </button>
             <button class="nav-button" type="button" data-page="tasks">
                 <span>⚔️</span> タスク管理
+            </button>
+            <button class="nav-button" type="button" data-page="note">
+                <span>📝</span> note販売
             </button>
             <button class="nav-button" type="button" data-page="opportunities">
                 <span>📡</span> 機会レーダー
@@ -49,6 +52,42 @@
             </div>
             <span class="header-badge">千人将専用</span>
         </header>
+
+        <section class="page-panel" data-page-panel="note" hidden>
+            <h2>📝 note販売の進行</h2>
+            <p>対象タスクの現在位置と次の作業を確認します。段階は手動更新で、公開・SNS投稿・売上登録は自動で行いません。</p>
+            <div class="note-workflow-panel">
+                <label for="note-task-select">対象タスク</label>
+                <select id="note-task-select"></select>
+                <p id="note-task-status" role="status" aria-live="polite"></p>
+                <div id="note-stages" class="note-stages" aria-label="販売の進行段階"></div>
+                <div class="note-next-action">
+                    <h3>次にやること</h3>
+                    <p id="note-next-text"></p>
+                </div>
+                <div class="note-stage-controls">
+                    <label for="note-stage-select">現在の段階</label>
+                    <select id="note-stage-select">
+                        <option value="企画">企画</option>
+                        <option value="制作">制作</option>
+                        <option value="公開">公開</option>
+                        <option value="販売">販売</option>
+                        <option value="実績">実績</option>
+                    </select>
+                    <button id="note-stage-save" type="button">段階を保存</button>
+                    <p id="note-stage-message" role="status" aria-live="polite"></p>
+                </div>
+                <div class="note-related-grid">
+                    <div><h3>関連する収益機会</h3><div id="note-opportunity-list"></div></div>
+                    <div><h3>関連する実績</h3><div id="note-revenue-list"></div></div>
+                </div>
+                <div class="note-workflow-links">
+                    <button class="text-button" type="button" data-open-page="tasks">タスクを確認 →</button>
+                    <button class="text-button" type="button" data-open-page="opportunities">機会を確認 →</button>
+                    <button class="text-button" type="button" data-open-page="revenue">実績を記録 →</button>
+                </div>
+            </div>
+        </section>
 
         <section class="page-panel" data-page-panel="video" hidden>
             <h2>🎬 動画制作・確認</h2>
@@ -318,7 +357,7 @@
         </section>
     </main>
 
-        <script src="/app.js?v=20260915-6"></script>
+        <script src="/app.js?v=20260916-1"></script>
 </body>
 
 </html>

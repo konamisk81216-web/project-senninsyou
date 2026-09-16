@@ -904,6 +904,7 @@ const pagePanels = document.querySelectorAll("[data-page-panel]");
 const pageTitles = {
     command: "ダッシュボード",
     tasks: "タスク管理",
+    note: "note販売",
     opportunities: "機会発見レーダー",
     revenue: "収益・実績分析",
     video: "動画制作・確認"
@@ -925,8 +926,124 @@ function showPage(page) {
     });
 
     pageTitle.textContent = pageTitles[page] ?? "ダッシュボード";
+    if (page === "note") loadNoteWorkflow();
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
+
+const noteStageNames = ["企画", "制作", "公開", "販売", "実績"];
+const noteNextActions = {
+    "企画": "誰に何を売るかを決め、需要・競合・価格の仮説を確認する。",
+    "制作": "記事の構成を作り、本文・画像・販売ページを仕上げる。",
+    "公開": "内容と権利を確認してから、本人がnoteで公開する。",
+    "販売": "告知経路を選び、SNSや導線を試し、反応を記録する。",
+    "実績": "実際の売上・経費・作業時間を記録し、改善点を決める。"
+};
+let noteWorkflowData = null;
+
+async function loadNoteWorkflow() {
+    const status = document.getElementById("note-task-status");
+    status.textContent = "進行状況を読み込み中...";
+    try {
+        const responses = await Promise.all([
+            fetch("/api/tasks"), fetch("/api/opportunities"), fetch("/api/revenue")
+        ]);
+        if (responses.some(response => !response.ok)) throw new Error("進行状況を取得できませんでした。");
+        const [tasks, opportunities, records] = await Promise.all(responses.map(response => response.json()));
+        if (!Array.isArray(tasks) || !Array.isArray(opportunities) || !Array.isArray(records)) {
+            throw new Error("進行状況の形式が正しくありません。");
+        }
+        noteWorkflowData = { tasks, opportunities, records };
+        const taskSelect = document.getElementById("note-task-select");
+        const priorId = Number(taskSelect.value);
+        taskSelect.replaceChildren();
+        for (const task of tasks) {
+            const option = document.createElement("option");
+            option.value = task.id;
+            option.textContent = task.taskName;
+            taskSelect.appendChild(option);
+        }
+        const selected = tasks.find(task => task.id === priorId)
+            ?? tasks.find(task => /note/i.test(task.taskName)) ?? tasks[0];
+        if (!selected) {
+            status.textContent = "タスクがありません。まずAI将軍と相談してnote販売のタスクを登録してください。";
+            document.getElementById("note-stages").replaceChildren();
+            document.getElementById("note-next-text").textContent = "タスク登録後に進行段階を管理できます。";
+            document.getElementById("note-stage-save").disabled = true;
+            return;
+        }
+        taskSelect.value = String(selected.id);
+        document.getElementById("note-stage-save").disabled = false;
+        renderNoteWorkflow();
+    } catch (error) {
+        status.textContent = "進行状況を読み込めませんでした。DB更新が済んでいるか確認してください。";
+        console.error(error);
+    }
+}
+
+function renderNoteWorkflow() {
+    if (!noteWorkflowData) return;
+    const taskId = Number(document.getElementById("note-task-select").value);
+    const task = noteWorkflowData.tasks.find(item => item.id === taskId);
+    if (!task) return;
+    const stage = noteStageNames.includes(task.noteStage) ? task.noteStage : "企画";
+    const stageIndex = noteStageNames.indexOf(stage);
+    document.getElementById("note-task-status").textContent =
+        `状態：${task.status}　担当：${task.assignedAgent ?? "未設定"}`;
+    document.getElementById("note-stage-select").value = stage;
+    document.getElementById("note-next-text").textContent = noteNextActions[stage];
+    const stages = document.getElementById("note-stages");
+    stages.replaceChildren();
+    noteStageNames.forEach((name, index) => {
+        const item = document.createElement("div");
+        item.className = `note-stage ${index === stageIndex ? "current" : index < stageIndex ? "passed" : "future"}`;
+        item.textContent = `${index + 1}. ${name}${index === stageIndex ? "（現在）" : ""}`;
+        stages.appendChild(item);
+    });
+    const opportunityList = document.getElementById("note-opportunity-list");
+    opportunityList.replaceChildren();
+    const linkedOpportunities = noteWorkflowData.opportunities.filter(item => item.linkedTaskId === taskId);
+    if (linkedOpportunities.length === 0) opportunityList.textContent = "関連付けられた機会はまだありません。";
+    for (const item of linkedOpportunities) {
+        const row = document.createElement("p");
+        row.textContent = `${item.title}／${item.status}／想定 ${formatYen(item.expectedRevenue)}`;
+        opportunityList.appendChild(row);
+    }
+    const revenueList = document.getElementById("note-revenue-list");
+    revenueList.replaceChildren();
+    const linkedRecords = noteWorkflowData.records.filter(item => item.taskId === taskId);
+    if (linkedRecords.length === 0) revenueList.textContent = "関連付けられた実績はまだありません。";
+    for (const item of linkedRecords) {
+        const row = document.createElement("p");
+        row.textContent = `${item.description}／売上 ${formatYen(item.revenue)}／利益 ${formatYen(item.profit)}`;
+        revenueList.appendChild(row);
+    }
+}
+
+document.getElementById("note-task-select").addEventListener("change", renderNoteWorkflow);
+document.getElementById("note-stage-save").addEventListener("click", async () => {
+    const taskId = Number(document.getElementById("note-task-select").value);
+    const stage = document.getElementById("note-stage-select").value;
+    const button = document.getElementById("note-stage-save");
+    const message = document.getElementById("note-stage-message");
+    button.disabled = true;
+    message.textContent = "保存中...";
+    try {
+        const response = await fetch(`/api/tasks/${taskId}/note-stage`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ noteStage: stage })
+        });
+        if (!response.ok) throw new Error(await response.text());
+        noteWorkflowData.tasks.find(task => task.id === taskId).noteStage = stage;
+        renderNoteWorkflow();
+        message.textContent = "進行段階を保存しました。";
+    } catch (error) {
+        message.textContent = "保存できませんでした。もう一度試してください。";
+        console.error(error);
+    } finally {
+        button.disabled = false;
+    }
+});
 
 function renderAiResponse(container, data) {
     const proposal = document.createElement("div");

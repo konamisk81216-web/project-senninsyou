@@ -7,15 +7,17 @@ public class Task {
     private String status;
     private String priority;
     private String assignedAgent;
+    private String noteStage;
 
     
 
-    public Task(int id, String taskName, String status, String priority, String assignedAgent) {
+    public Task(int id, String taskName, String status, String priority, String assignedAgent, String noteStage) {
         this.id = id;
         this.taskName = taskName;
         this.status = status;
         this.priority = priority;
         this.assignedAgent = assignedAgent;
+        this.noteStage = noteStage;
     }
 
     public int getId() {
@@ -37,4 +39,8 @@ public String getPriority() {
 public String getAssignedAgent() {
     return assignedAgent;
     }
+
+public String getNoteStage() {
+    return noteStage;
+}
 }

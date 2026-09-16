@@ -73,13 +73,22 @@ public class TaskRepository {
             String status = result.getString("status");
             String priority = result.getString("priority");
             String assignedAgent = result.getString("assigned_agent");
+            boolean hasNoteStage = false;
+            for (int column = 1; column <= result.getMetaData().getColumnCount(); column++) {
+                if ("note_stage".equalsIgnoreCase(result.getMetaData().getColumnLabel(column))) {
+                    hasNoteStage = true;
+                    break;
+                }
+            }
+            String noteStage = hasNoteStage ? result.getString("note_stage") : "企画";
 
             Task task = new Task(
                 id,
                 taskName,
                 status,
                 priority,
-                assignedAgent
+                assignedAgent,
+                noteStage
             );
 
             tasks.add(task);
@@ -210,6 +219,19 @@ public String getAllTasksAsText() {
         } catch (Exception e) {
             System.out.println("タスク編集に失敗しました。");
             throw new IllegalStateException("タスク編集に失敗しました。", e);
+        }
+    }
+
+    public boolean updateNoteStage(int taskId, String noteStage) {
+        String sql = "UPDATE tasks SET note_stage = ? WHERE id = ?";
+        try (Connection connection = DriverManager.getConnection(jdbcUrl, user, password);
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, noteStage);
+            statement.setInt(2, taskId);
+            return statement.executeUpdate() > 0;
+        } catch (Exception e) {
+            System.out.println("note進行段階の更新に失敗しました。");
+            throw new IllegalStateException("note進行段階の更新に失敗しました。", e);
         }
     }
 }
