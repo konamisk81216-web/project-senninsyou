@@ -1143,6 +1143,15 @@ document.getElementById("writer-generate").addEventListener("click", async () =>
         });
         if (!response.ok) throw new Error(await response.text());
         const result = await response.json();
+        if (result.errorCode) {
+            const messages = {
+                "WAI-CONFIG": "AI設定を確認する必要があります。",
+                "WAI-API": "生成APIとの通信で失敗しました。",
+                "WAI-EMPTY": "生成APIから文章が返りませんでした。",
+                "WAI-FORMAT": "文章は返りましたが、項目の分割に失敗しました。"
+            };
+            throw new Error(`${messages[result.errorCode] ?? "下書き生成に失敗しました。"} 診断コード: ${result.errorCode}`);
+        }
         const requiredFields = ["title", "freeSection", "paidSection", "salesDescription", "snsPost", "reviewNotes"];
         if (requiredFields.some(field => typeof result[field] !== "string" || !result[field].trim())) {
             throw new Error("ライターAIの返答に空欄があります。");
@@ -1157,7 +1166,9 @@ document.getElementById("writer-generate").addEventListener("click", async () =>
         status.textContent = "下書きを作成しました。内容を確認して修正してください。";
         document.getElementById("writer-result").scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (error) {
-        status.textContent = "下書きを作成できませんでした。入力内容を確認して、もう一度試してください。";
+        status.textContent = error instanceof Error
+            ? error.message
+            : "下書きを作成できませんでした。";
         console.error(error);
     } finally {
         button.disabled = false;

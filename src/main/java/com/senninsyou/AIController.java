@@ -112,10 +112,14 @@ public class AIController {
         String price = cleanWriterInput(request.price(), "想定価格", 100, false);
         if (price.isBlank()) price = "未定";
 
-        String response = aiService.askWriter(
+        AIService.WriterAiResponse writerResponse = aiService.askWriter(
                 aiService.buildWriterPrompt(theme, audience, sourceNotes, price));
+        if (writerResponse.errorCode() != null) {
+            return writerError(writerResponse.errorCode());
+        }
+        String response = writerResponse.text();
         if (response == null || response.isBlank()) {
-            throw new IllegalStateException("ライターAIから有効な返答を受け取れませんでした。");
+            return writerError("WAI-EMPTY");
         }
         try {
             ObjectNode result = new ObjectMapper().createObjectNode();
@@ -134,8 +138,15 @@ public class AIController {
             }
             return result;
         } catch (Exception e) {
-            throw new IllegalStateException("ライターAIの返答形式が正しくありません。", e);
+            System.out.println("ライターAI診断: WAI-FORMAT");
+            return writerError("WAI-FORMAT");
         }
+    }
+
+    private ObjectNode writerError(String errorCode) {
+        ObjectNode result = new ObjectMapper().createObjectNode();
+        result.put("errorCode", errorCode);
+        return result;
     }
 
     private String writerSection(String response, String startMarker, String endMarker) {

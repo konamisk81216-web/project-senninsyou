@@ -226,10 +226,10 @@ public class AIService {
                 """.formatted(theme, audience, sourceNotes, price);
     }
 
-    public String askWriter(String prompt) {
+    public WriterAiResponse askWriter(String prompt) {
         if (client == null) {
             System.out.println("OpenAI APIを利用できません。");
-            return null;
+            return new WriterAiResponse(null, "WAI-CONFIG");
         }
         try {
             ResponseCreateParams params = ResponseCreateParams.builder()
@@ -245,12 +245,18 @@ public class AIService {
                     .map(outputText -> outputText.text())
                     .filter(text -> text != null && !text.isBlank())
                     .collect(Collectors.joining("\n"));
-            return combinedOutput.isBlank() ? null : combinedOutput;
+            if (combinedOutput.isBlank()) {
+                System.out.println("ライターAI診断: WAI-EMPTY");
+                return new WriterAiResponse(null, "WAI-EMPTY");
+            }
+            return new WriterAiResponse(combinedOutput, null);
         } catch (Exception e) {
-            System.out.println("ライターAIとの通信に失敗しました。");
-            return null;
+            System.out.println("ライターAI診断: WAI-API (" + e.getClass().getSimpleName() + ")");
+            return new WriterAiResponse(null, "WAI-API");
         }
     }
+
+    public record WriterAiResponse(String text, String errorCode) {}
 
     public String askGeneral(String prompt) {
 
