@@ -1143,6 +1143,10 @@ document.getElementById("writer-generate").addEventListener("click", async () =>
         });
         if (!response.ok) throw new Error(await response.text());
         const result = await response.json();
+        const requiredFields = ["title", "freeSection", "paidSection", "salesDescription", "snsPost", "reviewNotes"];
+        if (requiredFields.some(field => typeof result[field] !== "string" || !result[field].trim())) {
+            throw new Error("ライターAIの返答に空欄があります。");
+        }
         document.getElementById("writer-output-title").value = result.title ?? "";
         document.getElementById("writer-output-free").value = result.freeSection ?? "";
         document.getElementById("writer-output-paid").value = result.paidSection ?? "";

@@ -123,7 +123,9 @@ public class AIController {
             if (start < 0 || end <= start) throw new IllegalArgumentException("JSONを見つけられませんでした。");
             ObjectNode result = (ObjectNode) new ObjectMapper().readTree(response.substring(start, end + 1));
             for (String field : new String[]{"title", "freeSection", "paidSection", "salesDescription", "snsPost", "reviewNotes"}) {
-                if (!result.hasNonNull(field) || !result.get(field).isTextual()) {
+                if (!result.hasNonNull(field)
+                        || !result.get(field).isTextual()
+                        || result.get(field).asText().isBlank()) {
                     throw new IllegalArgumentException("必要な項目が不足しています。");
                 }
             }
