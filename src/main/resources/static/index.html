@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project 千人将 | ダッシュボード</title>
 
-    <link rel="stylesheet" href="/style.css?v=20260916-1">
+    <link rel="stylesheet" href="/style.css?v=20260916-2">
 </head>
 
 <body>
@@ -55,7 +55,7 @@
 
         <section class="page-panel" data-page-panel="note" hidden>
             <h2>📝 note販売の進行</h2>
-            <p>対象タスクの現在位置と次の作業を確認します。段階は手動更新で、公開・SNS投稿・売上登録は自動で行いません。</p>
+            <p>対象タスクの現在位置と次の作業を確認します。作業が終わったら確認して次の段階へ進めます。公開・SNS投稿・売上登録は自動で行いません。</p>
             <div class="note-workflow-panel">
                 <label for="note-task-select">対象タスク</label>
                 <select id="note-task-select"></select>
@@ -66,7 +66,8 @@
                     <p id="note-next-text"></p>
                 </div>
                 <div class="note-stage-controls">
-                    <label for="note-stage-select">現在の段階</label>
+                    <button id="note-stage-next" type="button">現在の段階を完了して次へ</button>
+                    <label for="note-stage-select">段階を手動で修正</label>
                     <select id="note-stage-select">
                         <option value="企画">企画</option>
                         <option value="制作">制作</option>
@@ -74,7 +75,7 @@
                         <option value="販売">販売</option>
                         <option value="実績">実績</option>
                     </select>
-                    <button id="note-stage-save" type="button">段階を保存</button>
+                    <button id="note-stage-save" type="button">修正を保存</button>
                     <p id="note-stage-message" role="status" aria-live="polite"></p>
                 </div>
                 <div class="note-related-grid">
@@ -357,7 +358,7 @@
         </section>
     </main>
 
-        <script src="/app.js?v=20260916-1"></script>
+        <script src="/app.js?v=20260916-2"></script>
 </body>
 
 </html>

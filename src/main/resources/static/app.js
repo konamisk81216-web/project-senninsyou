@@ -969,6 +969,7 @@ async function loadNoteWorkflow() {
             document.getElementById("note-stages").replaceChildren();
             document.getElementById("note-next-text").textContent = "タスク登録後に進行段階を管理できます。";
             document.getElementById("note-stage-save").disabled = true;
+            document.getElementById("note-stage-next").disabled = true;
             return;
         }
         taskSelect.value = String(selected.id);
@@ -990,6 +991,12 @@ function renderNoteWorkflow() {
     document.getElementById("note-task-status").textContent =
         `状態：${task.status}　担当：${task.assignedAgent ?? "未設定"}`;
     document.getElementById("note-stage-select").value = stage;
+    const nextButton = document.getElementById("note-stage-next");
+    const nextStage = noteStageNames[stageIndex + 1];
+    nextButton.disabled = !nextStage;
+    nextButton.textContent = nextStage
+        ? `「${stage}」を完了して「${nextStage}」へ進む`
+        : "最終段階です";
     document.getElementById("note-next-text").textContent = noteNextActions[stage];
     const stages = document.getElementById("note-stages");
     stages.replaceChildren();
@@ -1020,12 +1027,12 @@ function renderNoteWorkflow() {
 }
 
 document.getElementById("note-task-select").addEventListener("change", renderNoteWorkflow);
-document.getElementById("note-stage-save").addEventListener("click", async () => {
-    const taskId = Number(document.getElementById("note-task-select").value);
-    const stage = document.getElementById("note-stage-select").value;
-    const button = document.getElementById("note-stage-save");
+async function saveNoteStage(taskId, stage, successText) {
+    const saveButton = document.getElementById("note-stage-save");
+    const nextButton = document.getElementById("note-stage-next");
     const message = document.getElementById("note-stage-message");
-    button.disabled = true;
+    saveButton.disabled = true;
+    nextButton.disabled = true;
     message.textContent = "保存中...";
     try {
         const response = await fetch(`/api/tasks/${taskId}/note-stage`, {
@@ -1034,15 +1041,35 @@ document.getElementById("note-stage-save").addEventListener("click", async () =>
             body: JSON.stringify({ noteStage: stage })
         });
         if (!response.ok) throw new Error(await response.text());
-        noteWorkflowData.tasks.find(task => task.id === taskId).noteStage = stage;
+        const task = noteWorkflowData.tasks.find(item => item.id === taskId);
+        if (task) task.noteStage = stage;
         renderNoteWorkflow();
-        message.textContent = "進行段階を保存しました。";
+        message.textContent = successText;
     } catch (error) {
         message.textContent = "保存できませんでした。もう一度試してください。";
         console.error(error);
     } finally {
-        button.disabled = false;
+        saveButton.disabled = false;
+        renderNoteWorkflow();
     }
+}
+
+document.getElementById("note-stage-save").addEventListener("click", () => {
+    const taskId = Number(document.getElementById("note-task-select").value);
+    const stage = document.getElementById("note-stage-select").value;
+    saveNoteStage(taskId, stage, "進行段階を修正しました。");
+});
+
+document.getElementById("note-stage-next").addEventListener("click", () => {
+    const taskId = Number(document.getElementById("note-task-select").value);
+    const task = noteWorkflowData?.tasks.find(item => item.id === taskId);
+    if (!task) return;
+    const stage = noteStageNames.includes(task.noteStage) ? task.noteStage : "企画";
+    const nextStage = noteStageNames[noteStageNames.indexOf(stage) + 1];
+    if (!nextStage) return;
+    const confirmed = window.confirm(`「${stage}」の作業は完了しましたか？\nOKを押すと「${nextStage}」へ進みます。\n公開・SNS投稿・売上登録は自動では行いません。`);
+    if (!confirmed) return;
+    saveNoteStage(taskId, nextStage, `「${stage}」を完了し、「${nextStage}」へ進みました。`);
 });
 
 function renderAiResponse(container, data) {
