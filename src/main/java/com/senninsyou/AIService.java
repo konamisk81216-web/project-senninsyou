@@ -209,20 +209,44 @@ public class AIService {
                 ・煽り、誇大表現、必ず儲かる等の保証表現は使わないでください。
                 ・本文全体は日本語でおよそ1800〜2800文字を目安にしてください。
                 ・SNS投稿案はInstagram、TikTok、Xへ転用しやすい短文にしてください。自動投稿はしません。
-                ・JSONの全項目に完成した文章を必ず入れてください。空文字、項目名だけ、説明用の例文は返さないでください。
+                ・全項目に完成した文章を必ず入れてください。空欄、項目名だけ、説明用の例文は返さないでください。
                 ・材料が足りない箇所は空欄にせず、断定を避けた一般的な説明と「本人による追記・確認が必要」という注記を入れてください。
 
                 ===== 返答形式 =====
-                以下のJSONだけを返し、MarkdownのコードフェンスやJSON以外の文章を付けないでください。
-                {
-                  "title": "記事タイトル",
-                  "freeSection": "導入と無料公開部分",
-                  "paidSection": "有料部分の本文",
-                  "salesDescription": "販売ページ用の説明文",
-                  "snsPost": "SNS告知文案",
-                  "reviewNotes": "公開前に本人が確認すべき事実・権利・表現"
-                }
+                次の区切りを順番どおりに1回ずつ使い、それぞれの直後に完成した文章を入れてください。
+                [TITLE]
+                [FREE]
+                [PAID]
+                [SALES]
+                [SNS]
+                [REVIEW]
+                [END]
                 """.formatted(theme, audience, sourceNotes, price);
+    }
+
+    public String askWriter(String prompt) {
+        if (client == null) {
+            System.out.println("OpenAI APIを利用できません。");
+            return null;
+        }
+        try {
+            ResponseCreateParams params = ResponseCreateParams.builder()
+                    .input(prompt)
+                    .model(ChatModel.GPT_5_2)
+                    .maxOutputTokens(6000)
+                    .build();
+            Response response = client.responses().create(params);
+            return response.output().stream()
+                    .flatMap(item -> item.message().stream())
+                    .flatMap(message -> message.content().stream())
+                    .flatMap(content -> content.outputText().stream())
+                    .map(outputText -> outputText.text())
+                    .findFirst()
+                    .orElse(null);
+        } catch (Exception e) {
+            System.out.println("ライターAIとの通信に失敗しました。");
+            return null;
+        }
     }
 
     public String askGeneral(String prompt) {

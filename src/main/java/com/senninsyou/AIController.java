@@ -112,16 +112,19 @@ public class AIController {
         String price = cleanWriterInput(request.price(), "想定価格", 100, false);
         if (price.isBlank()) price = "未定";
 
-        String response = aiService.askGeneral(
+        String response = aiService.askWriter(
                 aiService.buildWriterPrompt(theme, audience, sourceNotes, price));
         if (response == null || response.isBlank()) {
             throw new IllegalStateException("ライターAIから有効な返答を受け取れませんでした。");
         }
         try {
-            int start = response.indexOf('{');
-            int end = response.lastIndexOf('}');
-            if (start < 0 || end <= start) throw new IllegalArgumentException("JSONを見つけられませんでした。");
-            ObjectNode result = (ObjectNode) new ObjectMapper().readTree(response.substring(start, end + 1));
+            ObjectNode result = new ObjectMapper().createObjectNode();
+            result.put("title", writerSection(response, "[TITLE]", "[FREE]"));
+            result.put("freeSection", writerSection(response, "[FREE]", "[PAID]"));
+            result.put("paidSection", writerSection(response, "[PAID]", "[SALES]"));
+            result.put("salesDescription", writerSection(response, "[SALES]", "[SNS]"));
+            result.put("snsPost", writerSection(response, "[SNS]", "[REVIEW]"));
+            result.put("reviewNotes", writerSection(response, "[REVIEW]", "[END]"));
             for (String field : new String[]{"title", "freeSection", "paidSection", "salesDescription", "snsPost", "reviewNotes"}) {
                 if (!result.hasNonNull(field)
                         || !result.get(field).isTextual()
@@ -133,6 +136,15 @@ public class AIController {
         } catch (Exception e) {
             throw new IllegalStateException("ライターAIの返答形式が正しくありません。", e);
         }
+    }
+
+    private String writerSection(String response, String startMarker, String endMarker) {
+        int start = response.indexOf(startMarker);
+        int end = response.indexOf(endMarker);
+        if (start < 0 || end <= start) {
+            throw new IllegalArgumentException("必要な区切りが不足しています。");
+        }
+        return response.substring(start + startMarker.length(), end).trim();
     }
 
     private String cleanWriterInput(String value, String label, int maxLength, boolean required) {
