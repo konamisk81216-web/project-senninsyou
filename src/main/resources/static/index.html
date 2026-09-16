@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project 千人将 | ダッシュボード</title>
 
-    <link rel="stylesheet" href="/style.css?v=20260916-3">
+    <link rel="stylesheet" href="/style.css?v=20260916-4">
 </head>
 
 <body>
@@ -61,6 +61,36 @@
                 <select id="note-task-select"></select>
                 <p id="note-task-status" role="status" aria-live="polite"></p>
                 <div id="note-stages" class="note-stages" aria-label="販売の進行段階"></div>
+                <section class="writer-panel" aria-labelledby="writer-title">
+                    <div class="writer-heading">
+                        <div>
+                            <p class="section-kicker">制作AI</p>
+                            <h3 id="writer-title">✍️ ライターAI</h3>
+                        </div>
+                        <span>下書き作成</span>
+                    </div>
+                    <p>材料を入力すると、note記事と販売・告知用の文章をまとめて作ります。公開や投稿は自動で行いません。</p>
+                    <div class="writer-input-grid">
+                        <label>記事のテーマ<input id="writer-theme" maxlength="200" placeholder="例：AIを使って事務作業を減らす方法"></label>
+                        <label>想定読者<input id="writer-audience" maxlength="300" placeholder="例：AI初心者の個人事業主"></label>
+                        <label>想定価格<input id="writer-price" maxlength="100" placeholder="例：500円、未定"></label>
+                    </div>
+                    <label>伝えたい内容・根拠・体験
+                        <textarea id="writer-source-notes" maxlength="4000" rows="6" placeholder="記事に入れたい手順、実体験、事実、避けたい表現など。実績や数字は確認できるものだけ入力してください。"></textarea>
+                    </label>
+                    <button id="writer-generate" type="button">記事の下書きを作る</button>
+                    <p id="writer-status" role="status" aria-live="polite"></p>
+                    <div id="writer-result" class="writer-result" hidden>
+                        <p class="writer-result-note">AIの下書きです。事実・権利・表現を確認し、必要な箇所を直接修正してください。</p>
+                        <label>タイトル<input id="writer-output-title" maxlength="300"></label>
+                        <label>無料公開部分<textarea id="writer-output-free" rows="10"></textarea></label>
+                        <label>有料部分<textarea id="writer-output-paid" rows="14"></textarea></label>
+                        <label>販売ページの説明<textarea id="writer-output-sales" rows="6"></textarea></label>
+                        <label>SNS投稿案<textarea id="writer-output-sns" rows="6"></textarea></label>
+                        <label>公開前の確認事項<textarea id="writer-output-review" rows="5"></textarea></label>
+                        <button id="writer-copy" type="button" class="secondary-button">全文をコピー</button>
+                    </div>
+                </section>
                 <div class="note-next-action">
                     <h3>次にやること</h3>
                     <p id="note-next-text"></p>
@@ -362,7 +392,7 @@
         </section>
     </main>
 
-        <script src="/app.js?v=20260916-3"></script>
+        <script src="/app.js?v=20260916-4"></script>
 </body>
 
 </html>

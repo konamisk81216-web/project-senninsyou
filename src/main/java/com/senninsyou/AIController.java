@@ -104,5 +104,46 @@ public class AIController {
         }
     }
 
+    @PostMapping("/writer")
+    public ObjectNode writer(@RequestBody WriterRequest request) {
+        String theme = cleanWriterInput(request.theme(), "テーマ", 200, true);
+        String audience = cleanWriterInput(request.audience(), "想定読者", 300, true);
+        String sourceNotes = cleanWriterInput(request.sourceNotes(), "伝えたい内容", 4000, true);
+        String price = cleanWriterInput(request.price(), "想定価格", 100, false);
+        if (price.isBlank()) price = "未定";
+
+        String response = aiService.askGeneral(
+                aiService.buildWriterPrompt(theme, audience, sourceNotes, price));
+        if (response == null || response.isBlank()) {
+            throw new IllegalStateException("ライターAIから有効な返答を受け取れませんでした。");
+        }
+        try {
+            int start = response.indexOf('{');
+            int end = response.lastIndexOf('}');
+            if (start < 0 || end <= start) throw new IllegalArgumentException("JSONを見つけられませんでした。");
+            ObjectNode result = (ObjectNode) new ObjectMapper().readTree(response.substring(start, end + 1));
+            for (String field : new String[]{"title", "freeSection", "paidSection", "salesDescription", "snsPost", "reviewNotes"}) {
+                if (!result.hasNonNull(field) || !result.get(field).isTextual()) {
+                    throw new IllegalArgumentException("必要な項目が不足しています。");
+                }
+            }
+            return result;
+        } catch (Exception e) {
+            throw new IllegalStateException("ライターAIの返答形式が正しくありません。", e);
+        }
+    }
+
+    private String cleanWriterInput(String value, String label, int maxLength, boolean required) {
+        String cleaned = value == null ? "" : value.trim();
+        if (required && cleaned.isBlank()) {
+            throw new IllegalArgumentException(label + "を入力してください。");
+        }
+        if (cleaned.length() > maxLength) {
+            throw new IllegalArgumentException(label + "が長すぎます。");
+        }
+        return cleaned;
+    }
+
     public record CommandRequest(String message, String history, String mode) {}
+    public record WriterRequest(String theme, String audience, String sourceNotes, String price) {}
 }

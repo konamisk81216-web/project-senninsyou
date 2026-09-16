@@ -616,6 +616,32 @@ button:hover {
 }
 .note-stage.passed { color: #9de9b2; border-color: #388d56; }
 .note-stage.current { color: #161616; background: #d9b13b; border-color: #d9b13b; font-weight: 700; }
+.writer-panel {
+    display: grid;
+    gap: 16px;
+    padding: 24px;
+    border: 1px solid #44444d;
+    border-radius: 12px;
+    background: #16161b;
+}
+.writer-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.writer-heading h3, .writer-heading p { margin: 0; }
+.writer-heading > span {
+    padding: 6px 10px;
+    border: 1px solid #705a19;
+    border-radius: 999px;
+    color: #e0bd49;
+    font-size: 14px;
+}
+.writer-input-grid { display: grid; grid-template-columns: 2fr 2fr 1fr; gap: 14px; }
+.writer-panel label { display: grid; gap: 8px; color: #e8e8ee; }
+.writer-panel input, .writer-panel textarea { width: 100%; }
+.writer-panel > button { justify-self: start; margin: 0; }
+#writer-status { min-height: 24px; margin: 0; color: #75f39d; }
+.writer-result { display: grid; gap: 16px; padding-top: 18px; border-top: 1px solid #3c3c44; }
+.writer-result-note { padding: 12px; border-radius: 8px; background: #242116; color: #e4d59b; }
+.writer-result textarea { min-height: 130px; resize: vertical; }
+.writer-result .secondary-button { justify-self: start; margin: 0; background: #28282e; color: #e8e8ee; border: 1px solid #51515c; }
 .note-next-action {
     padding: 16px;
     border-left: 4px solid #d9b13b;
@@ -654,6 +680,8 @@ button:hover {
 .note-workflow-links { display: flex; flex-wrap: wrap; gap: 12px; }
 @media (max-width: 720px) {
     .note-stages { grid-template-columns: 1fr; }
+    .writer-input-grid { grid-template-columns: 1fr; }
+    .writer-panel { padding: 16px; }
     .note-related-grid { grid-template-columns: 1fr; }
     .note-workflow-panel { padding: 16px; }
 }

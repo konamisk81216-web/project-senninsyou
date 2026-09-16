@@ -998,6 +998,8 @@ function renderNoteWorkflow() {
     const stageIndex = noteStageNames.indexOf(stage);
     document.getElementById("note-task-status").textContent =
         `状態：${task.status}　担当：${task.assignedAgent ?? "未設定"}`;
+    const writerTheme = document.getElementById("writer-theme");
+    if (!writerTheme.value.trim()) writerTheme.value = task.taskName;
     document.getElementById("note-stage-select").value = stage;
     const nextButton = document.getElementById("note-stage-next");
     const nextStage = noteStageNames[stageIndex + 1];
@@ -1087,6 +1089,9 @@ async function saveNoteStage(taskId, stage, successText) {
         if (task) task.noteStage = stage;
         renderNoteWorkflow();
         message.textContent = successText;
+        window.setTimeout(() => {
+            if (message.textContent === successText) message.textContent = "";
+        }, 5000);
     } catch (error) {
         message.textContent = "保存できませんでした。もう一度試してください。";
         console.error(error);
@@ -1112,6 +1117,70 @@ document.getElementById("note-stage-next").addEventListener("click", () => {
     const confirmed = window.confirm(`「${stage}」の作業は完了しましたか？\nOKを押すと「${nextStage}」へ進みます。\n公開・SNS投稿・売上登録は自動では行いません。`);
     if (!confirmed) return;
     saveNoteStage(taskId, nextStage, `「${stage}」を完了し、「${nextStage}」へ進みました。`);
+});
+
+document.getElementById("writer-generate").addEventListener("click", async () => {
+    const button = document.getElementById("writer-generate");
+    const status = document.getElementById("writer-status");
+    const payload = {
+        theme: document.getElementById("writer-theme").value.trim(),
+        audience: document.getElementById("writer-audience").value.trim(),
+        price: document.getElementById("writer-price").value.trim(),
+        sourceNotes: document.getElementById("writer-source-notes").value.trim()
+    };
+    if (!payload.theme || !payload.audience || !payload.sourceNotes) {
+        status.textContent = "テーマ・想定読者・伝えたい内容を入力してください。";
+        return;
+    }
+    button.disabled = true;
+    button.textContent = "ライターAIが執筆中...";
+    status.textContent = "下書きを作成しています。少しお待ちください。";
+    try {
+        const response = await fetch("/api/ai/writer", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error(await response.text());
+        const result = await response.json();
+        document.getElementById("writer-output-title").value = result.title ?? "";
+        document.getElementById("writer-output-free").value = result.freeSection ?? "";
+        document.getElementById("writer-output-paid").value = result.paidSection ?? "";
+        document.getElementById("writer-output-sales").value = result.salesDescription ?? "";
+        document.getElementById("writer-output-sns").value = result.snsPost ?? "";
+        document.getElementById("writer-output-review").value = result.reviewNotes ?? "";
+        document.getElementById("writer-result").hidden = false;
+        status.textContent = "下書きを作成しました。内容を確認して修正してください。";
+        document.getElementById("writer-result").scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (error) {
+        status.textContent = "下書きを作成できませんでした。入力内容を確認して、もう一度試してください。";
+        console.error(error);
+    } finally {
+        button.disabled = false;
+        button.textContent = "記事の下書きを作る";
+    }
+});
+
+document.getElementById("writer-copy").addEventListener("click", async () => {
+    const fullArticle = [
+        document.getElementById("writer-output-title").value,
+        document.getElementById("writer-output-free").value,
+        document.getElementById("writer-output-paid").value,
+        "販売ページの説明",
+        document.getElementById("writer-output-sales").value,
+        "SNS投稿案",
+        document.getElementById("writer-output-sns").value,
+        "公開前の確認事項",
+        document.getElementById("writer-output-review").value
+    ].join("\n\n");
+    const status = document.getElementById("writer-status");
+    try {
+        await navigator.clipboard.writeText(fullArticle);
+        status.textContent = "記事と関連文章をコピーしました。";
+    } catch (error) {
+        status.textContent = "コピーできませんでした。文章を選択してコピーしてください。";
+        console.error(error);
+    }
 });
 
 function renderAiResponse(container, data) {
