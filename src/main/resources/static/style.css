@@ -561,6 +561,28 @@ button:hover {
     margin-top: 12px;
 }
 
+.task-edit-form {
+    display: grid;
+    gap: 12px;
+    margin-top: 16px;
+    padding: 16px;
+    border: 1px solid #474751;
+    border-radius: 10px;
+    background: #1b1b20;
+}
+.task-edit-form label { display: grid; gap: 6px; color: #e2e2e8; }
+.task-edit-form input, .task-edit-form select {
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    color: #f5f5f5;
+    background: #151519;
+    border: 1px solid #474751;
+    border-radius: 8px;
+}
+.task-edit-form .task-actions { margin-top: 0; }
+
 .status-button,
 .delete-button {
     margin: 0;

@@ -9,12 +9,48 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.http.ResponseEntity;
 
 import java.util.Map;
 
 @RestController
 public class TaskController {
+
+    @PutMapping("/api/tasks/{id}")
+    public ResponseEntity<String> editTask(@PathVariable int id,
+            @RequestBody Map<String, String> taskData) {
+        String taskName = taskData.get("taskName");
+        String priority = taskData.get("priority");
+        String assignedAgent = taskData.get("assignedAgent");
+        if (id <= 0 || taskName == null || taskName.isBlank() || taskName.length() > 200
+                || priority == null || !List.of("高", "中", "低").contains(priority)
+                || assignedAgent == null || assignedAgent.length() > 100) {
+            return ResponseEntity.badRequest().body("タスク名・優先度・担当を確認してください。");
+        }
+        String databaseUrl = System.getenv("DATABASE_URL");
+        if (databaseUrl == null) {
+            return ResponseEntity.internalServerError().body("DATABASE_URLが設定されていません。");
+        }
+        URI dbUri = URI.create(databaseUrl);
+        String userInfo = dbUri.getUserInfo();
+        if (userInfo == null || !userInfo.contains(":")) {
+            return ResponseEntity.internalServerError().body("DATABASE_URLの形式が正しくありません。");
+        }
+        String[] credentials = userInfo.split(":", 2);
+        int port = dbUri.getPort() == -1 ? 5432 : dbUri.getPort();
+        String jdbcUrl = "jdbc:postgresql://" + dbUri.getHost() + ":" + port
+                + dbUri.getPath() + "?sslmode=require";
+        TaskRepository repository = new TaskRepository(jdbcUrl, credentials[0], credentials[1]);
+        try {
+            if (!repository.updateTask(id, taskName.trim(), priority, assignedAgent.trim())) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.ok("タスクを更新しました。");
+        } catch (IllegalStateException e) {
+            return ResponseEntity.internalServerError().body("タスク編集に失敗しました。");
+        }
+    }
 
     @GetMapping("/api/tasks")
     public List<Task> getTasks() {

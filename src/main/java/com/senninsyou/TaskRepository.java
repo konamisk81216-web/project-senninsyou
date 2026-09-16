@@ -198,4 +198,18 @@ public String getAllTasksAsText() {
         return false;
         }
     }
+    public boolean updateTask(int taskId, String taskName, String priority, String assignedAgent) {
+        String sql = "UPDATE tasks SET task_name = ?, priority = ?, assigned_agent = ? WHERE id = ?";
+        try (Connection connection = DriverManager.getConnection(jdbcUrl, user, password);
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, taskName);
+            statement.setString(2, priority);
+            statement.setString(3, assignedAgent);
+            statement.setInt(4, taskId);
+            return statement.executeUpdate() > 0;
+        } catch (Exception e) {
+            System.out.println("タスク編集に失敗しました。");
+            throw new IllegalStateException("タスク編集に失敗しました。", e);
+        }
+    }
 }

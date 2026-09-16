@@ -51,6 +51,74 @@ async function loadTasks() {
             const actions = document.createElement("div");
             actions.className = "task-actions";
 
+            const editButton = document.createElement("button");
+            editButton.className = "edit-button secondary-button";
+            editButton.type = "button";
+            editButton.textContent = "✎ 編集";
+            editButton.addEventListener("click", () => {
+                if (taskCard.querySelector(".task-edit-form")) return;
+                const form = document.createElement("form");
+                form.className = "task-edit-form";
+                const nameLabel = document.createElement("label");
+                nameLabel.textContent = "タスク名";
+                const nameInput = document.createElement("input");
+                nameInput.required = true;
+                nameInput.maxLength = 200;
+                nameInput.value = task.taskName;
+                nameLabel.appendChild(nameInput);
+
+                const priorityLabel = document.createElement("label");
+                priorityLabel.textContent = "優先度";
+                const prioritySelect = document.createElement("select");
+                for (const value of ["高", "中", "低"]) {
+                    const option = document.createElement("option");
+                    option.value = value;
+                    option.textContent = value;
+                    prioritySelect.appendChild(option);
+                }
+                prioritySelect.value = task.priority;
+                priorityLabel.appendChild(prioritySelect);
+
+                const agentLabel = document.createElement("label");
+                agentLabel.textContent = "担当";
+                const agentInput = document.createElement("input");
+                agentInput.maxLength = 100;
+                agentInput.value = task.assignedAgent ?? "";
+                agentLabel.appendChild(agentInput);
+
+                const formActions = document.createElement("div");
+                formActions.className = "task-actions";
+                const saveButton = document.createElement("button");
+                saveButton.type = "submit";
+                saveButton.textContent = "変更を保存";
+                const cancelButton = document.createElement("button");
+                cancelButton.type = "button";
+                cancelButton.className = "secondary-button";
+                cancelButton.textContent = "キャンセル";
+                cancelButton.addEventListener("click", () => form.remove());
+                formActions.append(saveButton, cancelButton);
+                form.append(nameLabel, priorityLabel, agentLabel, formActions);
+                form.addEventListener("submit", async event => {
+                    event.preventDefault();
+                    saveButton.disabled = true;
+                    try {
+                        await updateTask(task.id, {
+                            taskName: nameInput.value.trim(),
+                            priority: prioritySelect.value,
+                            assignedAgent: agentInput.value.trim()
+                        });
+                        await loadTasks();
+                    } catch (error) {
+                        alert("タスクの変更を保存できませんでした。");
+                        console.error(error);
+                        saveButton.disabled = false;
+                    }
+                });
+                taskCard.insertBefore(form, actions);
+                nameInput.focus();
+            });
+            actions.appendChild(editButton);
+
             const nextStatus = getNextStatus(task.status);
 
             if (nextStatus !== null) {
@@ -177,6 +245,15 @@ async function updateTaskStatus(taskId, status) {
     if (!response.ok) {
         throw new Error(await response.text());
     }
+}
+
+async function updateTask(taskId, changes) {
+    const response = await fetch(`/api/tasks/${taskId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(changes)
+    });
+    if (!response.ok) throw new Error(await response.text());
 }
 
 async function deleteTask(taskId) {
