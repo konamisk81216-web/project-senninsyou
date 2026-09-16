@@ -112,16 +112,13 @@ public class AIController {
         String price = cleanWriterInput(request.price(), "想定価格", 100, false);
         if (price.isBlank()) price = "未定";
 
-        String response = aiService.askGeneral(
+        AIService.WriterDraft draft = aiService.askWriter(
                 aiService.buildWriterPrompt(theme, audience, sourceNotes, price));
-        if (response == null || response.isBlank()) {
+        if (draft == null) {
             throw new IllegalStateException("ライターAIから有効な返答を受け取れませんでした。");
         }
         try {
-            int start = response.indexOf('{');
-            int end = response.lastIndexOf('}');
-            if (start < 0 || end <= start) throw new IllegalArgumentException("JSONを見つけられませんでした。");
-            ObjectNode result = (ObjectNode) new ObjectMapper().readTree(response.substring(start, end + 1));
+            ObjectNode result = new ObjectMapper().valueToTree(draft);
             for (String field : new String[]{"title", "freeSection", "paidSection", "salesDescription", "snsPost", "reviewNotes"}) {
                 if (!result.hasNonNull(field)
                         || !result.get(field).isTextual()

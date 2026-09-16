@@ -10,9 +10,20 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.models.ChatModel;
 import com.openai.models.responses.Response;
 import com.openai.models.responses.ResponseCreateParams;
+import com.openai.models.responses.StructuredResponse;
+import com.openai.models.responses.StructuredResponseCreateParams;
 
 
 public class AIService {
+
+    public static class WriterDraft {
+        public String title;
+        public String freeSection;
+        public String paidSection;
+        public String salesDescription;
+        public String snsPost;
+        public String reviewNotes;
+    }
 
     private String apiKey;
     private OpenAIClient client;
@@ -223,6 +234,30 @@ public class AIService {
                   "reviewNotes": "公開前に本人が確認すべき事実・権利・表現"
                 }
                 """.formatted(theme, audience, sourceNotes, price);
+    }
+
+    public WriterDraft askWriter(String prompt) {
+        if (client == null) {
+            System.out.println("OpenAI APIを利用できません。");
+            return null;
+        }
+        try {
+            StructuredResponseCreateParams<WriterDraft> params = ResponseCreateParams.builder()
+                    .input(prompt)
+                    .text(WriterDraft.class)
+                    .model(ChatModel.GPT_5_2)
+                    .build();
+            StructuredResponse<WriterDraft> response = client.responses().create(params);
+            return response.output().stream()
+                    .flatMap(item -> item.message().stream())
+                    .flatMap(message -> message.content().stream())
+                    .flatMap(content -> content.outputText().stream())
+                    .findFirst()
+                    .orElse(null);
+        } catch (Exception e) {
+            System.out.println("ライターAIとの通信に失敗しました。");
+            return null;
+        }
     }
 
     public String askGeneral(String prompt) {
