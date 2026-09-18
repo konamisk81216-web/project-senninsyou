@@ -75,6 +75,16 @@
                         <label>想定読者<input id="writer-audience" maxlength="300" placeholder="例：AI初心者の個人事業主"></label>
                         <label>想定価格<input id="writer-price" maxlength="100" placeholder="例：500円、未定"></label>
                     </div>
+                    <div class="writer-interview">
+                        <h4>軍師AI（何を書けば読まれるかを考える）</h4>
+                        <p class="writer-interview-note">テーマと想定読者から、読者の需要と切り口を分析し、「伝えたい内容」の下書きを作ります。最新の市場データは参照できないため、確かめるべき仮説として出します。</p>
+                        <button id="writer-research-start" type="button" class="secondary-button">AIに材料を用意してもらう</button>
+                        <p id="writer-research-status" role="status" aria-live="polite"></p>
+                        <div id="writer-research-result" hidden>
+                            <label>読者が知りたいこと（仮説）<textarea id="writer-output-demand" rows="8"></textarea></label>
+                            <label>差別化の切り口<textarea id="writer-output-angle" rows="8"></textarea></label>
+                        </div>
+                    </div>
                     <label>伝えたい内容・根拠・体験
                         <textarea id="writer-source-notes" maxlength="4000" rows="6" placeholder="記事に入れたい手順、実体験、事実、避けたい表現など。実績や数字は確認できるものだけ入力してください。"></textarea>
                     </label>
@@ -411,7 +421,7 @@
         </section>
     </main>
 
-        <script src="/app.js?v=20260918-4"></script>
+        <script src="/app.js?v=20260918-5"></script>
 </body>
 
 </html>

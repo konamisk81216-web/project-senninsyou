@@ -649,7 +649,8 @@ button:hover {
 .writer-marketing h4 { margin: 0; color: #e0bd49; }
 .writer-marketing > button { justify-self: start; }
 #writer-marketing-status { min-height: 22px; margin: 0; color: #75f39d; }
-#writer-marketing-result { display: grid; gap: 16px; }
+#writer-marketing-result, #writer-research-result { display: grid; gap: 16px; }
+#writer-research-status { min-height: 22px; margin: 0; color: #75f39d; }
 #writer-status { min-height: 24px; margin: 0; color: #75f39d; }
 .writer-result { display: grid; gap: 16px; padding-top: 18px; border-top: 1px solid #3c3c44; }
 .writer-result-note { padding: 12px; border-radius: 8px; background: #242116; color: #e4d59b; }

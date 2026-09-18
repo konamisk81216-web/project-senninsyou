@@ -17,7 +17,7 @@ public class AIController {
     // [TITLES]を[TITLE]より先に置く。短い方から消すと[TITLES]が壊れる。
     private static final String[] WRITER_MARKERS = {
             "[TITLES]", "[TITLE]", "[FREE]", "[PAID]", "[SALES]", "[SNS]", "[REVIEW]",
-            "[PRICE]", "[PLAN]", "[METRICS]", "[END]"};
+            "[PRICE]", "[PLAN]", "[METRICS]", "[DEMAND]", "[ANGLE]", "[MATERIAL]", "[END]"};
 
     private final AIService aiService = new AIService();
     private final TaskRepository repository;
@@ -110,6 +110,38 @@ public class AIController {
             return result.toString();
         } catch (Exception e) {
             throw new IllegalStateException("AI将軍の返答形式が正しくありません。", e);
+        }
+    }
+
+    @PostMapping("/writer/research")
+    public Map<String, String> writerResearch(@RequestBody InterviewRequest request) {
+        String theme = cleanWriterInput(request.theme(), "テーマ", 200, true);
+        String audience = cleanWriterInput(request.audience(), "想定読者", 300, true);
+        String sourceNotes = cleanWriterInput(request.sourceNotes(), "伝えたい内容", 4000, false);
+
+        AIService.WriterAiResponse aiResponse = aiService.askWriter(
+                aiService.buildResearchPrompt(theme, audience, sourceNotes));
+        if (aiResponse.errorCode() != null) {
+            return writerError(aiResponse.errorCode());
+        }
+        String response = aiResponse.text();
+        if (response == null || response.isBlank()) {
+            return writerError("WAI-EMPTY");
+        }
+        try {
+            Map<String, String> result = new LinkedHashMap<>();
+            result.put("demand", writerSection(response, "[DEMAND]", "[ANGLE]"));
+            result.put("angle", writerSection(response, "[ANGLE]", "[MATERIAL]"));
+            result.put("material", writerLastSection(response, "[MATERIAL]", "[END]"));
+            for (String value : result.values()) {
+                if (value == null || value.isBlank()) {
+                    throw new IllegalArgumentException("必要な項目が不足しています。");
+                }
+            }
+            return result;
+        } catch (Exception e) {
+            System.out.println("軍師AI診断: WAI-FORMAT");
+            return writerError("WAI-FORMAT");
         }
     }
 

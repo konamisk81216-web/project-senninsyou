@@ -1134,6 +1134,17 @@ const marketingOutputIds = {
     promotionPlan: "writer-output-plan",
     metrics: "writer-output-metrics"
 };
+const researchOutputIds = {
+    demand: "writer-output-demand",
+    angle: "writer-output-angle"
+};
+const writerInputIds = {
+    theme: "writer-theme",
+    audience: "writer-audience",
+    price: "writer-price",
+    sourceNotes: "writer-source-notes"
+};
+const writerSavedIds = { ...writerInputIds, ...writerOutputIds, ...marketingOutputIds, ...researchOutputIds };
 
 const writerInterviewQuestions = document.getElementById("writer-interview-questions");
 
@@ -1167,7 +1178,7 @@ function buildInterviewNotes() {
 
 function saveWriterDraft() {
     const draft = { savedAt: new Date().toISOString(), interview: collectInterviewAnswers() };
-    for (const [field, id] of Object.entries({ ...writerOutputIds, ...marketingOutputIds })) {
+    for (const [field, id] of Object.entries(writerSavedIds)) {
         draft[field] = document.getElementById(id).value;
     }
     try {
@@ -1191,20 +1202,77 @@ function restoreWriterDraft() {
             field.value = draft.interview[index].answer ?? "";
         });
     }
-    for (const [field, id] of Object.entries({ ...writerOutputIds, ...marketingOutputIds })) {
+    for (const [field, id] of Object.entries(writerSavedIds)) {
         document.getElementById(id).value = draft[field] ?? "";
     }
-    document.getElementById("writer-result").hidden = false;
-    document.getElementById("writer-marketing-result").hidden =
-        !Object.keys(marketingOutputIds).some(field => (draft[field] ?? "").trim());
-    document.getElementById("writer-status").textContent =
-        `前回の下書きを表示しています（${new Date(draft.savedAt).toLocaleString("ja-JP")}）。`;
+    const hasSection = ids => Object.keys(ids).some(field => (draft[field] ?? "").trim());
+    document.getElementById("writer-result").hidden = !hasSection(writerOutputIds);
+    document.getElementById("writer-marketing-result").hidden = !hasSection(marketingOutputIds);
+    document.getElementById("writer-research-result").hidden = !hasSection(researchOutputIds);
+    if (hasSection(writerOutputIds)) {
+        document.getElementById("writer-status").textContent =
+            `前回の下書きを表示しています（${new Date(draft.savedAt).toLocaleString("ja-JP")}）。`;
+    }
 }
 
-Object.values({ ...writerOutputIds, ...marketingOutputIds }).forEach(id => {
+Object.values(writerSavedIds).forEach(id => {
     document.getElementById(id).addEventListener("input", saveWriterDraft);
 });
 restoreWriterDraft();
+
+document.getElementById("writer-research-start").addEventListener("click", async () => {
+    const button = document.getElementById("writer-research-start");
+    const status = document.getElementById("writer-research-status");
+    const sourceNotes = document.getElementById("writer-source-notes");
+    const payload = {
+        theme: document.getElementById("writer-theme").value.trim(),
+        audience: document.getElementById("writer-audience").value.trim(),
+        sourceNotes: sourceNotes.value.trim()
+    };
+    if (!payload.theme || !payload.audience) {
+        status.textContent = "テーマと想定読者を入力してください。";
+        return;
+    }
+    button.disabled = true;
+    button.textContent = "軍師AIが分析中...";
+    const startedAt = Date.now();
+    const showElapsed = () => {
+        const seconds = Math.floor((Date.now() - startedAt) / 1000);
+        status.textContent = `需要と切り口を分析しています。${seconds}秒経過。`;
+    };
+    showElapsed();
+    const elapsedTimer = setInterval(showElapsed, 1000);
+    try {
+        const response = await fetch("/api/ai/writer/research", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error(await response.text());
+        const result = await response.json();
+        if (result.errorCode) {
+            throw new Error(`材料を用意できませんでした。診断コード: ${result.errorCode}`);
+        }
+        for (const [field, id] of Object.entries(researchOutputIds)) {
+            document.getElementById(id).value = result[field] ?? "";
+        }
+        document.getElementById("writer-research-result").hidden = false;
+        const material = result.material ?? "";
+        if (!sourceNotes.value.trim()
+            || window.confirm("「伝えたい内容」をAIの下書きで置き換えますか？\nキャンセルすると、今の内容はそのまま残ります。")) {
+            sourceNotes.value = material;
+        }
+        saveWriterDraft();
+        status.textContent = "材料を用意しました。空欄の項目をあなたの事実で埋めてください。";
+    } catch (error) {
+        status.textContent = error instanceof Error ? error.message : "材料を用意できませんでした。";
+        console.error(error);
+    } finally {
+        clearInterval(elapsedTimer);
+        button.disabled = false;
+        button.textContent = "AIに材料を用意してもらう";
+    }
+});
 
 document.getElementById("writer-marketing-start").addEventListener("click", async () => {
     const button = document.getElementById("writer-marketing-start");
