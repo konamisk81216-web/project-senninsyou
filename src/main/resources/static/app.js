@@ -1153,8 +1153,9 @@ document.getElementById("writer-generate").addEventListener("click", async () =>
             throw new Error(`${messages[result.errorCode] ?? "下書き生成に失敗しました。"} 診断コード: ${result.errorCode}`);
         }
         const requiredFields = ["title", "freeSection", "paidSection", "salesDescription", "snsPost", "reviewNotes"];
-        if (requiredFields.some(field => typeof result[field] !== "string" || !result[field].trim())) {
-            throw new Error("ライターAIの返答に空欄があります。");
+        const emptyFields = requiredFields.filter(field => typeof result[field] !== "string" || !result[field].trim());
+        if (emptyFields.length > 0) {
+            throw new Error(`ライターAIの返答に空欄があります。項目: ${emptyFields.join("、")}`);
         }
         document.getElementById("writer-output-title").value = result.title ?? "";
         document.getElementById("writer-output-free").value = result.freeSection ?? "";
