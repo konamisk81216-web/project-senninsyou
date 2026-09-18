@@ -1,7 +1,9 @@
 package com.senninsyou;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -12,8 +14,10 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/ai")
 public class AIController {
 
-    private static final String[] WRITER_MARKERS =
-            {"[TITLE]", "[FREE]", "[PAID]", "[SALES]", "[SNS]", "[REVIEW]", "[END]"};
+    // [TITLES]を[TITLE]より先に置く。短い方から消すと[TITLES]が壊れる。
+    private static final String[] WRITER_MARKERS = {
+            "[TITLES]", "[TITLE]", "[FREE]", "[PAID]", "[SALES]", "[SNS]", "[REVIEW]",
+            "[PRICE]", "[PLAN]", "[METRICS]", "[END]"};
 
     private final AIService aiService = new AIService();
     private final TaskRepository repository;
@@ -109,16 +113,57 @@ public class AIController {
         }
     }
 
+    @PostMapping("/writer/interview")
+    public Map<String, Object> writerInterview(@RequestBody InterviewRequest request) {
+        String theme = cleanWriterInput(request.theme(), "テーマ", 200, true);
+        String audience = cleanWriterInput(request.audience(), "想定読者", 300, true);
+        String sourceNotes = cleanWriterInput(request.sourceNotes(), "伝えたい内容", 4000, false);
+
+        AIService.WriterAiResponse aiResponse = aiService.askWriter(
+                aiService.buildInterviewPrompt(theme, audience, sourceNotes));
+        if (aiResponse.errorCode() != null) {
+            return Map.of("errorCode", aiResponse.errorCode());
+        }
+        List<String> questions = parseInterviewQuestions(aiResponse.text());
+        if (questions.isEmpty()) {
+            System.out.println("ライターAI診断: WAI-FORMAT（取材）");
+            return Map.of("errorCode", "WAI-FORMAT");
+        }
+        return Map.of("questions", questions);
+    }
+
+    private List<String> parseInterviewQuestions(String text) {
+        List<String> questions = new ArrayList<>();
+        if (text == null) {
+            return questions;
+        }
+        for (String line : text.split("\n")) {
+            String trimmed = line.trim();
+            if (!trimmed.startsWith("[Q]")) {
+                continue;
+            }
+            String question = trimmed.substring("[Q]".length()).trim();
+            if (!question.isBlank()) {
+                questions.add(question);
+            }
+            if (questions.size() == 5) {
+                break;
+            }
+        }
+        return questions;
+    }
+
     @PostMapping("/writer")
     public Map<String, String> writer(@RequestBody WriterRequest request) {
         String theme = cleanWriterInput(request.theme(), "テーマ", 200, true);
         String audience = cleanWriterInput(request.audience(), "想定読者", 300, true);
         String sourceNotes = cleanWriterInput(request.sourceNotes(), "伝えたい内容", 4000, true);
         String price = cleanWriterInput(request.price(), "想定価格", 100, false);
+        String interviewNotes = cleanWriterInput(request.interviewNotes(), "取材メモ", 6000, false);
         if (price.isBlank()) price = "未定";
 
         AIService.WriterAiResponse writerResponse = aiService.askWriter(
-                aiService.buildWriterPrompt(theme, audience, sourceNotes, price));
+                aiService.buildWriterPrompt(theme, audience, sourceNotes, price, interviewNotes));
         if (writerResponse.errorCode() != null) {
             return writerError(writerResponse.errorCode());
         }
@@ -142,6 +187,47 @@ public class AIController {
             return result;
         } catch (Exception e) {
             System.out.println("ライターAI診断: WAI-FORMAT");
+            return writerError("WAI-FORMAT");
+        }
+    }
+
+    @PostMapping("/writer/marketing")
+    public Map<String, String> writerMarketing(@RequestBody MarketingRequest request) {
+        String theme = cleanWriterInput(request.theme(), "テーマ", 200, true);
+        String audience = cleanWriterInput(request.audience(), "想定読者", 300, true);
+        String title = cleanWriterInput(request.title(), "タイトル", 300, true);
+        String freeSection = cleanWriterInput(request.freeSection(), "無料部分", 4000, true);
+        String paidSection = cleanWriterInput(request.paidSection(), "有料部分", 8000, false);
+        String price = cleanWriterInput(request.price(), "想定価格", 100, false);
+        if (price.isBlank()) price = "未定";
+        if (paidSection.length() > 2000) {
+            paidSection = paidSection.substring(0, 2000);
+        }
+
+        AIService.WriterAiResponse aiResponse = aiService.askWriter(
+                aiService.buildMarketingPrompt(
+                        theme, audience, price, title, freeSection, paidSection));
+        if (aiResponse.errorCode() != null) {
+            return writerError(aiResponse.errorCode());
+        }
+        String response = aiResponse.text();
+        if (response == null || response.isBlank()) {
+            return writerError("WAI-EMPTY");
+        }
+        try {
+            Map<String, String> result = new LinkedHashMap<>();
+            result.put("titleIdeas", writerSection(response, "[TITLES]", "[PRICE]"));
+            result.put("priceAdvice", writerSection(response, "[PRICE]", "[PLAN]"));
+            result.put("promotionPlan", writerSection(response, "[PLAN]", "[METRICS]"));
+            result.put("metrics", writerLastSection(response, "[METRICS]", "[END]"));
+            for (String value : result.values()) {
+                if (value == null || value.isBlank()) {
+                    throw new IllegalArgumentException("必要な項目が不足しています。");
+                }
+            }
+            return result;
+        } catch (Exception e) {
+            System.out.println("営業AI診断: WAI-FORMAT");
             return writerError("WAI-FORMAT");
         }
     }
@@ -195,5 +281,10 @@ public class AIController {
     }
 
     public record CommandRequest(String message, String history, String mode) {}
-    public record WriterRequest(String theme, String audience, String sourceNotes, String price) {}
+    public record InterviewRequest(String theme, String audience, String sourceNotes) {}
+    public record MarketingRequest(
+            String theme, String audience, String price,
+            String title, String freeSection, String paidSection) {}
+    public record WriterRequest(
+            String theme, String audience, String sourceNotes, String price, String interviewNotes) {}
 }

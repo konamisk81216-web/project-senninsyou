@@ -1128,10 +1128,46 @@ const writerOutputIds = {
     snsPost: "writer-output-sns",
     reviewNotes: "writer-output-review"
 };
+const marketingOutputIds = {
+    titleIdeas: "writer-output-titles",
+    priceAdvice: "writer-output-price",
+    promotionPlan: "writer-output-plan",
+    metrics: "writer-output-metrics"
+};
+
+const writerInterviewQuestions = document.getElementById("writer-interview-questions");
+
+function renderInterviewQuestions(questions) {
+    writerInterviewQuestions.replaceChildren();
+    questions.forEach(question => {
+        const label = document.createElement("label");
+        label.textContent = question;
+        const answer = document.createElement("textarea");
+        answer.rows = 3;
+        answer.maxLength = 1000;
+        answer.dataset.interviewQuestion = question;
+        answer.addEventListener("input", saveWriterDraft);
+        label.appendChild(answer);
+        writerInterviewQuestions.appendChild(label);
+    });
+    writerInterviewQuestions.hidden = questions.length === 0;
+}
+
+function collectInterviewAnswers() {
+    return [...writerInterviewQuestions.querySelectorAll("textarea")]
+        .map(field => ({ question: field.dataset.interviewQuestion, answer: field.value }));
+}
+
+function buildInterviewNotes() {
+    return collectInterviewAnswers()
+        .filter(item => item.answer.trim())
+        .map(item => `質問：${item.question}\n回答：${item.answer.trim()}`)
+        .join("\n\n");
+}
 
 function saveWriterDraft() {
-    const draft = { savedAt: new Date().toISOString() };
-    for (const [field, id] of Object.entries(writerOutputIds)) {
+    const draft = { savedAt: new Date().toISOString(), interview: collectInterviewAnswers() };
+    for (const [field, id] of Object.entries({ ...writerOutputIds, ...marketingOutputIds })) {
         draft[field] = document.getElementById(id).value;
     }
     try {
@@ -1149,18 +1185,123 @@ function restoreWriterDraft() {
         return;
     }
     if (!draft) return;
-    for (const [field, id] of Object.entries(writerOutputIds)) {
+    if (Array.isArray(draft.interview) && draft.interview.length > 0) {
+        renderInterviewQuestions(draft.interview.map(item => item.question));
+        [...writerInterviewQuestions.querySelectorAll("textarea")].forEach((field, index) => {
+            field.value = draft.interview[index].answer ?? "";
+        });
+    }
+    for (const [field, id] of Object.entries({ ...writerOutputIds, ...marketingOutputIds })) {
         document.getElementById(id).value = draft[field] ?? "";
     }
     document.getElementById("writer-result").hidden = false;
+    document.getElementById("writer-marketing-result").hidden =
+        !Object.keys(marketingOutputIds).some(field => (draft[field] ?? "").trim());
     document.getElementById("writer-status").textContent =
         `前回の下書きを表示しています（${new Date(draft.savedAt).toLocaleString("ja-JP")}）。`;
 }
 
-Object.values(writerOutputIds).forEach(id => {
+Object.values({ ...writerOutputIds, ...marketingOutputIds }).forEach(id => {
     document.getElementById(id).addEventListener("input", saveWriterDraft);
 });
 restoreWriterDraft();
+
+document.getElementById("writer-marketing-start").addEventListener("click", async () => {
+    const button = document.getElementById("writer-marketing-start");
+    const status = document.getElementById("writer-marketing-status");
+    const payload = {
+        theme: document.getElementById("writer-theme").value.trim(),
+        audience: document.getElementById("writer-audience").value.trim(),
+        price: document.getElementById("writer-price").value.trim(),
+        title: document.getElementById("writer-output-title").value.trim(),
+        freeSection: document.getElementById("writer-output-free").value.trim(),
+        paidSection: document.getElementById("writer-output-paid").value.trim()
+    };
+    if (!payload.title || !payload.freeSection) {
+        status.textContent = "先に記事の下書きを作ってください。";
+        return;
+    }
+    if (!payload.theme || !payload.audience) {
+        status.textContent = "テーマと想定読者を入力してください。";
+        return;
+    }
+    button.disabled = true;
+    button.textContent = "営業AIが作成中...";
+    const startedAt = Date.now();
+    const showElapsed = () => {
+        const seconds = Math.floor((Date.now() - startedAt) / 1000);
+        status.textContent = `販売戦略を作成しています。${seconds}秒経過。`;
+    };
+    showElapsed();
+    const elapsedTimer = setInterval(showElapsed, 1000);
+    try {
+        const response = await fetch("/api/ai/writer/marketing", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error(await response.text());
+        const result = await response.json();
+        if (result.errorCode) {
+            throw new Error(`販売戦略を作れませんでした。診断コード: ${result.errorCode}`);
+        }
+        for (const [field, id] of Object.entries(marketingOutputIds)) {
+            document.getElementById(id).value = result[field] ?? "";
+        }
+        document.getElementById("writer-marketing-result").hidden = false;
+        saveWriterDraft();
+        status.textContent = "販売戦略を作成しました。実行するかどうかはご自身で判断してください。";
+    } catch (error) {
+        status.textContent = error instanceof Error ? error.message : "販売戦略を作れませんでした。";
+        console.error(error);
+    } finally {
+        clearInterval(elapsedTimer);
+        button.disabled = false;
+        button.textContent = "販売戦略を作る";
+    }
+});
+
+document.getElementById("writer-interview-start").addEventListener("click", async () => {
+    const button = document.getElementById("writer-interview-start");
+    const status = document.getElementById("writer-interview-status");
+    const payload = {
+        theme: document.getElementById("writer-theme").value.trim(),
+        audience: document.getElementById("writer-audience").value.trim(),
+        sourceNotes: document.getElementById("writer-source-notes").value.trim()
+    };
+    if (!payload.theme || !payload.audience) {
+        status.textContent = "テーマと想定読者を入力してください。";
+        return;
+    }
+    if (writerInterviewQuestions.querySelector("textarea")
+        && !window.confirm("質問を作り直すと、今の回答は消えます。続けますか？")) {
+        return;
+    }
+    button.disabled = true;
+    button.textContent = "質問を考えています...";
+    status.textContent = "AIが質問を考えています。";
+    try {
+        const response = await fetch("/api/ai/writer/interview", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error(await response.text());
+        const result = await response.json();
+        if (result.errorCode) {
+            throw new Error(`質問を作れませんでした。診断コード: ${result.errorCode}`);
+        }
+        renderInterviewQuestions(result.questions ?? []);
+        saveWriterDraft();
+        status.textContent = "答えられる範囲で入力してください。空欄のままでも下書きは作れます。";
+    } catch (error) {
+        status.textContent = error instanceof Error ? error.message : "質問を作れませんでした。";
+        console.error(error);
+    } finally {
+        button.disabled = false;
+        button.textContent = "AIに質問してもらう";
+    }
+});
 
 document.getElementById("writer-generate").addEventListener("click", async () => {
     const button = document.getElementById("writer-generate");
@@ -1169,7 +1310,8 @@ document.getElementById("writer-generate").addEventListener("click", async () =>
         theme: document.getElementById("writer-theme").value.trim(),
         audience: document.getElementById("writer-audience").value.trim(),
         price: document.getElementById("writer-price").value.trim(),
-        sourceNotes: document.getElementById("writer-source-notes").value.trim()
+        sourceNotes: document.getElementById("writer-source-notes").value.trim(),
+        interviewNotes: buildInterviewNotes()
     };
     if (!payload.theme || !payload.audience || !payload.sourceNotes) {
         status.textContent = "テーマ・想定読者・伝えたい内容を入力してください。";

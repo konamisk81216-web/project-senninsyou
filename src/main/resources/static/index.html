@@ -78,6 +78,13 @@
                     <label>伝えたい内容・根拠・体験
                         <textarea id="writer-source-notes" maxlength="4000" rows="6" placeholder="記事に入れたい手順、実体験、事実、避けたい表現など。実績や数字は確認できるものだけ入力してください。"></textarea>
                     </label>
+                    <div class="writer-interview">
+                        <h4>取材（あなたにしか書けない記事にする）</h4>
+                        <p class="writer-interview-note">AIが質問します。答えた体験や数字が記事の中心になります。答えられる範囲で構いません。</p>
+                        <button id="writer-interview-start" type="button" class="secondary-button">AIに質問してもらう</button>
+                        <p id="writer-interview-status" role="status" aria-live="polite"></p>
+                        <div id="writer-interview-questions" class="writer-interview-questions" hidden></div>
+                    </div>
                     <button id="writer-generate" type="button">記事の下書きを作る</button>
                     <p id="writer-status" role="status" aria-live="polite"></p>
                     <div id="writer-result" class="writer-result" hidden>
@@ -89,6 +96,18 @@
                         <label>SNS投稿案<textarea id="writer-output-sns" rows="6"></textarea></label>
                         <label>公開前の確認事項<textarea id="writer-output-review" rows="5"></textarea></label>
                         <button id="writer-copy" type="button" class="secondary-button">全文をコピー</button>
+                        <div class="writer-marketing">
+                            <h4>営業AI（売るための戦略）</h4>
+                            <p class="writer-interview-note">この下書きをもとに、タイトル案・価格・告知計画・見る数字を作ります。投稿や販売は自動で行いません。</p>
+                            <button id="writer-marketing-start" type="button" class="secondary-button">販売戦略を作る</button>
+                            <p id="writer-marketing-status" role="status" aria-live="polite"></p>
+                            <div id="writer-marketing-result" hidden>
+                                <label>タイトル案<textarea id="writer-output-titles" rows="6"></textarea></label>
+                                <label>価格の判断<textarea id="writer-output-price" rows="5"></textarea></label>
+                                <label>告知計画（公開日から2週間）<textarea id="writer-output-plan" rows="12"></textarea></label>
+                                <label>公開後に見る数字<textarea id="writer-output-metrics" rows="6"></textarea></label>
+                            </div>
+                        </div>
                     </div>
                 </section>
                 <div class="note-next-action">
@@ -392,7 +411,7 @@
         </section>
     </main>
 
-        <script src="/app.js?v=20260918-2"></script>
+        <script src="/app.js?v=20260918-4"></script>
 </body>
 
 </html>

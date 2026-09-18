@@ -639,6 +639,17 @@ button:hover {
 .writer-panel input::placeholder, .writer-panel textarea::placeholder { color: #9b9ba5; }
 .writer-panel input:focus-visible, .writer-panel textarea:focus-visible { outline: 2px solid #d4af37; outline-offset: 2px; }
 .writer-panel > button { justify-self: start; margin: 0; }
+.writer-interview { display: grid; gap: 12px; padding: 18px; border: 1px solid #3c3c44; border-radius: 10px; background: #17171c; }
+.writer-interview h4 { margin: 0; color: #e0bd49; }
+.writer-interview-note { margin: 0; color: #aaaab4; }
+.writer-interview > button { justify-self: start; }
+#writer-interview-status { min-height: 22px; margin: 0; color: #75f39d; }
+.writer-interview-questions { display: grid; gap: 14px; }
+.writer-marketing { display: grid; gap: 12px; padding: 18px; border: 1px solid #3c3c44; border-radius: 10px; background: #17171c; }
+.writer-marketing h4 { margin: 0; color: #e0bd49; }
+.writer-marketing > button { justify-self: start; }
+#writer-marketing-status { min-height: 22px; margin: 0; color: #75f39d; }
+#writer-marketing-result { display: grid; gap: 16px; }
 #writer-status { min-height: 24px; margin: 0; color: #75f39d; }
 .writer-result { display: grid; gap: 16px; padding-top: 18px; border-top: 1px solid #3c3c44; }
 .writer-result-note { padding: 12px; border-radius: 8px; background: #242116; color: #e4d59b; }
