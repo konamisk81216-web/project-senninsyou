@@ -1119,6 +1119,49 @@ document.getElementById("note-stage-next").addEventListener("click", () => {
     saveNoteStage(taskId, nextStage, `「${stage}」を完了し、「${nextStage}」へ進みました。`);
 });
 
+const WRITER_DRAFT_KEY = "senninsyou-writer-draft";
+const writerOutputIds = {
+    title: "writer-output-title",
+    freeSection: "writer-output-free",
+    paidSection: "writer-output-paid",
+    salesDescription: "writer-output-sales",
+    snsPost: "writer-output-sns",
+    reviewNotes: "writer-output-review"
+};
+
+function saveWriterDraft() {
+    const draft = { savedAt: new Date().toISOString() };
+    for (const [field, id] of Object.entries(writerOutputIds)) {
+        draft[field] = document.getElementById(id).value;
+    }
+    try {
+        localStorage.setItem(WRITER_DRAFT_KEY, JSON.stringify(draft));
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function restoreWriterDraft() {
+    let draft = null;
+    try {
+        draft = JSON.parse(localStorage.getItem(WRITER_DRAFT_KEY) ?? "null");
+    } catch (error) {
+        return;
+    }
+    if (!draft) return;
+    for (const [field, id] of Object.entries(writerOutputIds)) {
+        document.getElementById(id).value = draft[field] ?? "";
+    }
+    document.getElementById("writer-result").hidden = false;
+    document.getElementById("writer-status").textContent =
+        `前回の下書きを表示しています（${new Date(draft.savedAt).toLocaleString("ja-JP")}）。`;
+}
+
+Object.values(writerOutputIds).forEach(id => {
+    document.getElementById(id).addEventListener("input", saveWriterDraft);
+});
+restoreWriterDraft();
+
 document.getElementById("writer-generate").addEventListener("click", async () => {
     const button = document.getElementById("writer-generate");
     const status = document.getElementById("writer-status");
@@ -1134,7 +1177,14 @@ document.getElementById("writer-generate").addEventListener("click", async () =>
     }
     button.disabled = true;
     button.textContent = "ライターAIが執筆中...";
-    status.textContent = "下書きを作成しています。少しお待ちください。";
+    const startedAt = Date.now();
+    const showElapsed = () => {
+        const seconds = Math.floor((Date.now() - startedAt) / 1000);
+        status.textContent =
+            `執筆中です。${seconds}秒経過（1〜2分かかります）。ほかの画面へ移動しても作成は続きます。`;
+    };
+    showElapsed();
+    const elapsedTimer = setInterval(showElapsed, 1000);
     try {
         const response = await fetch("/api/ai/writer", {
             method: "POST",
@@ -1164,6 +1214,7 @@ document.getElementById("writer-generate").addEventListener("click", async () =>
         document.getElementById("writer-output-sns").value = result.snsPost ?? "";
         document.getElementById("writer-output-review").value = result.reviewNotes ?? "";
         document.getElementById("writer-result").hidden = false;
+        saveWriterDraft();
         status.textContent = "下書きを作成しました。内容を確認して修正してください。";
         document.getElementById("writer-result").scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (error) {
@@ -1172,6 +1223,7 @@ document.getElementById("writer-generate").addEventListener("click", async () =>
             : "下書きを作成できませんでした。";
         console.error(error);
     } finally {
+        clearInterval(elapsedTimer);
         button.disabled = false;
         button.textContent = "記事の下書きを作る";
     }
