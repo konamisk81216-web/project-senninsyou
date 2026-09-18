@@ -12,6 +12,9 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/ai")
 public class AIController {
 
+    private static final String[] WRITER_MARKERS =
+            {"[TITLE]", "[FREE]", "[PAID]", "[SALES]", "[SNS]", "[REVIEW]", "[END]"};
+
     private final AIService aiService = new AIService();
     private final TaskRepository repository;
     private final RevenueContextService revenueContextService =
@@ -149,11 +152,15 @@ public class AIController {
 
     private String writerSection(String response, String startMarker, String endMarker) {
         int start = response.indexOf(startMarker);
-        int end = response.indexOf(endMarker);
-        if (start < 0 || end <= start) {
+        if (start < 0) {
             throw new IllegalArgumentException("必要な区切りが不足しています。");
         }
-        return response.substring(start + startMarker.length(), end).trim();
+        int contentStart = start + startMarker.length();
+        int end = response.indexOf(endMarker, contentStart);
+        if (end < 0) {
+            throw new IllegalArgumentException("必要な区切りが不足しています。");
+        }
+        return cleanWriterSection(response.substring(contentStart, end));
     }
 
     private String writerLastSection(String response, String startMarker, String optionalEndMarker) {
@@ -164,7 +171,16 @@ public class AIController {
         int contentStart = start + startMarker.length();
         int end = response.indexOf(optionalEndMarker, contentStart);
         if (end < 0) end = response.length();
-        return response.substring(contentStart, end).trim();
+        return cleanWriterSection(response.substring(contentStart, end));
+    }
+
+    // AIが区切りを本文中にも書いてしまうことがあるため、残りを取り除く。
+    private String cleanWriterSection(String section) {
+        String cleaned = section;
+        for (String marker : WRITER_MARKERS) {
+            cleaned = cleaned.replace(marker, "");
+        }
+        return cleaned.replaceAll("\n{3,}", "\n\n").trim();
     }
 
     private String cleanWriterInput(String value, String label, int maxLength, boolean required) {

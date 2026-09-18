@@ -635,7 +635,9 @@ button:hover {
 }
 .writer-input-grid { display: grid; grid-template-columns: 2fr 2fr 1fr; gap: 14px; }
 .writer-panel label { display: grid; gap: 8px; color: #e8e8ee; }
-.writer-panel input, .writer-panel textarea { width: 100%; }
+.writer-panel input, .writer-panel textarea { width: 100%; box-sizing: border-box; background: #101014; color: #f5f5f7; caret-color: #d4af37; border: 1px solid #414149; border-radius: 9px; padding: 14px; font: inherit; margin: 0; color-scheme: dark; }
+.writer-panel input::placeholder, .writer-panel textarea::placeholder { color: #9b9ba5; }
+.writer-panel input:focus-visible, .writer-panel textarea:focus-visible { outline: 2px solid #d4af37; outline-offset: 2px; }
 .writer-panel > button { justify-self: start; margin: 0; }
 #writer-status { min-height: 24px; margin: 0; color: #75f39d; }
 .writer-result { display: grid; gap: 16px; padding-top: 18px; border-top: 1px solid #3c3c44; }
