@@ -1,6 +1,8 @@
 package com.senninsyou;
 
 import java.net.URI;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -105,7 +107,7 @@ public class AIController {
     }
 
     @PostMapping("/writer")
-    public ObjectNode writer(@RequestBody WriterRequest request) {
+    public Map<String, String> writer(@RequestBody WriterRequest request) {
         String theme = cleanWriterInput(request.theme(), "テーマ", 200, true);
         String audience = cleanWriterInput(request.audience(), "想定読者", 300, true);
         String sourceNotes = cleanWriterInput(request.sourceNotes(), "伝えたい内容", 4000, true);
@@ -122,24 +124,14 @@ public class AIController {
             return writerError("WAI-EMPTY");
         }
         try {
-            ObjectNode result = new ObjectMapper().createObjectNode();
+            Map<String, String> result = new LinkedHashMap<>();
             result.put("title", writerSection(response, "[TITLE]", "[FREE]"));
             result.put("freeSection", writerSection(response, "[FREE]", "[PAID]"));
             result.put("paidSection", writerSection(response, "[PAID]", "[SALES]"));
             result.put("salesDescription", writerSection(response, "[SALES]", "[SNS]"));
             result.put("snsPost", writerSection(response, "[SNS]", "[REVIEW]"));
             result.put("reviewNotes", writerLastSection(response, "[REVIEW]", "[END]"));
-            for (String field : new String[]{"title", "freeSection", "paidSection", "salesDescription", "snsPost", "reviewNotes"}) {
-                String value = result.hasNonNull(field) && result.get(field).isTextual()
-                        ? result.get(field).asText() : null;
-                String jsLikeTrimmed = value == null
-                        ? null
-                        : value.replaceAll("^[\\s\\u00A0\\u3000\\uFEFF]+|[\\s\\u00A0\\u3000\\uFEFF]+$", "");
-                // TODO: 診断用の一時ログ。原因が分かったら削除する。
-                System.out.println("ライターAI診断: field=" + field
-                        + " length=" + (value == null ? -1 : value.length())
-                        + " javaBlank=" + (value == null || value.isBlank())
-                        + " jsLikeBlank=" + (jsLikeTrimmed == null || jsLikeTrimmed.isEmpty()));
+            for (String value : result.values()) {
                 if (value == null || value.isBlank()) {
                     throw new IllegalArgumentException("必要な項目が不足しています。");
                 }
@@ -151,10 +143,8 @@ public class AIController {
         }
     }
 
-    private ObjectNode writerError(String errorCode) {
-        ObjectNode result = new ObjectMapper().createObjectNode();
-        result.put("errorCode", errorCode);
-        return result;
+    private Map<String, String> writerError(String errorCode) {
+        return Map.of("errorCode", errorCode);
     }
 
     private String writerSection(String response, String startMarker, String endMarker) {
