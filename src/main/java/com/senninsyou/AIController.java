@@ -130,9 +130,17 @@ public class AIController {
             result.put("snsPost", writerSection(response, "[SNS]", "[REVIEW]"));
             result.put("reviewNotes", writerLastSection(response, "[REVIEW]", "[END]"));
             for (String field : new String[]{"title", "freeSection", "paidSection", "salesDescription", "snsPost", "reviewNotes"}) {
-                if (!result.hasNonNull(field)
-                        || !result.get(field).isTextual()
-                        || result.get(field).asText().isBlank()) {
+                String value = result.hasNonNull(field) && result.get(field).isTextual()
+                        ? result.get(field).asText() : null;
+                String jsLikeTrimmed = value == null
+                        ? null
+                        : value.replaceAll("^[\\s\\u00A0\\u3000\\uFEFF]+|[\\s\\u00A0\\u3000\\uFEFF]+$", "");
+                // TODO: 診断用の一時ログ。原因が分かったら削除する。
+                System.out.println("ライターAI診断: field=" + field
+                        + " length=" + (value == null ? -1 : value.length())
+                        + " javaBlank=" + (value == null || value.isBlank())
+                        + " jsLikeBlank=" + (jsLikeTrimmed == null || jsLikeTrimmed.isEmpty()));
+                if (value == null || value.isBlank()) {
                     throw new IllegalArgumentException("必要な項目が不足しています。");
                 }
             }
