@@ -1220,6 +1220,100 @@ Object.values(writerSavedIds).forEach(id => {
 });
 restoreWriterDraft();
 
+const WRITER_JOB_TIMEOUT_MS = 5 * 60 * 1000;
+let writerJobTimer = null;
+
+function setWriterBusy(busy) {
+    const button = document.getElementById("writer-generate");
+    button.disabled = busy;
+    button.textContent = busy ? "ライターAIが執筆中..." : "記事の下書きを作る";
+}
+
+function applyWriterJobResult(job) {
+    for (const [field, id] of Object.entries(writerOutputIds)) {
+        document.getElementById(id).value = job[field] ?? "";
+    }
+    document.getElementById("writer-result").hidden = false;
+    saveWriterDraft();
+}
+
+// 執筆はサーバー側で動くので、画面を閉じても進む。開き直したら状態を見に行く。
+function watchWriterJob(jobId, startedAt) {
+    const status = document.getElementById("writer-status");
+    clearInterval(writerJobTimer);
+    setWriterBusy(true);
+
+    const check = async () => {
+        const seconds = Math.floor((Date.now() - startedAt) / 1000);
+        try {
+            const response = await fetch(`/api/ai/writer/jobs/${jobId}`);
+            if (!response.ok) throw new Error(await response.text());
+            const job = await response.json();
+
+            if (job.status === "完了") {
+                clearInterval(writerJobTimer);
+                applyWriterJobResult(job);
+                setWriterBusy(false);
+                status.textContent = "下書きを作成しました。内容を確認して修正してください。";
+                document.getElementById("writer-result")
+                    .scrollIntoView({ behavior: "smooth", block: "start" });
+                return;
+            }
+            if (job.status === "失敗") {
+                clearInterval(writerJobTimer);
+                setWriterBusy(false);
+                const messages = {
+                    "WAI-CONFIG": "AI設定を確認する必要があります。",
+                    "WAI-API": "生成APIとの通信で失敗しました。",
+                    "WAI-EMPTY": "生成APIから文章が返りませんでした。",
+                    "WAI-FORMAT": "文章は返りましたが、項目の分割に失敗しました。",
+                    "WAI-DB": "依頼をデータベースへ保存できませんでした。"
+                };
+                status.textContent =
+                    `${messages[job.errorCode] ?? "下書きを作成できませんでした。"} 診断コード: ${job.errorCode}`;
+                return;
+            }
+            if (Date.now() - startedAt > WRITER_JOB_TIMEOUT_MS) {
+                clearInterval(writerJobTimer);
+                setWriterBusy(false);
+                status.textContent =
+                    "執筆が終わりません。サーバーが再起動した可能性があります。もう一度お試しください。";
+                return;
+            }
+            status.textContent =
+                `執筆中です。${seconds}秒経過（1〜2分かかります）。この画面を閉じても執筆は続きます。`;
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    check();
+    writerJobTimer = setInterval(check, 3000);
+}
+
+async function resumeWriterJob() {
+    try {
+        const response = await fetch("/api/ai/writer/jobs/latest");
+        if (!response.ok) return;
+        const job = await response.json();
+        if (!job.id) return;
+
+        if (job.status === "受付" || job.status === "執筆中") {
+            watchWriterJob(job.id, Date.now());
+            return;
+        }
+        if (job.status === "完了" && !document.getElementById("writer-output-title").value.trim()) {
+            applyWriterJobResult(job);
+            document.getElementById("writer-status").textContent =
+                "前回サーバーで作成した下書きを表示しています。";
+        }
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+resumeWriterJob();
+
 document.getElementById("writer-research-start").addEventListener("click", async () => {
     const button = document.getElementById("writer-research-start");
     const status = document.getElementById("writer-research-status");
@@ -1387,53 +1481,22 @@ document.getElementById("writer-generate").addEventListener("click", async () =>
     }
     button.disabled = true;
     button.textContent = "ライターAIが執筆中...";
-    const startedAt = Date.now();
-    const showElapsed = () => {
-        const seconds = Math.floor((Date.now() - startedAt) / 1000);
-        status.textContent =
-            `執筆中です。${seconds}秒経過（1〜2分かかります）。ほかの画面へ移動しても作成は続きます。`;
-    };
-    showElapsed();
-    const elapsedTimer = setInterval(showElapsed, 1000);
+    status.textContent = "依頼を送っています。";
     try {
-        const response = await fetch("/api/ai/writer", {
+        const response = await fetch("/api/ai/writer/jobs", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
         });
         if (!response.ok) throw new Error(await response.text());
-        const result = await response.json();
-        if (result.errorCode) {
-            const messages = {
-                "WAI-CONFIG": "AI設定を確認する必要があります。",
-                "WAI-API": "生成APIとの通信で失敗しました。",
-                "WAI-EMPTY": "生成APIから文章が返りませんでした。",
-                "WAI-FORMAT": "文章は返りましたが、項目の分割に失敗しました。"
-            };
-            throw new Error(`${messages[result.errorCode] ?? "下書き生成に失敗しました。"} 診断コード: ${result.errorCode}`);
+        const job = await response.json();
+        if (job.errorCode) {
+            throw new Error(`執筆を開始できませんでした。診断コード: ${job.errorCode}`);
         }
-        const requiredFields = ["title", "freeSection", "paidSection", "salesDescription", "snsPost", "reviewNotes"];
-        const emptyFields = requiredFields.filter(field => typeof result[field] !== "string" || !result[field].trim());
-        if (emptyFields.length > 0) {
-            throw new Error(`ライターAIの返答に空欄があります。項目: ${emptyFields.join("、")}`);
-        }
-        document.getElementById("writer-output-title").value = result.title ?? "";
-        document.getElementById("writer-output-free").value = result.freeSection ?? "";
-        document.getElementById("writer-output-paid").value = result.paidSection ?? "";
-        document.getElementById("writer-output-sales").value = result.salesDescription ?? "";
-        document.getElementById("writer-output-sns").value = result.snsPost ?? "";
-        document.getElementById("writer-output-review").value = result.reviewNotes ?? "";
-        document.getElementById("writer-result").hidden = false;
-        saveWriterDraft();
-        status.textContent = "下書きを作成しました。内容を確認して修正してください。";
-        document.getElementById("writer-result").scrollIntoView({ behavior: "smooth", block: "start" });
+        watchWriterJob(job.id, Date.now());
     } catch (error) {
-        status.textContent = error instanceof Error
-            ? error.message
-            : "下書きを作成できませんでした。";
+        status.textContent = error instanceof Error ? error.message : "執筆を開始できませんでした。";
         console.error(error);
-    } finally {
-        clearInterval(elapsedTimer);
         button.disabled = false;
         button.textContent = "記事の下書きを作る";
     }

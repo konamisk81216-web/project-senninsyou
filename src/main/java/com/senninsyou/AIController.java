@@ -5,6 +5,10 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import jakarta.annotation.PreDestroy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -21,6 +25,9 @@ public class AIController {
 
     private final AIService aiService = new AIService();
     private final TaskRepository repository;
+    private final WriterJobRepository writerJobRepository;
+    // 同時に走らせない。無料枠のCPU時間とAPI費用を使いすぎないため。
+    private final ExecutorService writerExecutor = Executors.newSingleThreadExecutor();
     private final RevenueContextService revenueContextService =
             new RevenueContextService();
 
@@ -60,6 +67,12 @@ public class AIController {
                 "?sslmode=require";
 
         repository = new TaskRepository(jdbcUrl, user, password);
+        writerJobRepository = new WriterJobRepository(jdbcUrl, user, password);
+    }
+
+    @PreDestroy
+    public void stopWriterExecutor() {
+        writerExecutor.shutdown();
     }
 
     @PostMapping("/command")
@@ -185,14 +198,60 @@ public class AIController {
         return questions;
     }
 
-    @PostMapping("/writer")
-    public Map<String, String> writer(@RequestBody WriterRequest request) {
+    @PostMapping("/writer/jobs")
+    public Map<String, String> createWriterJob(@RequestBody WriterRequest request) {
         String theme = cleanWriterInput(request.theme(), "テーマ", 200, true);
         String audience = cleanWriterInput(request.audience(), "想定読者", 300, true);
         String sourceNotes = cleanWriterInput(request.sourceNotes(), "伝えたい内容", 4000, true);
         String price = cleanWriterInput(request.price(), "想定価格", 100, false);
         String interviewNotes = cleanWriterInput(request.interviewNotes(), "取材メモ", 6000, false);
-        if (price.isBlank()) price = "未定";
+        String jobPrice = price.isBlank() ? "未定" : price;
+
+        long id = writerJobRepository.createJob(theme, audience, jobPrice, sourceNotes, interviewNotes);
+        if (id < 0) {
+            return writerError("WAI-DB");
+        }
+        writerExecutor.submit(
+                () -> runWriterJob(id, theme, audience, sourceNotes, jobPrice, interviewNotes));
+        return Map.of("id", String.valueOf(id), "status", "受付");
+    }
+
+    @GetMapping("/writer/jobs/latest")
+    public Map<String, String> latestWriterJob() {
+        return writerJobRepository.findLatestJob();
+    }
+
+    @GetMapping("/writer/jobs/{id}")
+    public Map<String, String> writerJob(@PathVariable long id) {
+        return writerJobRepository.findJob(id);
+    }
+
+    // ブラウザを閉じても執筆が続くよう、依頼を受け付けた後は裏で実行する。
+    private void runWriterJob(
+            long id,
+            String theme,
+            String audience,
+            String sourceNotes,
+            String price,
+            String interviewNotes) {
+
+        writerJobRepository.markWriting(id);
+        Map<String, String> result =
+                writeDraft(theme, audience, sourceNotes, price, interviewNotes);
+
+        if (result.containsKey("errorCode")) {
+            writerJobRepository.saveFailure(id, result.get("errorCode"));
+        } else {
+            writerJobRepository.saveResult(id, result);
+        }
+    }
+
+    private Map<String, String> writeDraft(
+            String theme,
+            String audience,
+            String sourceNotes,
+            String price,
+            String interviewNotes) {
 
         AIService.WriterAiResponse writerResponse = aiService.askWriter(
                 aiService.buildWriterPrompt(theme, audience, sourceNotes, price, interviewNotes));
