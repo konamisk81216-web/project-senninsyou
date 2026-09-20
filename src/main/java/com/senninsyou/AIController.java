@@ -323,6 +323,37 @@ public class AIController {
         }
     }
 
+    @PostMapping("/writer/quality")
+    public Object writerQuality(@RequestBody WriterQualityRequest request) {
+        String theme = cleanWriterInput(request.theme(), "テーマ", 200, true);
+        String audience = cleanWriterInput(request.audience(), "想定読者", 300, true);
+        String price = cleanWriterInput(request.price(), "想定価格", 100, false);
+        String title = cleanWriterInput(request.title(), "タイトル", 300, true);
+        String freeSection = cleanWriterInput(request.freeSection(), "無料部分", 12000, true);
+        String paidSection = cleanWriterInput(request.paidSection(), "有料部分", 20000, true);
+        String salesDescription = cleanWriterInput(request.salesDescription(), "販売説明", 6000, true);
+        if (price.isBlank()) price = "未定";
+
+        AIService.WriterAiResponse response = aiService.askWriter(aiService.buildWriterQualityPrompt(
+                theme, audience, price, title, freeSection, paidSection, salesDescription));
+        if (response.errorCode() != null) return writerError(response.errorCode());
+        try {
+            Map<String, Object> result = new LinkedHashMap<>();
+            String scoreText = writerSection(response.text(), "[SCORE]", "[VERDICT]").replaceAll("[^0-9]", "");
+            int score = Integer.parseInt(scoreText);
+            if (score < 0 || score > 100) throw new IllegalArgumentException("点数が範囲外です。");
+            result.put("score", score);
+            result.put("verdict", writerSection(response.text(), "[VERDICT]", "[STRENGTHS]"));
+            result.put("strengths", writerSection(response.text(), "[STRENGTHS]", "[IMPROVEMENTS]"));
+            result.put("improvements", writerSection(response.text(), "[IMPROVEMENTS]", "[QUESTIONS]"));
+            result.put("questions", writerLastSection(response.text(), "[QUESTIONS]", "[END]"));
+            return result;
+        } catch (Exception e) {
+            System.out.println("品質管理AI診断: WAI-FORMAT");
+            return writerError("WAI-FORMAT");
+        }
+    }
+
     private Map<String, String> writerError(String errorCode) {
         return Map.of("errorCode", errorCode);
     }
@@ -378,4 +409,7 @@ public class AIController {
             String title, String freeSection, String paidSection) {}
     public record WriterRequest(
             String theme, String audience, String sourceNotes, String price, String interviewNotes) {}
+    public record WriterQualityRequest(
+            String theme, String audience, String price,
+            String title, String freeSection, String paidSection, String salesDescription) {}
 }

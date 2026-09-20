@@ -105,7 +105,23 @@
                         <label>販売ページの説明<textarea id="writer-output-sales" rows="6"></textarea></label>
                         <label>SNS投稿案<textarea id="writer-output-sns" rows="6"></textarea></label>
                         <label>公開前の確認事項<textarea id="writer-output-review" rows="5"></textarea></label>
-                        <button id="writer-copy" type="button" class="secondary-button">全文をコピー</button>
+                        <div class="writer-actions">
+                            <button id="writer-quality-check" type="button">販売前の品質をチェック</button>
+                            <button id="writer-copy" type="button" class="secondary-button">全文をコピー</button>
+                        </div>
+                        <section id="writer-quality-result" class="writer-quality-result" hidden aria-labelledby="writer-quality-title">
+                            <div class="writer-quality-heading">
+                                <h4 id="writer-quality-title">販売前の品質判定</h4>
+                                <strong id="writer-quality-score"></strong>
+                            </div>
+                            <p id="writer-quality-verdict"></p>
+                            <h4>強み</h4>
+                            <div id="writer-quality-strengths"></div>
+                            <h4>優先して直す点</h4>
+                            <div id="writer-quality-improvements"></div>
+                            <h4>不足している体験・事実</h4>
+                            <div id="writer-quality-questions"></div>
+                        </section>
                         <div class="writer-marketing">
                             <h4>営業AI（売るための戦略）</h4>
                             <p class="writer-interview-note">この下書きをもとに、タイトル案・価格・告知計画・見る数字を作ります。投稿や販売は自動で行いません。</p>

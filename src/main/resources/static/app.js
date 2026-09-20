@@ -1524,6 +1524,51 @@ document.getElementById("writer-copy").addEventListener("click", async () => {
     }
 });
 
+document.getElementById("writer-quality-check").addEventListener("click", async () => {
+    const button = document.getElementById("writer-quality-check");
+    const status = document.getElementById("writer-status");
+    const payload = {
+        theme: document.getElementById("writer-theme").value.trim(),
+        audience: document.getElementById("writer-audience").value.trim(),
+        price: document.getElementById("writer-price").value.trim(),
+        title: document.getElementById("writer-output-title").value.trim(),
+        freeSection: document.getElementById("writer-output-free").value.trim(),
+        paidSection: document.getElementById("writer-output-paid").value.trim(),
+        salesDescription: document.getElementById("writer-output-sales").value.trim()
+    };
+    if (Object.entries(payload).some(([key, value]) => key !== "price" && !value)) {
+        status.textContent = "記事の必須項目を入力してから品質を確認してください。";
+        return;
+    }
+    button.disabled = true;
+    button.textContent = "品質管理AIが確認中...";
+    status.textContent = "差別化・購入価値・信頼性を確認しています。";
+    try {
+        const response = await fetch("/api/ai/writer/quality", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error(await response.text());
+        const result = await response.json();
+        if (result.errorCode) throw new Error(`品質を判定できませんでした。診断コード: ${result.errorCode}`);
+        document.getElementById("writer-quality-score").textContent = `${result.score}点 / 100点`;
+        document.getElementById("writer-quality-verdict").textContent = `判定：${result.verdict ?? ""}`;
+        document.getElementById("writer-quality-strengths").textContent = result.strengths ?? "";
+        document.getElementById("writer-quality-improvements").textContent = result.improvements ?? "";
+        document.getElementById("writer-quality-questions").textContent = result.questions ?? "";
+        document.getElementById("writer-quality-result").hidden = false;
+        status.textContent = "品質判定が完了しました。改善後にもう一度確認できます。";
+        document.getElementById("writer-quality-result").scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (error) {
+        status.textContent = error instanceof Error ? error.message : "品質を判定できませんでした。";
+        console.error(error);
+    } finally {
+        button.disabled = false;
+        button.textContent = "販売前の品質をチェック";
+    }
+});
+
 function renderAiResponse(container, data) {
     const proposal = document.createElement("div");
     proposal.className = "ai-result";
