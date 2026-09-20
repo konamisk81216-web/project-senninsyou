@@ -21,7 +21,8 @@ public class AIController {
     // [TITLES]を[TITLE]より先に置く。短い方から消すと[TITLES]が壊れる。
     private static final String[] WRITER_MARKERS = {
             "[TITLES]", "[TITLE]", "[FREE]", "[PAID]", "[SALES]", "[SNS]", "[REVIEW]",
-            "[PRICE]", "[PLAN]", "[METRICS]", "[DEMAND]", "[ANGLE]", "[MATERIAL]", "[END]"};
+            "[PRICE]", "[PLAN]", "[METRICS]", "[DEMAND]", "[ANGLE]", "[MATERIAL]",
+            "[SCORE]", "[VERDICT]", "[STRENGTHS]", "[IMPROVEMENTS]", "[QUESTIONS]", "[END]"};
 
     private final AIService aiService = new AIService();
     private final TaskRepository repository;
