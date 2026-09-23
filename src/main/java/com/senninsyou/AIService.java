@@ -226,7 +226,8 @@ public class AIService {
     public String buildInterviewPrompt(
             String theme,
             String audience,
-            String sourceNotes) {
+            String sourceNotes,
+            String knownFacts) {
         return """
                 あなたはProject千人将の取材担当AIです。
                 これから書くnote記事が、書き手本人にしか書けない記事になるよう、本人へ質問します。
@@ -237,16 +238,28 @@ public class AIService {
                 想定読者：%s
                 現在の材料：%s
 
+                ===== すでに分かっている本人の事実 =====
+                %s
+
                 ===== 質問の作り方 =====
+                ・本人の時間を使わせないことを最優先にしてください。質問は少ないほど良い評価です。
+                ・すでに分かっている事実は、二度と質問しないでください。
+                ・今ある材料と既知の事実で記事を最後まで書けるなら、質問は0個にしてください。
+                ・「あるとより良くなる」程度の細部は質問しないでください。無いと記事が成立しない情報だけを聞いてください。
+                ・エラーメッセージの原文、正確な回数、細かい手順など、本人が思い出すのに時間がかかることは避けてください。
                 ・本人の体験、実際に起きた出来事、具体的な数字、使った道具の名前を引き出す質問にしてください。
                 ・感想ではなく、事実を答えられる質問にしてください。
-                ・想定読者が知りたいのに、今の材料には無い部分を優先してください。
                 ・答えやすいよう、質問は1文で短くしてください。
-                ・5個だけ作ってください。
+                ・多くても3個までにしてください。
 
                 ===== 返答形式 =====
                 1行に1問ずつ、行の先頭に [Q] を付けてください。ほかの文章は書かないでください。
-                """.formatted(theme, audience, sourceNotes.isBlank() ? "（未入力）" : sourceNotes);
+                質問が不要な場合は、何も書かず [NONE] とだけ返してください。
+                """.formatted(
+                        theme,
+                        audience,
+                        sourceNotes.isBlank() ? "（未入力）" : sourceNotes,
+                        knownFacts.isBlank() ? "（まだ何も記憶していません）" : knownFacts);
     }
 
     public String buildWriterPrompt(
@@ -254,7 +267,8 @@ public class AIService {
             String audience,
             String sourceNotes,
             String price,
-            String interviewNotes) {
+            String interviewNotes,
+            String knownFacts) {
         return """
                 あなたはProject千人将のnote記事制作を担当するライターAIです。
                 有料noteとして実際に購入され、読者が「買ってよかった」と思う水準の下書きを作ります。
@@ -266,12 +280,16 @@ public class AIService {
                 伝えたい内容・根拠・体験：%s
                 想定価格：%s
 
-                ===== 本人への取材メモ =====
+                ===== 本人について記憶している事実 =====
+                %s
+
+                ===== 今回の取材メモ =====
                 %s
 
                 ===== 売れる記事の条件 =====
-                ・取材メモにある体験、出来事、数字、道具の名前は、記事の中心に据えて具体的に書いてください。ここが他の記事との違いになります。
-                ・取材メモの内容は、本人が答えた事実として扱ってよいです。書かれていないことは補わないでください。
+                ・記憶している事実と取材メモにある体験、出来事、数字、道具の名前は、記事の中心に据えて具体的に書いてください。ここが他の記事との違いになります。
+                ・これらは本人が答えた事実として扱ってよいです。書かれていないことは補わないでください。
+                ・今回のテーマに関係のない事実は、無理に入れないでください。
                 ・想定読者が実際に困っている場面を、読者自身の言葉で言い当ててください。
                 ・読み終えた読者が、他の情報を探さずに次の一歩を実行できる状態にしてください。
                 ・手順は番号を振り、各手順に「何をもって完了とするか」の判断基準を添えてください。
@@ -309,7 +327,8 @@ public class AIService {
                         audience,
                         sourceNotes,
                         price,
-                        interviewNotes.isBlank() ? "（取材はまだ行っていません）" : interviewNotes);
+                        knownFacts.isBlank() ? "（まだ何も記憶していません）" : knownFacts,
+                        interviewNotes.isBlank() ? "（今回の取材はありません）" : interviewNotes);
     }
 
     public String buildMarketingPrompt(

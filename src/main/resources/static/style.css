@@ -650,6 +650,17 @@ button:hover {
 .writer-marketing > button { justify-self: start; }
 #writer-marketing-status { min-height: 22px; margin: 0; color: #75f39d; }
 #writer-marketing-result, #writer-research-result { display: grid; gap: 16px; }
+.author-facts-list { display: grid; gap: 10px; }
+.author-fact { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: start; background: #101014; border: 1px solid #33333a; border-radius: 9px; padding: 12px 14px; }
+.author-fact-category { background: #24242b; border: 1px solid #4b4b55; border-radius: 999px; color: #e0bd49; font-size: 12px; padding: 4px 10px; white-space: nowrap; }
+.author-fact strong { color: #f5f5f7; display: block; margin-bottom: 4px; }
+.author-fact p { color: #c7c7cf; font-size: 14px; margin: 0; white-space: pre-wrap; }
+.author-fact button { margin: 0; padding: 6px 12px; font-size: 13px; }
+.author-facts-empty { color: #9b9ba5; margin: 0; }
+.author-facts-add summary { color: #c7c7cf; cursor: pointer; width: fit-content; }
+.author-facts-form { display: grid; gap: 12px; margin-top: 12px; }
+.author-facts-form select { background: #101014; color: #f5f5f7; border: 1px solid #414149; border-radius: 9px; padding: 12px; font: inherit; color-scheme: dark; }
+#author-facts-status { min-height: 22px; margin: 0; color: #75f39d; }
 #writer-research-status { min-height: 22px; margin: 0; color: #75f39d; }
 .writer-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 .writer-actions button { margin: 0; }

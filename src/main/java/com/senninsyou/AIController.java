@@ -27,6 +27,7 @@ public class AIController {
     private final AIService aiService = new AIService();
     private final TaskRepository repository;
     private final WriterJobRepository writerJobRepository;
+    private final AuthorFactRepository authorFactRepository;
     // 同時に走らせない。無料枠のCPU時間とAPI費用を使いすぎないため。
     private final ExecutorService writerExecutor = Executors.newSingleThreadExecutor();
     private final RevenueContextService revenueContextService =
@@ -69,6 +70,7 @@ public class AIController {
 
         repository = new TaskRepository(jdbcUrl, user, password);
         writerJobRepository = new WriterJobRepository(jdbcUrl, user, password);
+        authorFactRepository = new AuthorFactRepository(jdbcUrl, user, password);
     }
 
     @PreDestroy
@@ -166,12 +168,14 @@ public class AIController {
         String sourceNotes = cleanWriterInput(request.sourceNotes(), "伝えたい内容", 4000, false);
 
         AIService.WriterAiResponse aiResponse = aiService.askWriter(
-                aiService.buildInterviewPrompt(theme, audience, sourceNotes));
+                aiService.buildInterviewPrompt(
+                        theme, audience, sourceNotes, authorFactRepository.buildKnownFactsText()));
         if (aiResponse.errorCode() != null) {
             return Map.of("errorCode", aiResponse.errorCode());
         }
-        List<String> questions = parseInterviewQuestions(aiResponse.text());
-        if (questions.isEmpty()) {
+        String text = aiResponse.text() == null ? "" : aiResponse.text();
+        List<String> questions = parseInterviewQuestions(text);
+        if (questions.isEmpty() && !text.contains("[NONE]")) {
             System.out.println("ライターAI診断: WAI-FORMAT（取材）");
             return Map.of("errorCode", "WAI-FORMAT");
         }
@@ -192,7 +196,7 @@ public class AIController {
             if (!question.isBlank()) {
                 questions.add(question);
             }
-            if (questions.size() == 5) {
+            if (questions.size() == 3) {
                 break;
             }
         }
@@ -255,7 +259,9 @@ public class AIController {
             String interviewNotes) {
 
         AIService.WriterAiResponse writerResponse = aiService.askWriter(
-                aiService.buildWriterPrompt(theme, audience, sourceNotes, price, interviewNotes));
+                aiService.buildWriterPrompt(
+                        theme, audience, sourceNotes, price, interviewNotes,
+                        authorFactRepository.buildKnownFactsText()));
         if (writerResponse.errorCode() != null) {
             return writerError(writerResponse.errorCode());
         }

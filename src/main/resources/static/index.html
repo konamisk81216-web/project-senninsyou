@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project 千人将 | ダッシュボード</title>
 
-    <link rel="stylesheet" href="/style.css?v=20260916-5">
+    <link rel="stylesheet" href="/style.css?v=20260923-1">
 </head>
 
 <body>
@@ -90,10 +90,35 @@
                     </label>
                     <div class="writer-interview">
                         <h4>取材（あなたにしか書けない記事にする）</h4>
-                        <p class="writer-interview-note">AIが質問します。答えた体験や数字が記事の中心になります。答えられる範囲で構いません。</p>
+                        <p class="writer-interview-note">AIが質問します。答えた体験や数字が記事の中心になります。一度答えた事実は記憶され、次からは質問されません。</p>
                         <button id="writer-interview-start" type="button" class="secondary-button">AIに質問してもらう</button>
                         <p id="writer-interview-status" role="status" aria-live="polite"></p>
                         <div id="writer-interview-questions" class="writer-interview-questions" hidden></div>
+                        <button id="writer-interview-remember" type="button" class="secondary-button" hidden>回答を記憶する</button>
+                    </div>
+                    <div class="writer-interview">
+                        <h4>記憶している事実</h4>
+                        <p class="writer-interview-note">記事を書くときに毎回使われます。間違いがあれば消してください。</p>
+                        <div id="author-facts-list" class="author-facts-list"></div>
+                        <details class="author-facts-add">
+                            <summary>自分で追加する</summary>
+                            <div class="author-facts-form">
+                                <label>分類
+                                    <select id="author-fact-category">
+                                        <option value="経歴">経歴</option>
+                                        <option value="実績">実績</option>
+                                        <option value="道具">道具</option>
+                                        <option value="失敗">失敗</option>
+                                        <option value="方針">方針</option>
+                                        <option value="その他">その他</option>
+                                    </select>
+                                </label>
+                                <label>項目<input id="author-fact-topic" maxlength="255" placeholder="例：最初のnoteの価格"></label>
+                                <label>内容<textarea id="author-fact-text" rows="3" maxlength="4000" placeholder="例：500円で公開し、初月に4本売れた"></textarea></label>
+                                <button id="author-fact-add" type="button" class="secondary-button">記憶に追加する</button>
+                            </div>
+                        </details>
+                        <p id="author-facts-status" role="status" aria-live="polite"></p>
                     </div>
                     <button id="writer-generate" type="button">記事の下書きを作る</button>
                     <p id="writer-status" role="status" aria-live="polite"></p>
@@ -437,7 +462,7 @@
         </section>
     </main>
 
-        <script src="/app.js?v=20260920-1"></script>
+        <script src="/app.js?v=20260923-1"></script>
 </body>
 
 </html>

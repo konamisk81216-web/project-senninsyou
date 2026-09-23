@@ -1201,6 +1201,7 @@ function restoreWriterDraft() {
         [...writerInterviewQuestions.querySelectorAll("textarea")].forEach((field, index) => {
             field.value = draft.interview[index].answer ?? "";
         });
+        document.getElementById("writer-interview-remember").hidden = false;
     }
     for (const [field, id] of Object.entries(writerSavedIds)) {
         document.getElementById(id).value = draft[field] ?? "";
@@ -1219,6 +1220,114 @@ Object.values(writerSavedIds).forEach(id => {
     document.getElementById(id).addEventListener("input", saveWriterDraft);
 });
 restoreWriterDraft();
+
+const authorFactsList = document.getElementById("author-facts-list");
+
+async function loadAuthorFacts() {
+    try {
+        const response = await fetch("/api/author-facts");
+        if (!response.ok) throw new Error(await response.text());
+        renderAuthorFacts(await response.json());
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function renderAuthorFacts(facts) {
+    authorFactsList.replaceChildren();
+    if (facts.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "author-facts-empty";
+        empty.textContent = "まだ何も記憶していません。取材に答えると、ここに貯まります。";
+        authorFactsList.appendChild(empty);
+        return;
+    }
+    facts.forEach(item => {
+        const row = document.createElement("div");
+        row.className = "author-fact";
+
+        const badge = document.createElement("span");
+        badge.className = "author-fact-category";
+        badge.textContent = item.category;
+
+        const body = document.createElement("div");
+        const topic = document.createElement("strong");
+        topic.textContent = item.topic;
+        const fact = document.createElement("p");
+        fact.textContent = item.fact;
+        body.append(topic, fact);
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "secondary-button";
+        remove.textContent = "削除";
+        remove.addEventListener("click", async () => {
+            if (!window.confirm("この記憶を削除しますか？")) return;
+            await fetch(`/api/author-facts/${item.id}`, { method: "DELETE" });
+            loadAuthorFacts();
+        });
+
+        row.append(badge, body, remove);
+        authorFactsList.appendChild(row);
+    });
+}
+
+async function saveAuthorFact(category, topic, fact) {
+    const response = await fetch("/api/author-facts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category, topic, fact })
+    });
+    if (!response.ok) throw new Error(await response.text());
+}
+
+document.getElementById("author-fact-add").addEventListener("click", async () => {
+    const status = document.getElementById("author-facts-status");
+    const topic = document.getElementById("author-fact-topic");
+    const fact = document.getElementById("author-fact-text");
+    if (!topic.value.trim() || !fact.value.trim()) {
+        status.textContent = "項目と内容を入力してください。";
+        return;
+    }
+    try {
+        await saveAuthorFact(
+            document.getElementById("author-fact-category").value,
+            topic.value.trim(),
+            fact.value.trim());
+        topic.value = "";
+        fact.value = "";
+        status.textContent = "記憶に追加しました。";
+        loadAuthorFacts();
+    } catch (error) {
+        status.textContent = "記憶に追加できませんでした。";
+        console.error(error);
+    }
+});
+
+document.getElementById("writer-interview-remember").addEventListener("click", async () => {
+    const button = document.getElementById("writer-interview-remember");
+    const status = document.getElementById("writer-interview-status");
+    const answered = collectInterviewAnswers().filter(item => item.answer.trim());
+    if (answered.length === 0) {
+        status.textContent = "記憶できる回答がありません。";
+        return;
+    }
+    button.disabled = true;
+    try {
+        for (const item of answered) {
+            await saveAuthorFact("その他", item.question.slice(0, 255), item.answer.trim());
+        }
+        status.textContent = `${answered.length}件を記憶しました。次からは同じことを聞かれません。`;
+        loadAuthorFacts();
+    } catch (error) {
+        status.textContent = "記憶できませんでした。";
+        console.error(error);
+    } finally {
+        button.disabled = false;
+    }
+});
+
+loadAuthorFacts();
 
 const WRITER_JOB_TIMEOUT_MS = 5 * 60 * 1000;
 let writerJobTimer = null;
@@ -1453,9 +1562,13 @@ document.getElementById("writer-interview-start").addEventListener("click", asyn
         if (result.errorCode) {
             throw new Error(`質問を作れませんでした。診断コード: ${result.errorCode}`);
         }
-        renderInterviewQuestions(result.questions ?? []);
+        const questions = result.questions ?? [];
+        renderInterviewQuestions(questions);
+        document.getElementById("writer-interview-remember").hidden = questions.length === 0;
         saveWriterDraft();
-        status.textContent = "答えられる範囲で入力してください。空欄のままでも下書きは作れます。";
+        status.textContent = questions.length === 0
+            ? "記憶している事実だけで書けるため、今回は質問がありません。"
+            : "答えられる範囲で入力してください。空欄のままでも下書きは作れます。";
     } catch (error) {
         status.textContent = error instanceof Error ? error.message : "質問を作れませんでした。";
         console.error(error);
