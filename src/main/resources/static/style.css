@@ -650,6 +650,52 @@ button:hover {
 .writer-marketing > button { justify-self: start; }
 #writer-marketing-status { min-height: 22px; margin: 0; color: #75f39d; }
 #writer-marketing-result, #writer-research-result { display: grid; gap: 16px; }
+body.demo-open { overflow: hidden; }
+.demo-overlay {
+    position: fixed; inset: 0; z-index: 100; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 22px; padding: 26px 22px 34px;
+    background: radial-gradient(circle at 50% 12%, rgba(212, 175, 55, 0.12), transparent 42%), #06060a;
+}
+.demo-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.demo-brand { margin: 0; color: #d4af37; font-size: 26px; font-weight: bold; }
+.demo-brand span { color: #6f6f7b; font-size: 11px; letter-spacing: 3px; display: block; }
+.demo-head button { margin: 0; }
+.demo-stage { display: grid; justify-items: center; gap: 14px; }
+.demo-orb { position: relative; width: 190px; height: 190px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 35% 30%, #24242d, #0b0b10); border: 1px solid #33333d; }
+.demo-orb-ring { position: absolute; inset: 14px; border-radius: 50%; border: 3px solid #3a3a45; transition: border-color 0.4s; }
+.demo-orb-core { width: 66px; height: 66px; border-radius: 50%; background: #5a5a66; transition: background 0.4s; }
+.demo-orb[data-voice-state="listening"] .demo-orb-ring { border-color: #d4af37; }
+.demo-orb[data-voice-state="listening"] .demo-orb-core { background: #d4af37; animation: voice-pulse 1s ease-in-out infinite; }
+.demo-orb[data-voice-state="confirming"] .demo-orb-ring { border-color: #e08c3b; }
+.demo-orb[data-voice-state="confirming"] .demo-orb-core { background: #e08c3b; }
+.demo-orb[data-voice-state="thinking"] .demo-orb-ring { border-color: #64a9ff; }
+.demo-orb[data-voice-state="thinking"] .demo-orb-core { background: #64a9ff; animation: voice-pulse 1.6s ease-in-out infinite; }
+.demo-orb[data-voice-state="speaking"] .demo-orb-ring { border-color: #75f39d; }
+.demo-orb[data-voice-state="speaking"] .demo-orb-core { background: #75f39d; animation: voice-pulse 0.7s ease-in-out infinite; }
+.demo-orb[data-voice-state="error"] .demo-orb-ring { border-color: #ff7b7b; }
+.demo-orb[data-voice-state="error"] .demo-orb-core { background: #ff7b7b; }
+.demo-state { margin: 0; color: #d4af37; font-size: 20px; letter-spacing: 8px; }
+.demo-wave { width: 100%; max-width: 420px; height: 70px; }
+.demo-subtitles { background: rgba(16, 16, 22, 0.85); border: 1px solid #2c2c36; border-radius: 14px; padding: 20px; display: grid; gap: 6px; }
+.demo-speaker { margin: 0; color: #d4af37; font-size: 13px; letter-spacing: 2px; }
+.demo-speaker-ai { color: #75f39d; margin-top: 12px; }
+.demo-line { margin: 0; color: #f5f5f7; font-size: 22px; line-height: 1.6; }
+.demo-line-ai { color: #e4e4e8; font-size: 19px; }
+.demo-agent { display: flex; gap: 12px; align-items: center; justify-content: center; flex-wrap: wrap; color: #9b9ba5; font-size: 15px; }
+.demo-agent strong { color: #64a9ff; font-size: 17px; }
+.demo-numbers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.demo-numbers div { background: rgba(16, 16, 22, 0.85); border: 1px solid #2c2c36; border-radius: 12px; padding: 14px; text-align: center; }
+.demo-numbers span { color: #8f8f9b; display: block; font-size: 12px; margin-bottom: 6px; }
+.demo-numbers strong { font-size: 24px; }
+.demo-controls { display: flex; justify-content: center; }
+.demo-controls button { margin: 0; font-size: 17px; padding: 16px 28px; }
+.demo-note { margin: 0; text-align: center; color: #6f6f7b; font-size: 12px; }
+@media (max-width: 520px) {
+    .demo-orb { width: 150px; height: 150px; }
+    .demo-orb-core { width: 52px; height: 52px; }
+    .demo-line { font-size: 19px; }
+    .demo-numbers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .action-approval { display: grid; gap: 12px; margin-top: 14px; padding: 18px; border: 1px solid #705a19; border-left: 4px solid #d4af37; border-radius: 10px; background: #1d1a12; }
 .action-approval strong { color: #f2d470; font-size: 16px; }
 .action-approval p { color: #e4e4e8; font-size: 14px; line-height: 1.7; margin: 0; white-space: pre-wrap; }

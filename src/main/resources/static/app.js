@@ -672,6 +672,7 @@ async function sendCommand(mode = "discuss", options = {}) {
     status.textContent = mode === "propose" ? "タスク案を整理しています..." : "新しい返答を作成中です。下は前回の会話です。";
     status.hidden = false;
     setVoiceState("thinking", "AI将軍が考えています。");
+    setDemoSubtitle(command, "考えています...");
     document.getElementById("ai-response").classList.add("is-thinking");
     try {
         const response = await fetch("/api/ai/command", {
@@ -697,6 +698,8 @@ async function sendCommand(mode = "discuss", options = {}) {
         const answer = data.summary ?? "回答を受け取れませんでした。";
         appendConversationMessage(aiResponse, "AI将軍", answer, data, mode);
         renderActionApproval(aiResponse, data);
+        setDemoSubtitle(null, answer);
+        loadCommandCenter();
         conversation.push({role: "利用者", text: command}, {role: "AI将軍", text: answer});
         document.getElementById("voice-read-button").hidden = false;
         if (options.speak) {
@@ -919,6 +922,8 @@ function setVoiceState(state, message) {
     voiceStateLabel.textContent = label;
     hudOrb.dataset.voiceState = state;
     hudOrbLabel.textContent = label;
+    demoOrb.dataset.voiceState = state;
+    document.getElementById("demo-state").textContent = label;
     if (message) voiceStatus.textContent = message;
 }
 
@@ -1073,13 +1078,13 @@ function playStartupSound() {
     oscillator.stop(handsFreeContext.currentTime + 0.36);
 }
 
-function drawWave(samples) {
-    const canvas = voiceWave.getContext("2d");
-    const width = voiceWave.width;
-    const height = voiceWave.height;
+function drawWaveOn(target, samples, lineWidth) {
+    const canvas = target.getContext("2d");
+    const width = target.width;
+    const height = target.height;
     canvas.clearRect(0, 0, width, height);
     canvas.strokeStyle = "#d4af37";
-    canvas.lineWidth = 2;
+    canvas.lineWidth = lineWidth;
     canvas.beginPath();
     for (let index = 0; index < samples.length; index += 1) {
         const value = (samples[index] - 128) / 128;
@@ -1089,6 +1094,11 @@ function drawWave(samples) {
         else canvas.lineTo(x, y);
     }
     canvas.stroke();
+}
+
+function drawWave(samples) {
+    drawWaveOn(voiceWave, samples, 2);
+    if (!demoOverlay.hidden) drawWaveOn(demoWave, samples, 3);
 }
 
 function processAudioFrame(samples, now = Date.now()) {
@@ -1536,7 +1546,67 @@ restoreWriterDraft();
 
 const hudOrb = document.getElementById("hud-orb");
 const hudOrbLabel = document.getElementById("hud-orb-label");
+const demoOverlay = document.getElementById("demo-overlay");
+const demoOrb = document.getElementById("demo-orb");
+const demoWave = document.getElementById("demo-wave");
 let hudTimer = null;
+
+// 撮影用の大きな表示。数字も字幕も、実際のデータだけを出す。
+function setDemoSubtitle(userLine, aiLine) {
+    if (userLine !== null) document.getElementById("demo-user-line").textContent = userLine;
+    if (aiLine !== null) document.getElementById("demo-ai-line").textContent = aiLine;
+}
+
+function renderDemoNumbers(numbers, taskCount, activities) {
+    document.getElementById("demo-revenue").textContent =
+        `${Number(numbers.revenue ?? 0).toLocaleString("ja-JP")}円`;
+    document.getElementById("demo-profit").textContent =
+        `${Number(numbers.profit ?? 0).toLocaleString("ja-JP")}円`;
+    document.getElementById("demo-cost").textContent =
+        `${Number(numbers.aiCost ?? 0).toLocaleString("ja-JP")}円`;
+    document.getElementById("demo-work").textContent = formatMinutes(numbers.workMinutes);
+    document.getElementById("demo-tasks").textContent = `${taskCount}件`;
+    document.getElementById("demo-articles").textContent = `${numbers.articleCount ?? 0}本`;
+
+    const agent = document.getElementById("demo-agent");
+    agent.replaceChildren();
+    const latest = activities[0];
+    if (!latest) {
+        agent.textContent = "まだ実行記録がありません。";
+        return;
+    }
+    const name = document.createElement("strong");
+    name.textContent = latest.agent;
+    const action = document.createElement("span");
+    action.textContent = `${latest.action}　${latest.status}`;
+    agent.append(name, action);
+}
+
+function openDemo() {
+    demoOverlay.hidden = false;
+    document.body.classList.add("demo-open");
+    loadCommandCenter();
+}
+
+function closeDemo() {
+    demoOverlay.hidden = true;
+    document.body.classList.remove("demo-open");
+}
+
+document.getElementById("demo-open").addEventListener("click", openDemo);
+document.getElementById("demo-close").addEventListener("click", closeDemo);
+document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && !demoOverlay.hidden) closeDemo();
+});
+
+document.getElementById("demo-ask").addEventListener("click", () => {
+    if (handsFreeStream || !SpeechRecognitionClass) {
+        commandInput.value = "今日の状況を教えて";
+        sendCommand("discuss", { speak: true });
+        return;
+    }
+    voiceInputButton.click();
+});
 
 function formatMinutes(minutes) {
     const value = Number(minutes ?? 0);
@@ -1565,6 +1635,7 @@ async function loadCommandCenter() {
         renderHudTasks(data.priorityTasks ?? []);
         renderHudAgents(data.agents ?? []);
         renderHudLog(data.activities ?? []);
+        renderDemoNumbers(numbers, (data.priorityTasks ?? []).length, data.activities ?? []);
     } catch (error) {
         console.error(error);
     }

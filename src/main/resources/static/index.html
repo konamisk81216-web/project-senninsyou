@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project 千人将 | ダッシュボード</title>
 
-    <link rel="stylesheet" href="/style.css?v=20260925-6">
+    <link rel="stylesheet" href="/style.css?v=20260926-1">
 </head>
 
 <body>
@@ -46,6 +46,45 @@
             SYSTEM ONLINE
         </div>
     </aside>
+
+    <div id="demo-overlay" class="demo-overlay" hidden>
+        <div class="demo-head">
+            <p class="demo-brand">千人将 <span>ONE-PERSON AI OS</span></p>
+            <button id="demo-close" type="button" class="secondary-button">✕ 通常画面へ戻る</button>
+        </div>
+
+        <div class="demo-stage">
+            <div id="demo-orb" class="demo-orb" data-voice-state="idle" aria-hidden="true">
+                <span class="demo-orb-ring"></span>
+                <span class="demo-orb-core"></span>
+            </div>
+            <p id="demo-state" class="demo-state">待機中</p>
+            <canvas id="demo-wave" class="demo-wave" width="420" height="70"></canvas>
+        </div>
+
+        <div class="demo-subtitles">
+            <p class="demo-speaker">千人将</p>
+            <p id="demo-user-line" class="demo-line">「今日の状況を教えて」と話しかけてください。</p>
+            <p class="demo-speaker demo-speaker-ai">AI将軍</p>
+            <p id="demo-ai-line" class="demo-line demo-line-ai">待機中です。</p>
+        </div>
+
+        <div id="demo-agent" class="demo-agent"></div>
+
+        <div class="demo-numbers">
+            <div><span>売上</span><strong id="demo-revenue">--</strong></div>
+            <div><span>利益</span><strong id="demo-profit">--</strong></div>
+            <div><span>AI費用</span><strong id="demo-cost">--</strong></div>
+            <div><span>作業時間</span><strong id="demo-work">--</strong></div>
+            <div><span>未完了タスク</span><strong id="demo-tasks">--</strong></div>
+            <div><span>作成した記事</span><strong id="demo-articles">--</strong></div>
+        </div>
+
+        <div class="demo-controls">
+            <button id="demo-ask" type="button">🎙️ 今日の状況を聞く</button>
+        </div>
+        <p class="demo-note">表示はすべて現在のデータです。実績がない項目は0と表示します。</p>
+    </div>
 
     <main>
         <header>
@@ -273,6 +312,7 @@
                 <div class="hud-block hud-block-wide">
                     <h3>実行ログ</h3>
                     <div id="hud-log" class="hud-log"></div>
+                    <button id="demo-open" type="button" class="secondary-button">🎬 デモ表示にする</button>
                 </div>
             </div>
         </section>
@@ -580,7 +620,7 @@
         </section>
     </main>
 
-        <script src="/app.js?v=20260925-6"></script>
+        <script src="/app.js?v=20260926-1"></script>
 </body>
 
 </html>
