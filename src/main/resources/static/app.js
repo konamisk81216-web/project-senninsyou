@@ -1043,6 +1043,136 @@ voiceInputButton.addEventListener("click", () => {
     }
 });
 
+// 拍手の検知は端末内で音の大きさを見るだけ。録音も送信もしない。
+const handsFreeToggle = document.getElementById("hands-free-toggle");
+const micIndicator = document.getElementById("mic-indicator");
+const voiceWave = document.getElementById("voice-wave");
+const CLAP_LEVEL = 0.18;
+const CLAP_MIN_GAP_MS = 120;
+const CLAP_MAX_GAP_MS = 900;
+
+let handsFreeStream = null;
+let handsFreeContext = null;
+let handsFreeAnalyser = null;
+let handsFreeFrame = null;
+let lastClapAt = 0;
+let lastTriggerAt = 0;
+
+function playStartupSound() {
+    if (!handsFreeContext) return;
+    const oscillator = handsFreeContext.createOscillator();
+    const gain = handsFreeContext.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(520, handsFreeContext.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(880, handsFreeContext.currentTime + 0.18);
+    gain.gain.setValueAtTime(0.0001, handsFreeContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.25, handsFreeContext.currentTime + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, handsFreeContext.currentTime + 0.35);
+    oscillator.connect(gain).connect(handsFreeContext.destination);
+    oscillator.start();
+    oscillator.stop(handsFreeContext.currentTime + 0.36);
+}
+
+function drawWave(samples) {
+    const canvas = voiceWave.getContext("2d");
+    const width = voiceWave.width;
+    const height = voiceWave.height;
+    canvas.clearRect(0, 0, width, height);
+    canvas.strokeStyle = "#d4af37";
+    canvas.lineWidth = 2;
+    canvas.beginPath();
+    for (let index = 0; index < samples.length; index += 1) {
+        const value = (samples[index] - 128) / 128;
+        const x = (index / samples.length) * width;
+        const y = height / 2 + value * (height / 2);
+        if (index === 0) canvas.moveTo(x, y);
+        else canvas.lineTo(x, y);
+    }
+    canvas.stroke();
+}
+
+function processAudioFrame(samples, now = Date.now()) {
+    let sum = 0;
+    for (const sample of samples) {
+        const value = (sample - 128) / 128;
+        sum += value * value;
+    }
+    const level = Math.sqrt(sum / samples.length);
+
+    if (level <= CLAP_LEVEL || now - lastClapAt <= CLAP_MIN_GAP_MS) {
+        return false;
+    }
+    const gap = now - lastClapAt;
+    lastClapAt = now;
+
+    const idle = voiceOrb.dataset.voiceState === "idle";
+    if (gap >= CLAP_MAX_GAP_MS || !idle || now - lastTriggerAt <= 2500) {
+        return false;
+    }
+    lastTriggerAt = now;
+    playStartupSound();
+    voiceOrb.classList.add("is-awakening");
+    setTimeout(() => voiceOrb.classList.remove("is-awakening"), 600);
+    voiceInputButton.click();
+    return true;
+}
+
+// 描画に任せると、画面が非表示のときフレームが止まって検知できなくなる。
+function watchMicrophone() {
+    const samples = new Uint8Array(handsFreeAnalyser.fftSize);
+    handsFreeFrame = setInterval(() => {
+        handsFreeAnalyser.getByteTimeDomainData(samples);
+        if (!document.hidden) drawWave(samples);
+        processAudioFrame(samples);
+    }, 40);
+}
+
+async function enableHandsFree() {
+    try {
+        handsFreeStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (error) {
+        setVoiceState("error", "マイクを使えませんでした。ブラウザの権限を確認してください。");
+        console.error(error);
+        return;
+    }
+    handsFreeContext = new (window.AudioContext || window.webkitAudioContext)();
+    handsFreeAnalyser = handsFreeContext.createAnalyser();
+    handsFreeAnalyser.fftSize = 1024;
+    handsFreeContext.createMediaStreamSource(handsFreeStream).connect(handsFreeAnalyser);
+
+    micIndicator.hidden = false;
+    voiceWave.hidden = false;
+    handsFreeToggle.textContent = "👏 拍手起動を止める";
+    setVoiceState("idle", "拍手2回で聞き取りを始めます。音の大きさだけを端末内で見ており、録音も送信もしていません。");
+    watchMicrophone();
+}
+
+function disableHandsFree() {
+    clearInterval(handsFreeFrame);
+    handsFreeStream?.getTracks().forEach(track => track.stop());
+    handsFreeContext?.close();
+    handsFreeStream = null;
+    handsFreeContext = null;
+    handsFreeAnalyser = null;
+    micIndicator.hidden = true;
+    voiceWave.hidden = true;
+    handsFreeToggle.textContent = "👏 拍手で起動する";
+    setVoiceState("idle", "拍手起動を止めました。マイクは開放されています。");
+}
+
+if (!navigator.mediaDevices?.getUserMedia || !(window.AudioContext || window.webkitAudioContext)) {
+    handsFreeToggle.disabled = true;
+    handsFreeToggle.title = "このブラウザでは拍手起動を使えません。";
+}
+
+handsFreeToggle.addEventListener("click", () => {
+    if (handsFreeStream) {
+        disableHandsFree();
+        return;
+    }
+    enableHandsFree();
+});
+
 function speakAnswer(answer) {
     if (!answer || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();

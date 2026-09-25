@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project 千人将 | ダッシュボード</title>
 
-    <link rel="stylesheet" href="/style.css?v=20260925-5">
+    <link rel="stylesheet" href="/style.css?v=20260925-6">
 </head>
 
 <body>
@@ -296,9 +296,12 @@
                         <span class="voice-orb-core"></span>
                     </div>
                     <span id="voice-state-label" class="voice-state-label">待機中</span>
+                    <canvas id="voice-wave" class="voice-wave" width="180" height="32" hidden></canvas>
+                    <p id="mic-indicator" class="mic-indicator" hidden>🔴 マイク使用中</p>
                 </div>
                 <div class="voice-panel-body">
                     <div class="voice-controls">
+                        <button id="hands-free-toggle" class="secondary-button" type="button">👏 拍手で起動する</button>
                         <button id="voice-input-button" class="secondary-button" type="button">🎙️ 声で入力</button>
                         <button id="voice-cancel-send" class="secondary-button" type="button" hidden>✕ 送信を取り消す</button>
                         <button id="voice-read-button" class="secondary-button" type="button" hidden>🔊 もう一度聞く</button>
@@ -577,7 +580,7 @@
         </section>
     </main>
 
-        <script src="/app.js?v=20260925-5"></script>
+        <script src="/app.js?v=20260925-6"></script>
 </body>
 
 </html>

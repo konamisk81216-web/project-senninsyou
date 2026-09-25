@@ -720,6 +720,14 @@ button:hover {
 .voice-orb[data-voice-state="error"] .voice-orb-core { background: #ff7b7b; }
 @keyframes voice-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.5); } }
 @media (prefers-reduced-motion: reduce) { .voice-orb-core { animation: none !important; } }
+.voice-wave { width: 100%; max-width: 180px; height: 32px; }
+.mic-indicator { margin: 0; color: #ff9b9b; font-size: 11px; letter-spacing: 1px; }
+.voice-orb.is-awakening { animation: orb-awaken 0.6s ease-out; }
+@keyframes orb-awaken {
+    0% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.7); border-color: #d4af37; }
+    100% { box-shadow: 0 0 0 28px rgba(212, 175, 55, 0); border-color: #3c3c44; }
+}
+@media (prefers-reduced-motion: reduce) { .voice-orb.is-awakening { animation: none; } }
 .voice-interim { margin: 0; padding: 12px 14px; border-left: 3px solid #d4af37; border-radius: 8px; background: #1a1a20; color: #f5f5f7; font-size: 15px; }
 @media (max-width: 700px) { .voice-panel { flex-direction: column; align-items: stretch; } .voice-orb-area { width: auto; justify-items: start; } }
 .metrics-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
