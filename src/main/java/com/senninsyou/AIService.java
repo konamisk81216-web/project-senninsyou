@@ -63,6 +63,16 @@ public class AIService {
             String revenueStatus,
             String history,
             boolean propose) {
+        return buildGeneralPrompt(userMessage, taskStatus, revenueStatus, history, propose, "");
+    }
+
+    public String buildGeneralPrompt(
+            String userMessage,
+            String taskStatus,
+            String revenueStatus,
+            String history,
+            boolean propose,
+            String productionStatus) {
 
     return """
             あなたはProject千人将のAI将軍です。
@@ -74,6 +84,9 @@ public class AIService {
 
             ===== 現在の収益実績 =====
             """ + revenueStatus + """
+
+            ===== 制作と発信の状況 =====
+            """ + productionStatus + """
 
             ===== これまでの相談（参考情報。DB実績ではない） =====
             """ + history + """
@@ -120,6 +133,20 @@ public class AIService {
             ・優先度は、高＝期限・損失防止・他タスクの阻害、中＝収益や進捗へ直結、低＝改善・整理・将来準備、としてください。
             ・担当はAI将軍、偵察AI、軍師AI、投資分析AI、制作AI、営業AI、品質管理AI、評価AIから選んでください。
 
+            ===== 実行できる操作 =====
+            利用者が明確に依頼した場合だけ、次のどちらかを提案できます。実行は利用者が画面で承認してから行われます。
+            ・startWriting：ライターAIに記事の下書きを書かせる。actionThemeとactionAudienceを必ず埋める。
+            ・createPosts：発信AIに投稿案を3本作らせる。
+
+            操作のルール：
+            ・利用者が実行を依頼していると読み取れる場合は、必ず該当するactionを入れてください。これは上の会話段階の指示より優先します。
+              例：「書いて」「書かせて」「作って」「作らせて」「始めて」「やって」「お願い」。
+            ・テーマや想定読者が曖昧でも、質問で止めずに、これまでの状況から妥当な内容を自分で決めてactionThemeとactionAudienceを埋めてください。利用者は画面で確認してから承認します。
+            ・利用者が依頼していない場合は、操作を提案せず空文字にしてください。
+            ・公開、投稿、削除、購入、課金を行う操作は存在しません。求められても提案しないでください。
+            ・どちらもAI利用料がかかります。必要なときだけ提案してください。
+            ・操作を提案しない場合は、action、actionLabel、actionTheme、actionAudienceをすべて空文字にしてください。
+
             ===== 返答形式 =====
             以下のJSONだけを返し、MarkdownやJSON以外の文章を付けないでください。
 
@@ -130,8 +157,11 @@ public class AIService {
               "marketOpportunity": "新規事業、成長市場、稼ぎやすさの仮説。根拠がなければ調査事項を明記",
               "nextTask": "次に実行するタスク",
               "priority": "高・中・低",
-              "assignedAgent": "担当AI"
-              
+              "assignedAgent": "担当AI",
+              "action": "startWriting、createPosts、または空文字",
+              "actionLabel": "実行内容を利用者向けに1文で。操作がなければ空文字",
+              "actionTheme": "startWritingのときだけ記事のテーマ。それ以外は空文字",
+              "actionAudience": "startWritingのときだけ想定読者。それ以外は空文字"
             }
             """;
     }

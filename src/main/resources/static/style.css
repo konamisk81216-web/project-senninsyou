@@ -650,6 +650,13 @@ button:hover {
 .writer-marketing > button { justify-self: start; }
 #writer-marketing-status { min-height: 22px; margin: 0; color: #75f39d; }
 #writer-marketing-result, #writer-research-result { display: grid; gap: 16px; }
+.action-approval { display: grid; gap: 12px; margin-top: 14px; padding: 18px; border: 1px solid #705a19; border-left: 4px solid #d4af37; border-radius: 10px; background: #1d1a12; }
+.action-approval strong { color: #f2d470; font-size: 16px; }
+.action-approval p { color: #e4e4e8; font-size: 14px; line-height: 1.7; margin: 0; white-space: pre-wrap; }
+.action-approval-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+.action-approval-buttons button { margin: 0; }
+.action-approval-status:empty { display: none; }
+.action-approval-status { color: #75f39d; }
 .hud-panel { background: linear-gradient(150deg, #14141a, #0d0d11); border-color: #2f2f38; }
 .hud-top { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
 .hud-orb-area { display: grid; gap: 10px; justify-items: center; width: 150px; }

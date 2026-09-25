@@ -29,6 +29,7 @@ public class AIController {
     private final WriterJobRepository writerJobRepository;
     private final AuthorFactRepository authorFactRepository;
     private final AiActivityRepository activityRepository;
+    private final PostDraftRepository postDraftRepository;
     // 同時に走らせない。無料枠のCPU時間とAPI費用を使いすぎないため。
     private final ExecutorService writerExecutor = Executors.newSingleThreadExecutor();
     private final RevenueContextService revenueContextService =
@@ -73,6 +74,7 @@ public class AIController {
         writerJobRepository = new WriterJobRepository(jdbcUrl, user, password);
         authorFactRepository = new AuthorFactRepository(jdbcUrl, user, password);
         activityRepository = new AiActivityRepository(jdbcUrl, user, password);
+        postDraftRepository = new PostDraftRepository(jdbcUrl, user, password);
     }
 
     @PreDestroy
@@ -106,7 +108,8 @@ public class AIController {
 
         String prompt =
                 aiService.buildGeneralPrompt(
-                        command, taskStatus, revenueStatus, history, propose);
+                        command, taskStatus, revenueStatus, history, propose,
+                        buildProductionStatus());
 
         String response =
                 aiService.askGeneral(prompt);
@@ -129,12 +132,59 @@ public class AIController {
                 result.put("priority", "");
                 result.put("assignedAgent", "");
             }
+            applyAllowedAction(result);
             activityRepository.finish(activityId, "完了", "");
             return result.toString();
         } catch (Exception e) {
             activityRepository.finish(activityId, "失敗", "返答の形式が正しくありませんでした");
             throw new IllegalStateException("AI将軍の返答形式が正しくありません。", e);
         }
+    }
+
+    // AI将軍が提案してよい操作はこの2つだけ。ほかの値は捨てる。
+    private static final List<String> ALLOWED_ACTIONS = List.of("startWriting", "createPosts");
+
+    private void applyAllowedAction(ObjectNode result) {
+        String action = result.path("action").asText("");
+        if (!ALLOWED_ACTIONS.contains(action)) {
+            result.put("action", "");
+            result.put("actionLabel", "");
+            result.put("actionTheme", "");
+            result.put("actionAudience", "");
+            return;
+        }
+        result.put("actionLabel", limit(result.path("actionLabel").asText(""), 200));
+        result.put("actionTheme", limit(result.path("actionTheme").asText(""), 200));
+        result.put("actionAudience", limit(result.path("actionAudience").asText(""), 300));
+
+        // テーマと読者が無ければ執筆は始められないので、操作として渡さない。
+        if ("startWriting".equals(action)
+                && (result.get("actionTheme").asText().isBlank()
+                    || result.get("actionAudience").asText().isBlank())) {
+            result.put("action", "");
+            result.put("actionLabel", "");
+        }
+    }
+
+    private String limit(String value, int maxLength) {
+        String cleaned = value == null ? "" : value.trim();
+        return cleaned.length() > maxLength ? cleaned.substring(0, maxLength) : cleaned;
+    }
+
+    private String buildProductionStatus() {
+        Map<String, String> latestJob = writerJobRepository.findLatestJob();
+        String articleLine = latestJob.isEmpty()
+                ? "記事の作成依頼はまだありません。"
+                : "直近の記事：状態 " + latestJob.get("status")
+                  + (latestJob.get("title").isBlank() ? "" : "／タイトル " + latestJob.get("title"));
+
+        long waiting = postDraftRepository.getDrafts().stream()
+                .filter(draft -> "承認待ち".equals(draft.get("status")))
+                .count();
+        String postLine = "承認待ちの投稿案：" + waiting + "件";
+
+        return articleLine + "\n" + postLine
+                + "\n記憶している本人の事実：" + authorFactRepository.getAllFacts().size() + "件";
     }
 
     @PostMapping("/writer/research")

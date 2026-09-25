@@ -696,6 +696,7 @@ async function sendCommand(mode = "discuss", options = {}) {
         }
         const answer = data.summary ?? "回答を受け取れませんでした。";
         appendConversationMessage(aiResponse, "AI将軍", answer, data, mode);
+        renderActionApproval(aiResponse, data);
         conversation.push({role: "利用者", text: command}, {role: "AI将軍", text: answer});
         document.getElementById("voice-read-button").hidden = false;
         if (options.speak) {
@@ -757,6 +758,106 @@ async function sendCommand(mode = "discuss", options = {}) {
         // 読み上げが始まる場合は、その中で回答中へ切り替える。
         if (voiceOrb.dataset.voiceState === "thinking") setVoiceState("idle");
     }
+}
+
+const ACTION_DESCRIPTIONS = {
+    startWriting: "ライターAIが記事の下書きを作ります。1〜2分かかり、AI利用料が発生します。",
+    createPosts: "発信AIが投稿案を3本作ります。30秒ほどかかり、AI利用料が発生します。"
+};
+
+// AI将軍は提案するだけで、実行するのは承認を押したときだけ。
+function renderActionApproval(container, data) {
+    const action = data.action ?? "";
+    if (!ACTION_DESCRIPTIONS[action]) return;
+
+    const card = document.createElement("div");
+    card.className = "action-approval";
+
+    const title = document.createElement("strong");
+    title.textContent = data.actionLabel || "この操作を実行しますか？";
+
+    const detail = document.createElement("p");
+    detail.textContent = ACTION_DESCRIPTIONS[action]
+        + (action === "startWriting"
+            ? `\nテーマ：${data.actionTheme}\n想定読者：${data.actionAudience}`
+            : "");
+
+    const status = document.createElement("p");
+    status.className = "action-approval-status";
+
+    const actions = document.createElement("div");
+    actions.className = "action-approval-buttons";
+
+    const run = document.createElement("button");
+    run.type = "button";
+    run.textContent = "実行する";
+
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "secondary-button";
+    cancel.textContent = "やめる";
+    cancel.addEventListener("click", () => {
+        card.remove();
+    });
+
+    run.addEventListener("click", async () => {
+        run.disabled = true;
+        cancel.disabled = true;
+        run.textContent = "実行中...";
+        status.textContent = "AI社員が作業しています。実行ログで進み具合を確認できます。";
+        try {
+            const result = action === "startWriting"
+                ? await runWritingAction(data)
+                : await runPostsAction();
+            status.textContent = result;
+            run.hidden = true;
+            cancel.textContent = "閉じる";
+            cancel.disabled = false;
+        } catch (error) {
+            status.textContent = "実行できませんでした。時間をおいて試してください。";
+            console.error(error);
+            run.disabled = false;
+            cancel.disabled = false;
+            run.textContent = "実行する";
+        }
+        loadCommandCenter();
+    });
+
+    actions.append(run, cancel);
+    card.append(title, detail, actions, status);
+    container.appendChild(card);
+}
+
+async function runWritingAction(data) {
+    const response = await fetch("/api/ai/writer/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            theme: data.actionTheme,
+            audience: data.actionAudience,
+            price: "未定",
+            sourceNotes: "記憶している事実をもとに書く。新しい体験や数字を創作しない。",
+            interviewNotes: ""
+        })
+    });
+    if (!response.ok) throw new Error(await response.text());
+    const job = await response.json();
+    if (job.errorCode) throw new Error(job.errorCode);
+    watchWriterJob(job.id, Date.now());
+    return "執筆を始めました。note販売の画面で進み具合と結果を確認できます。";
+}
+
+async function runPostsAction() {
+    const response = await fetch("/api/posts/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note: "" })
+    });
+    if (!response.ok) throw new Error(await response.text());
+    const result = await response.json();
+    if (result.errorCode) throw new Error(result.errorCode);
+    loadPosts();
+    return `${result.status}。発信の画面で確認して、承認かコピーをしてください。`;
 }
 
 function appendConversationMessage(container, speaker, message, data, mode) {
