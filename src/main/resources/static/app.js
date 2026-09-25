@@ -651,6 +651,37 @@ function renderRevenueRecords(records) {
 
     const conversation = [];
 
+// 再読み込みしても続きから話せるよう、保存済みの会話を戻す。
+async function restoreConversation() {
+    try {
+        const response = await fetch("/api/conversations");
+        if (!response.ok) return;
+        const messages = await response.json();
+        if (messages.length === 0) return;
+
+        const container = document.getElementById("ai-response");
+        messages.forEach(item => {
+            const speaker = item.role === "利用者" ? "あなた" : "AI将軍";
+            appendConversationMessage(container, speaker, item.message);
+            conversation.push({ role: item.role, text: item.message });
+        });
+
+        const last = messages.at(-1);
+        if (last.role === "AI将軍") {
+            setDemoSubtitle(null, last.message);
+            document.getElementById("voice-read-button").hidden = false;
+        }
+        document.getElementById("continue-conversation-button").hidden = false;
+        document.getElementById("command-status").textContent =
+            "前回までの会話を表示しています。続きから相談できます。";
+        document.getElementById("command-status").hidden = false;
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+restoreConversation();
+
 async function sendCommand(mode = "discuss", options = {}) {
     const input = document.getElementById("command-input");
     const command = mode === "propose"

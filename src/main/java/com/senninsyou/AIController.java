@@ -30,6 +30,7 @@ public class AIController {
     private final AuthorFactRepository authorFactRepository;
     private final AiActivityRepository activityRepository;
     private final PostDraftRepository postDraftRepository;
+    private final ConversationRepository conversationRepository;
     // 同時に走らせない。無料枠のCPU時間とAPI費用を使いすぎないため。
     private final ExecutorService writerExecutor = Executors.newSingleThreadExecutor();
     private final RevenueContextService revenueContextService =
@@ -75,6 +76,7 @@ public class AIController {
         authorFactRepository = new AuthorFactRepository(jdbcUrl, user, password);
         activityRepository = new AiActivityRepository(jdbcUrl, user, password);
         postDraftRepository = new PostDraftRepository(jdbcUrl, user, password);
+        conversationRepository = new ConversationRepository(jdbcUrl, user, password);
     }
 
     @PreDestroy
@@ -133,6 +135,10 @@ public class AIController {
                 result.put("assignedAgent", "");
             }
             applyAllowedAction(result);
+            if (!propose) {
+                conversationRepository.add("利用者", command);
+            }
+            conversationRepository.add("AI将軍", result.path("summary").asText(""));
             activityRepository.finish(activityId, "完了", "");
             return result.toString();
         } catch (Exception e) {
