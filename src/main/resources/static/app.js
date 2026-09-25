@@ -907,6 +907,7 @@ const pageTitles = {
     note: "note販売",
     opportunities: "機会発見レーダー",
     revenue: "収益・実績分析",
+    posts: "発信",
     video: "動画制作・確認"
 };
 
@@ -1220,6 +1221,123 @@ Object.values(writerSavedIds).forEach(id => {
     document.getElementById(id).addEventListener("input", saveWriterDraft);
 });
 restoreWriterDraft();
+
+const postList = document.getElementById("post-list");
+
+async function loadPosts() {
+    try {
+        const response = await fetch("/api/posts");
+        if (!response.ok) throw new Error(await response.text());
+        renderPosts(await response.json());
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function renderPosts(posts) {
+    postList.replaceChildren();
+    if (posts.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "author-facts-empty";
+        empty.textContent = "まだ投稿案がありません。「投稿案を3本作る」を押してください。";
+        postList.appendChild(empty);
+        return;
+    }
+    posts.forEach(post => {
+        const card = document.createElement("div");
+        card.className = `post-card ${post.status === "承認済み" ? "is-approved" : ""}`;
+
+        const head = document.createElement("div");
+        head.className = "post-card-head";
+        const intent = document.createElement("span");
+        intent.className = "author-fact-category";
+        intent.textContent = post.intent;
+        const state = document.createElement("span");
+        state.className = "post-card-status";
+        state.textContent = post.status;
+        head.append(intent, state);
+
+        const body = document.createElement("p");
+        body.textContent = post.content;
+
+        const count = document.createElement("span");
+        count.className = "post-card-count";
+        count.textContent = `${post.content.length}文字`;
+
+        const actions = document.createElement("div");
+        actions.className = "post-card-actions";
+
+        const copy = document.createElement("button");
+        copy.type = "button";
+        copy.className = "secondary-button";
+        copy.textContent = "コピー";
+        copy.addEventListener("click", async () => {
+            await navigator.clipboard.writeText(post.content);
+            document.getElementById("post-status").textContent = "コピーしました。Xに貼り付けて投稿してください。";
+        });
+        actions.appendChild(copy);
+
+        if (post.status === "承認待ち") {
+            const approve = document.createElement("button");
+            approve.type = "button";
+            approve.className = "secondary-button";
+            approve.textContent = "承認";
+            approve.addEventListener("click", async () => {
+                await fetch(`/api/posts/${post.id}/approve`, { method: "POST" });
+                loadPosts();
+            });
+
+            const reject = document.createElement("button");
+            reject.type = "button";
+            reject.className = "secondary-button";
+            reject.textContent = "却下";
+            reject.addEventListener("click", async () => {
+                await fetch(`/api/posts/${post.id}/reject`, { method: "POST" });
+                loadPosts();
+            });
+            actions.append(approve, reject);
+        }
+
+        card.append(head, body, count, actions);
+        postList.appendChild(card);
+    });
+}
+
+document.getElementById("post-generate").addEventListener("click", async () => {
+    const button = document.getElementById("post-generate");
+    const status = document.getElementById("post-status");
+    button.disabled = true;
+    button.textContent = "発信AIが作成中...";
+    const startedAt = Date.now();
+    const showElapsed = () => {
+        status.textContent = `投稿案を作っています。${Math.floor((Date.now() - startedAt) / 1000)}秒経過。`;
+    };
+    showElapsed();
+    const timer = setInterval(showElapsed, 1000);
+    try {
+        const response = await fetch("/api/posts/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ note: document.getElementById("post-note").value.trim() })
+        });
+        if (!response.ok) throw new Error(await response.text());
+        const result = await response.json();
+        if (result.errorCode) {
+            throw new Error(`投稿案を作れませんでした。診断コード: ${result.errorCode}`);
+        }
+        status.textContent = `${result.status}。内容を確認して、承認かコピーをしてください。`;
+        loadPosts();
+    } catch (error) {
+        status.textContent = error instanceof Error ? error.message : "投稿案を作れませんでした。";
+        console.error(error);
+    } finally {
+        clearInterval(timer);
+        button.disabled = false;
+        button.textContent = "投稿案を3本作る";
+    }
+});
+
+loadPosts();
 
 const authorFactsList = document.getElementById("author-facts-list");
 
