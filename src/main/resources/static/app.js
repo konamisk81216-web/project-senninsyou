@@ -671,6 +671,7 @@ async function sendCommand(mode = "discuss", options = {}) {
     commandButton.textContent = "考え中...";
     status.textContent = mode === "propose" ? "タスク案を整理しています..." : "新しい返答を作成中です。下は前回の会話です。";
     status.hidden = false;
+    setVoiceState("thinking", "AI将軍が考えています。");
     document.getElementById("ai-response").classList.add("is-thinking");
     try {
         const response = await fetch("/api/ai/command", {
@@ -743,7 +744,7 @@ async function sendCommand(mode = "discuss", options = {}) {
         if (mode !== "propose") input.value = "";
 
     } catch (error) {
-        if (options.speak) voiceStatus.textContent = "AI将軍の返答を取得できませんでした。もう一度試してください。";
+        setVoiceState("error", "AI将軍の返答を取得できませんでした。もう一度試してください。");
         alert("AI将軍への送信に失敗しました。");
         console.error(error);
     } finally {
@@ -753,6 +754,8 @@ async function sendCommand(mode = "discuss", options = {}) {
         commandButton.textContent = "将軍と話す";
         status.hidden = true;
         document.getElementById("ai-response").classList.remove("is-thinking");
+        // 読み上げが始まる場合は、その中で回答中へ切り替える。
+        if (voiceOrb.dataset.voiceState === "thinking") setVoiceState("idle");
     }
 }
 
@@ -788,12 +791,73 @@ const voiceInputButton = document.getElementById("voice-input-button");
 const voiceReadButton = document.getElementById("voice-read-button");
 const voiceStopButton = document.getElementById("voice-stop-button");
 const voiceStatus = document.getElementById("voice-status");
+const voiceOrb = document.getElementById("voice-orb");
+const voiceStateLabel = document.getElementById("voice-state-label");
+const voiceInterim = document.getElementById("voice-interim");
+const voiceCancelSendButton = document.getElementById("voice-cancel-send");
 const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
 let voiceRecognition = null;
 let voiceListening = false;
 let voiceRecognized = false;
 let voiceCanceled = false;
 let voiceError = false;
+let sendCountdownTimer = null;
+
+const VOICE_STATE_LABELS = {
+    idle: "待機中",
+    listening: "聞き取り中",
+    confirming: "確認中",
+    thinking: "思考中",
+    speaking: "回答中",
+    error: "エラー"
+};
+
+function setVoiceState(state, message) {
+    voiceOrb.dataset.voiceState = state;
+    voiceStateLabel.textContent = VOICE_STATE_LABELS[state] ?? state;
+    if (message) voiceStatus.textContent = message;
+}
+
+function showInterim(text) {
+    voiceInterim.hidden = !text;
+    voiceInterim.textContent = text ? `「${text}」` : "";
+}
+
+function stopSendCountdown() {
+    if (sendCountdownTimer) {
+        clearInterval(sendCountdownTimer);
+        sendCountdownTimer = null;
+    }
+    voiceCancelSendButton.hidden = true;
+}
+
+// 誤認識をそのまま送らないよう、送信前に取り消せる時間を置く。
+function startSendCountdown() {
+    stopSendCountdown();
+    let remaining = 2;
+    voiceCancelSendButton.hidden = false;
+    const tick = () => {
+        setVoiceState("confirming", `${remaining}秒後に将軍へ送ります。違っていれば取り消してください。`);
+    };
+    tick();
+    sendCountdownTimer = setInterval(() => {
+        remaining -= 1;
+        if (remaining > 0) {
+            tick();
+            return;
+        }
+        stopSendCountdown();
+        showInterim("");
+        sendCommand("discuss", { speak: true });
+    }, 1000);
+}
+
+voiceCancelSendButton.addEventListener("click", () => {
+    stopSendCountdown();
+    showInterim("");
+    commandInput.value = "";
+    setVoiceState("idle", "送信を取り消しました。もう一度話すか、文字で入力してください。");
+});
 
 if (!SpeechRecognitionClass) {
     voiceInputButton.disabled = true;
@@ -810,56 +874,68 @@ voiceInputButton.addEventListener("click", () => {
         voiceRecognition.stop();
         return;
     }
+    stopSendCountdown();
+    showInterim("");
     voiceRecognized = false;
     voiceCanceled = false;
     voiceError = false;
     voiceRecognition = new SpeechRecognitionClass();
     voiceRecognition.lang = "ja-JP";
     voiceRecognition.continuous = false;
-    voiceRecognition.interimResults = false;
+    voiceRecognition.interimResults = true;
     voiceRecognition.onstart = () => {
         voiceListening = true;
         voiceInputButton.textContent = "■ 聞き取り停止";
-        voiceStatus.textContent = "聞き取り中... 話し終わると自動で将軍へ送ります。停止すると送信しません。";
+        setVoiceState("listening", "聞き取り中です。マイクが動いています。停止すると送信しません。");
     };
     voiceRecognition.onresult = event => {
-        const transcript = Array.from(event.results)
+        const results = Array.from(event.results);
+        const interim = results
+            .filter(result => !result.isFinal)
+            .map(result => result[0].transcript)
+            .join("").trim();
+        const transcript = results
             .filter(result => result.isFinal)
             .map(result => result[0].transcript)
             .join(" ").trim();
+
         if (transcript) {
             commandInput.value = transcript.slice(0, 2000);
             voiceRecognized = true;
-            voiceStatus.textContent = "聞き取りました。将軍へ送信します...";
+            showInterim(transcript);
+        } else if (interim) {
+            showInterim(interim);
         }
     };
     voiceRecognition.onerror = event => {
         voiceCanceled = true;
         voiceError = true;
-        voiceStatus.textContent = event.error === "not-allowed"
+        showInterim("");
+        setVoiceState("error", event.error === "not-allowed"
             ? "マイクの利用が許可されませんでした。ブラウザの権限を確認してください。"
-            : "音声を聞き取れませんでした。もう一度試すか、文字で入力してください。";
+            : "音声を聞き取れませんでした。もう一度試すか、文字で入力してください。");
     };
     voiceRecognition.onend = () => {
         voiceListening = false;
         voiceInputButton.textContent = "🎙️ 声で入力";
         if (voiceRecognized && !voiceCanceled) {
-            sendCommand("discuss", { speak: true });
+            startSendCountdown();
             return;
         }
+        showInterim("");
         if (voiceCanceled && !voiceError) {
-            voiceStatus.textContent = "音声入力を停止しました。送信していません。";
+            setVoiceState("idle", "音声入力を停止しました。送信していません。");
             return;
         }
         if (voiceError) return;
-        if (!voiceRecognized && voiceStatus.textContent.startsWith("聞き取り中")) {
-            voiceStatus.textContent = "音声が認識されませんでした。もう一度試してください。";
+        if (!voiceRecognized) {
+            setVoiceState("idle", "音声が認識されませんでした。もう一度試してください。");
         }
     };
     try {
         voiceRecognition.start();
     } catch (error) {
-        voiceStatus.textContent = "音声入力を開始できませんでした。文字入力をお使いください。";
+        setVoiceState("error", "音声入力を開始できませんでした。文字入力をお使いください。");
     }
 });
 
@@ -871,17 +947,19 @@ function speakAnswer(answer) {
     utterance.rate = 1;
     utterance.onstart = () => {
         voiceStopButton.hidden = false;
-        voiceStatus.textContent = "AI将軍の返答を読み上げています。";
+        setVoiceState("speaking", "AI将軍の返答を読み上げています。");
     };
     utterance.onend = () => {
         voiceStopButton.hidden = true;
-        voiceStatus.textContent = "読み上げが終わりました。";
+        setVoiceState("idle", "読み上げが終わりました。");
     };
     utterance.onerror = event => {
         if (event.error === "interrupted" || event.error === "canceled") return;
         voiceStopButton.hidden = true;
-        voiceStatus.textContent = "読み上げに失敗しました。画面の返答を確認してください。";
+        setVoiceState("idle", "読み上げに失敗しました。画面の返答を確認してください。");
     };
+    // onstartの通知を待つと、その間だけ待機中に見えてしまうため先に切り替える。
+    setVoiceState("speaking", "AI将軍の返答を読み上げます。");
     window.speechSynthesis.speak(utterance);
 }
 
@@ -892,7 +970,7 @@ voiceReadButton.addEventListener("click", () => {
 voiceStopButton.addEventListener("click", () => {
     window.speechSynthesis.cancel();
     voiceStopButton.hidden = true;
-    voiceStatus.textContent = "読み上げを停止しました。";
+    setVoiceState("idle", "読み上げを停止しました。");
 });
 const revenueForm = document.getElementById("revenue-form");
 const revenueDate = document.getElementById("revenue-date");

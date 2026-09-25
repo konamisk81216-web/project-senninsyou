@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project 千人将 | ダッシュボード</title>
 
-    <link rel="stylesheet" href="/style.css?v=20260925-2">
+    <link rel="stylesheet" href="/style.css?v=20260925-3">
 </head>
 
 <body>
@@ -255,12 +255,24 @@
                 >
                 <button id="command-button" type="button">将軍と話す</button>
             </div>
-            <div class="voice-controls">
-                <button id="voice-input-button" class="secondary-button" type="button">🎙️ 声で入力</button>
-                <button id="voice-read-button" class="secondary-button" type="button" hidden>🔊 もう一度聞く</button>
-                <button id="voice-stop-button" class="secondary-button" type="button" hidden>■ 読み上げ停止</button>
+            <div class="voice-panel">
+                <div class="voice-orb-area">
+                    <div id="voice-orb" class="voice-orb" data-voice-state="idle" aria-hidden="true">
+                        <span class="voice-orb-core"></span>
+                    </div>
+                    <span id="voice-state-label" class="voice-state-label">待機中</span>
+                </div>
+                <div class="voice-panel-body">
+                    <div class="voice-controls">
+                        <button id="voice-input-button" class="secondary-button" type="button">🎙️ 声で入力</button>
+                        <button id="voice-cancel-send" class="secondary-button" type="button" hidden>✕ 送信を取り消す</button>
+                        <button id="voice-read-button" class="secondary-button" type="button" hidden>🔊 もう一度聞く</button>
+                        <button id="voice-stop-button" class="secondary-button" type="button" hidden>■ 読み上げ停止</button>
+                    </div>
+                    <p id="voice-interim" class="voice-interim" hidden></p>
+                    <p id="voice-status" class="voice-status" role="status" aria-live="polite">声で入力すると、聞き取り後に2秒の取り消し時間を置いてから将軍へ送ります。ブラウザによっては音声が認識サービスへ送られます。</p>
+                </div>
             </div>
-            <p id="voice-status" class="voice-status" role="status" aria-live="polite">声で入力すると、聞き取り後に自動送信し、返答を読み上げます。ブラウザによっては音声が認識サービスへ送られます。</p>
 
             <div class="quick-commands" aria-label="AI将軍クイックコマンド">
                 <button class="quick-command urgent" type="button"
@@ -530,7 +542,7 @@
         </section>
     </main>
 
-        <script src="/app.js?v=20260925-2"></script>
+        <script src="/app.js?v=20260925-3"></script>
 </body>
 
 </html>
