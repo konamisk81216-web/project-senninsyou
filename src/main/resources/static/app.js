@@ -942,8 +942,11 @@ const VOICE_STATE_LABELS = {
     idle: "待機中",
     listening: "聞き取り中",
     confirming: "確認中",
+    sending: "送信中",
     thinking: "思考中",
-    speaking: "回答中",
+    speaking: "読み上げ中",
+    waiting: "次の発言を待っています",
+    ended: "会話終了",
     error: "エラー"
 };
 
@@ -988,6 +991,7 @@ function startSendCountdown() {
         }
         stopSendCountdown();
         showInterim("");
+        setVoiceState("sending", "将軍へ送っています。");
         sendCommand("discuss", { speak: true });
     }, 1000);
 }
@@ -1007,13 +1011,8 @@ if (!window.speechSynthesis) {
     voiceReadButton.disabled = true;
 }
 
-voiceInputButton.addEventListener("click", () => {
+function startListening() {
     if (!SpeechRecognitionClass) return;
-    if (voiceListening) {
-        voiceCanceled = true;
-        voiceRecognition.stop();
-        return;
-    }
     stopSendCountdown();
     showInterim("");
     voiceRecognized = false;
@@ -1051,13 +1050,17 @@ voiceInputButton.addEventListener("click", () => {
         voiceCanceled = true;
         voiceError = true;
         showInterim("");
-        setVoiceState("error", event.error === "not-allowed"
+        const denied = event.error === "not-allowed";
+        setVoiceState("error", denied
             ? "マイクの利用が許可されませんでした。ブラウザの権限を確認してください。"
             : "音声を聞き取れませんでした。もう一度試すか、文字で入力してください。");
+        // 権限が無い状態で再開し続けないよう、会話は終了する。
+        if (voiceSessionActive) endVoiceSession(denied ? "マイクを使えないため会話を終了しました。" : null);
     };
     voiceRecognition.onend = () => {
         voiceListening = false;
         voiceInputButton.textContent = "🎙️ 声で入力";
+        clearTimeout(silenceTimer);
         if (voiceRecognized && !voiceCanceled) {
             startSendCountdown();
             return;
@@ -1068,15 +1071,88 @@ voiceInputButton.addEventListener("click", () => {
             return;
         }
         if (voiceError) return;
-        if (!voiceRecognized) {
-            setVoiceState("idle", "音声が認識されませんでした。もう一度試してください。");
+        if (voiceSessionActive) {
+            endVoiceSession("発言がなかったため、会話を終了しました。");
+            return;
         }
+        setVoiceState("idle", "音声が認識されませんでした。もう一度試してください。");
     };
     try {
         voiceRecognition.start();
     } catch (error) {
         setVoiceState("error", "音声入力を開始できませんでした。文字入力をお使いください。");
+        if (voiceSessionActive) endVoiceSession(null);
     }
+}
+
+voiceInputButton.addEventListener("click", () => {
+    if (!SpeechRecognitionClass) return;
+    if (voiceListening) {
+        voiceCanceled = true;
+        voiceRecognition.stop();
+        return;
+    }
+    startListening();
+});
+
+// 会話セッション。開始したときだけマイクが動き、無言なら自動で終わる。
+const SILENCE_LIMIT_MS = 8000;
+let voiceSessionActive = false;
+let silenceTimer = null;
+
+function updateMicIndicator() {
+    const micOn = Boolean(handsFreeStream) || voiceSessionActive;
+    micIndicator.hidden = !micOn;
+}
+
+function startVoiceSession() {
+    if (!SpeechRecognitionClass) return;
+    voiceSessionActive = true;
+    voiceSessionButton.textContent = "■ 会話を終了";
+    updateMicIndicator();
+    setVoiceState("listening",
+        "音声会話を始めました。読み上げのあと8秒だけ次の発言を待ちます。ブラウザによっては音声が認識サービスへ送られます。");
+    startListening();
+}
+
+function endVoiceSession(message) {
+    voiceSessionActive = false;
+    clearTimeout(silenceTimer);
+    voiceSessionButton.textContent = "💬 音声会話を開始";
+    updateMicIndicator();
+    if (voiceListening) {
+        voiceCanceled = true;
+        voiceRecognition?.stop();
+    }
+    window.speechSynthesis?.cancel();
+    setVoiceState("ended", message ?? "会話を終了しました。マイクは停止しています。");
+    setTimeout(() => {
+        if (!voiceSessionActive) setVoiceState("idle");
+    }, 2500);
+}
+
+const voiceSessionButton = document.getElementById("voice-session-toggle");
+voiceSessionButton.addEventListener("click", () => {
+    if (voiceSessionActive) {
+        endVoiceSession(null);
+        return;
+    }
+    startVoiceSession();
+});
+
+if (!SpeechRecognitionClass) {
+    voiceSessionButton.disabled = true;
+}
+
+// 画面を離れたら必ずマイクを止める。再読み込み後に自動で再開はしない。
+document.addEventListener("visibilitychange", () => {
+    if (document.hidden && voiceSessionActive) {
+        endVoiceSession("画面を離れたため、会話を終了しました。");
+    }
+});
+window.addEventListener("pagehide", () => {
+    if (voiceSessionActive) endVoiceSession(null);
+    if (handsFreeStream) disableHandsFree();
 });
 
 // 拍手の検知は端末内で音の大きさを見るだけ。録音も送信もしない。
@@ -1181,7 +1257,7 @@ async function enableHandsFree() {
     handsFreeAnalyser.fftSize = 1024;
     handsFreeContext.createMediaStreamSource(handsFreeStream).connect(handsFreeAnalyser);
 
-    micIndicator.hidden = false;
+    updateMicIndicator();
     voiceWave.hidden = false;
     handsFreeToggle.textContent = "👏 拍手起動を止める";
     setVoiceState("idle", "拍手2回で聞き取りを始めます。音の大きさだけを端末内で見ており、録音も送信もしていません。");
@@ -1195,7 +1271,7 @@ function disableHandsFree() {
     handsFreeStream = null;
     handsFreeContext = null;
     handsFreeAnalyser = null;
-    micIndicator.hidden = true;
+    updateMicIndicator();
     voiceWave.hidden = true;
     handsFreeToggle.textContent = "👏 拍手で起動する";
     setVoiceState("idle", "拍手起動を止めました。マイクは開放されています。");
@@ -1226,7 +1302,18 @@ function speakAnswer(answer) {
     };
     utterance.onend = () => {
         voiceStopButton.hidden = true;
-        setVoiceState("idle", "読み上げが終わりました。");
+        if (!voiceSessionActive) {
+            setVoiceState("idle", "読み上げが終わりました。");
+            return;
+        }
+        // 読み上げが終わってから聞き取りを再開する。先に開くと自分の声を拾う。
+        setVoiceState("waiting", "次の発言を待っています。8秒間なければ会話を終了します。");
+        silenceTimer = setTimeout(() => {
+            if (voiceSessionActive && !voiceRecognized) {
+                endVoiceSession("発言がなかったため、会話を終了しました。");
+            }
+        }, SILENCE_LIMIT_MS);
+        startListening();
     };
     utterance.onerror = event => {
         if (event.error === "interrupted" || event.error === "canceled") return;
