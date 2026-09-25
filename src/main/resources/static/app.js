@@ -1222,6 +1222,161 @@ Object.values(writerSavedIds).forEach(id => {
 });
 restoreWriterDraft();
 
+async function loadMetrics() {
+    try {
+        const response = await fetch("/api/metrics");
+        if (!response.ok) throw new Error(await response.text());
+        const data = await response.json();
+
+        const summary = data.summary ?? {};
+        const seconds = Number(summary.averageWritingSeconds ?? 0);
+        document.getElementById("metrics-article-count").textContent = `${summary.articleCount ?? 0}本`;
+        document.getElementById("metrics-avg-writing").textContent =
+            seconds > 0 ? `${Math.floor(seconds / 60)}分${seconds % 60}秒` : "--";
+        document.getElementById("metrics-approved-posts").textContent = `${summary.approvedPosts ?? 0}件`;
+        document.getElementById("metrics-total-cost").textContent =
+            `${Number(summary.totalCost ?? 0).toLocaleString("ja-JP")}円`;
+
+        renderMetrics(data.entries ?? []);
+        renderCosts(data.costs ?? []);
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function renderMetrics(entries) {
+    const list = document.getElementById("metrics-list");
+    list.replaceChildren();
+    if (entries.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "author-facts-empty";
+        empty.textContent = "まだ記録がありません。公開した翌日から記録を始めてください。";
+        list.appendChild(empty);
+        return;
+    }
+    entries.forEach(entry => {
+        const row = document.createElement("div");
+        row.className = "author-fact";
+
+        const date = document.createElement("span");
+        date.className = "author-fact-category";
+        date.textContent = entry.measuredOn;
+
+        const body = document.createElement("div");
+        const title = document.createElement("strong");
+        title.textContent = entry.title;
+        const numbers = document.createElement("p");
+        const rate = entry.purchaseRate ? `　購入率 ${entry.purchaseRate}%` : "";
+        numbers.textContent =
+            `閲覧 ${entry.views}　クリック ${entry.clicks}　購入 ${entry.purchases}${rate}`
+            + (entry.memo ? `\n${entry.memo}` : "");
+        body.append(title, numbers);
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "secondary-button";
+        remove.textContent = "削除";
+        remove.addEventListener("click", async () => {
+            if (!window.confirm("この記録を削除しますか？")) return;
+            await fetch(`/api/metrics/${entry.id}`, { method: "DELETE" });
+            loadMetrics();
+        });
+
+        row.append(date, body, remove);
+        list.appendChild(row);
+    });
+}
+
+function renderCosts(costs) {
+    const list = document.getElementById("costs-list");
+    list.replaceChildren();
+    costs.forEach(cost => {
+        const row = document.createElement("div");
+        row.className = "author-fact";
+
+        const month = document.createElement("span");
+        month.className = "author-fact-category";
+        month.textContent = cost.month;
+
+        const body = document.createElement("div");
+        const service = document.createElement("strong");
+        service.textContent = cost.service;
+        const amount = document.createElement("p");
+        amount.textContent = `${Number(cost.amount).toLocaleString("ja-JP")}円`;
+        body.append(service, amount);
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "secondary-button";
+        remove.textContent = "削除";
+        remove.addEventListener("click", async () => {
+            await fetch(`/api/metrics/costs/${cost.id}`, { method: "DELETE" });
+            loadMetrics();
+        });
+
+        row.append(month, body, remove);
+        list.appendChild(row);
+    });
+}
+
+document.getElementById("metric-add").addEventListener("click", async () => {
+    const status = document.getElementById("metrics-status");
+    const payload = {
+        title: document.getElementById("metric-title").value.trim(),
+        measuredOn: document.getElementById("metric-date").value,
+        views: Number(document.getElementById("metric-views").value),
+        clicks: Number(document.getElementById("metric-clicks").value),
+        purchases: Number(document.getElementById("metric-purchases").value),
+        memo: document.getElementById("metric-memo").value.trim()
+    };
+    if (!payload.title || !payload.measuredOn) {
+        status.textContent = "記事名と計測日を入力してください。";
+        return;
+    }
+    try {
+        const response = await fetch("/api/metrics", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error(await response.text());
+        document.getElementById("metric-memo").value = "";
+        status.textContent = "記録しました。";
+        loadMetrics();
+    } catch (error) {
+        status.textContent = "記録できませんでした。";
+        console.error(error);
+    }
+});
+
+document.getElementById("cost-add").addEventListener("click", async () => {
+    const status = document.getElementById("metrics-status");
+    const payload = {
+        month: document.getElementById("cost-month").value,
+        service: document.getElementById("cost-service").value.trim(),
+        amount: Number(document.getElementById("cost-amount").value)
+    };
+    if (!payload.month || !payload.service) {
+        status.textContent = "対象月とサービス名を入力してください。";
+        return;
+    }
+    try {
+        const response = await fetch("/api/metrics/costs", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error(await response.text());
+        status.textContent = "費用を記録しました。";
+        loadMetrics();
+    } catch (error) {
+        status.textContent = "費用を記録できませんでした。";
+        console.error(error);
+    }
+});
+
+loadMetrics();
+
 const postList = document.getElementById("post-list");
 
 async function loadPosts() {

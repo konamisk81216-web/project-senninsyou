@@ -650,6 +650,11 @@ button:hover {
 .writer-marketing > button { justify-self: start; }
 #writer-marketing-status { min-height: 22px; margin: 0; color: #75f39d; }
 #writer-marketing-result, #writer-research-result { display: grid; gap: 16px; }
+.metrics-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.metrics-form label { display: grid; gap: 8px; color: #e8e8ee; }
+.metrics-form input { width: 100%; box-sizing: border-box; background: #101014; color: #f5f5f7; caret-color: #d4af37; border: 1px solid #414149; border-radius: 9px; padding: 12px; font: inherit; margin: 0; color-scheme: dark; }
+.metrics-form input:focus-visible { outline: 2px solid #d4af37; outline-offset: 2px; }
+@media (max-width: 900px) { .metrics-form { grid-template-columns: 1fr; } }
 .post-list { display: grid; gap: 14px; margin-top: 20px; }
 .post-card { display: grid; gap: 10px; background: #101014; border: 1px solid #33333a; border-radius: 10px; padding: 16px; }
 .post-card.is-approved { border-left: 3px solid #75f39d; }

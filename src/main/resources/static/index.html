@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project 千人将 | ダッシュボード</title>
 
-    <link rel="stylesheet" href="/style.css?v=20260925-1">
+    <link rel="stylesheet" href="/style.css?v=20260925-2">
 </head>
 
 <body>
@@ -384,6 +384,56 @@
             <div id="opportunity-list">収益機会を読み込み中...</div>
         </section>
 
+        <section class="page-panel" data-page-panel="revenue" hidden>
+            <h2>📊 運用実績</h2>
+            <p class="note-intro">公開した記事の反応を記録します。閲覧数とクリック数はnoteとXの管理画面から転記してください。作成時間と投稿数は自動で集計されます。</p>
+
+            <div class="revenue-summary">
+                <div class="summary-card">
+                    <span>作成した記事</span>
+                    <strong id="metrics-article-count">--</strong>
+                </div>
+                <div class="summary-card">
+                    <span>1本あたり作成時間</span>
+                    <strong id="metrics-avg-writing">--</strong>
+                </div>
+                <div class="summary-card">
+                    <span>承認した投稿</span>
+                    <strong id="metrics-approved-posts">--</strong>
+                </div>
+                <div class="summary-card">
+                    <span>記録済みのAI利用料</span>
+                    <strong id="metrics-total-cost">--</strong>
+                </div>
+            </div>
+
+            <div class="writer-interview">
+                <h4>記事の反応を記録する</h4>
+                <div class="metrics-form">
+                    <label>記事名<input id="metric-title" maxlength="255" placeholder="例：Javaはoverride程度でも本番アプリが動いた"></label>
+                    <label>計測日<input id="metric-date" type="date"></label>
+                    <label>閲覧数<input id="metric-views" type="number" min="0" value="0"></label>
+                    <label>クリック数<input id="metric-clicks" type="number" min="0" value="0"></label>
+                    <label>購入件数<input id="metric-purchases" type="number" min="0" value="0"></label>
+                    <label>メモ<input id="metric-memo" maxlength="500" placeholder="例：導入文を書き直した後"></label>
+                </div>
+                <button id="metric-add" type="button" class="secondary-button">記録する</button>
+                <p id="metrics-status" role="status" aria-live="polite"></p>
+                <div id="metrics-list" class="author-facts-list"></div>
+            </div>
+
+            <div class="writer-interview">
+                <h4>AI利用料など月々の費用</h4>
+                <div class="metrics-form">
+                    <label>対象月<input id="cost-month" type="month"></label>
+                    <label>サービス名<input id="cost-service" maxlength="100" placeholder="例：ChatGPT"></label>
+                    <label>金額（円）<input id="cost-amount" type="number" min="0" step="1" value="0"></label>
+                </div>
+                <button id="cost-add" type="button" class="secondary-button">費用を記録する</button>
+                <div id="costs-list" class="author-facts-list"></div>
+            </div>
+        </section>
+
         <section id="revenue-section" class="page-panel" data-page-panel="revenue" hidden>
             <h2>💰 収益トレーサビリティ</h2>
 
@@ -480,7 +530,7 @@
         </section>
     </main>
 
-        <script src="/app.js?v=20260925-1"></script>
+        <script src="/app.js?v=20260925-2"></script>
 </body>
 
 </html>
