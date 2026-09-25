@@ -28,6 +28,7 @@ public class AIController {
     private final TaskRepository repository;
     private final WriterJobRepository writerJobRepository;
     private final AuthorFactRepository authorFactRepository;
+    private final AiActivityRepository activityRepository;
     // 同時に走らせない。無料枠のCPU時間とAPI費用を使いすぎないため。
     private final ExecutorService writerExecutor = Executors.newSingleThreadExecutor();
     private final RevenueContextService revenueContextService =
@@ -71,6 +72,7 @@ public class AIController {
         repository = new TaskRepository(jdbcUrl, user, password);
         writerJobRepository = new WriterJobRepository(jdbcUrl, user, password);
         authorFactRepository = new AuthorFactRepository(jdbcUrl, user, password);
+        activityRepository = new AiActivityRepository(jdbcUrl, user, password);
     }
 
     @PreDestroy
@@ -99,6 +101,9 @@ public class AIController {
 
         String revenueStatus = revenueContextService.buildContext();
 
+        long activityId = activityRepository.start(
+                "AI将軍", propose ? "タスク案をまとめる" : "相談に答える");
+
         String prompt =
                 aiService.buildGeneralPrompt(
                         command, taskStatus, revenueStatus, history, propose);
@@ -107,6 +112,7 @@ public class AIController {
                 aiService.askGeneral(prompt);
 
         if (response == null || response.isBlank()) {
+            activityRepository.finish(activityId, "失敗", "返答を受け取れませんでした");
             return "AI将軍から有効な返答を受け取れませんでした。";
         }
 
@@ -123,8 +129,10 @@ public class AIController {
                 result.put("priority", "");
                 result.put("assignedAgent", "");
             }
+            activityRepository.finish(activityId, "完了", "");
             return result.toString();
         } catch (Exception e) {
+            activityRepository.finish(activityId, "失敗", "返答の形式が正しくありませんでした");
             throw new IllegalStateException("AI将軍の返答形式が正しくありません。", e);
         }
     }
@@ -135,13 +143,16 @@ public class AIController {
         String audience = cleanWriterInput(request.audience(), "想定読者", 300, true);
         String sourceNotes = cleanWriterInput(request.sourceNotes(), "伝えたい内容", 4000, false);
 
+        long activityId = activityRepository.start("軍師AI", "需要と切り口を分析する");
         AIService.WriterAiResponse aiResponse = aiService.askWriter(
                 aiService.buildResearchPrompt(theme, audience, sourceNotes));
         if (aiResponse.errorCode() != null) {
+            activityRepository.finish(activityId, "失敗", aiResponse.errorCode());
             return writerError(aiResponse.errorCode());
         }
         String response = aiResponse.text();
         if (response == null || response.isBlank()) {
+            activityRepository.finish(activityId, "失敗", "WAI-EMPTY");
             return writerError("WAI-EMPTY");
         }
         try {
@@ -154,9 +165,11 @@ public class AIController {
                     throw new IllegalArgumentException("必要な項目が不足しています。");
                 }
             }
+            activityRepository.finish(activityId, "完了", theme);
             return result;
         } catch (Exception e) {
             System.out.println("軍師AI診断: WAI-FORMAT");
+            activityRepository.finish(activityId, "失敗", "WAI-FORMAT");
             return writerError("WAI-FORMAT");
         }
     }
@@ -167,18 +180,22 @@ public class AIController {
         String audience = cleanWriterInput(request.audience(), "想定読者", 300, true);
         String sourceNotes = cleanWriterInput(request.sourceNotes(), "伝えたい内容", 4000, false);
 
+        long activityId = activityRepository.start("取材AI", "足りない事実を質問する");
         AIService.WriterAiResponse aiResponse = aiService.askWriter(
                 aiService.buildInterviewPrompt(
                         theme, audience, sourceNotes, authorFactRepository.buildKnownFactsText()));
         if (aiResponse.errorCode() != null) {
+            activityRepository.finish(activityId, "失敗", aiResponse.errorCode());
             return Map.of("errorCode", aiResponse.errorCode());
         }
         String text = aiResponse.text() == null ? "" : aiResponse.text();
         List<String> questions = parseInterviewQuestions(text);
         if (questions.isEmpty() && !text.contains("[NONE]")) {
             System.out.println("ライターAI診断: WAI-FORMAT（取材）");
+            activityRepository.finish(activityId, "失敗", "WAI-FORMAT");
             return Map.of("errorCode", "WAI-FORMAT");
         }
+        activityRepository.finish(activityId, "完了", questions.size() + "問");
         return Map.of("questions", questions);
     }
 
@@ -241,13 +258,16 @@ public class AIController {
             String interviewNotes) {
 
         writerJobRepository.markWriting(id);
+        long activityId = activityRepository.start("ライターAI", "記事の下書きを書く");
         Map<String, String> result =
                 writeDraft(theme, audience, sourceNotes, price, interviewNotes);
 
         if (result.containsKey("errorCode")) {
             writerJobRepository.saveFailure(id, result.get("errorCode"));
+            activityRepository.finish(activityId, "失敗", result.get("errorCode"));
         } else {
             writerJobRepository.saveResult(id, result);
+            activityRepository.finish(activityId, "完了", theme);
         }
     }
 
@@ -302,14 +322,17 @@ public class AIController {
             paidSection = paidSection.substring(0, 2000);
         }
 
+        long activityId = activityRepository.start("営業AI", "販売戦略を作る");
         AIService.WriterAiResponse aiResponse = aiService.askWriter(
                 aiService.buildMarketingPrompt(
                         theme, audience, price, title, freeSection, paidSection));
         if (aiResponse.errorCode() != null) {
+            activityRepository.finish(activityId, "失敗", aiResponse.errorCode());
             return writerError(aiResponse.errorCode());
         }
         String response = aiResponse.text();
         if (response == null || response.isBlank()) {
+            activityRepository.finish(activityId, "失敗", "WAI-EMPTY");
             return writerError("WAI-EMPTY");
         }
         try {
@@ -323,9 +346,11 @@ public class AIController {
                     throw new IllegalArgumentException("必要な項目が不足しています。");
                 }
             }
+            activityRepository.finish(activityId, "完了", title);
             return result;
         } catch (Exception e) {
             System.out.println("営業AI診断: WAI-FORMAT");
+            activityRepository.finish(activityId, "失敗", "WAI-FORMAT");
             return writerError("WAI-FORMAT");
         }
     }
@@ -341,9 +366,13 @@ public class AIController {
         String salesDescription = cleanWriterInput(request.salesDescription(), "販売説明", 6000, true);
         if (price.isBlank()) price = "未定";
 
+        long activityId = activityRepository.start("品質管理AI", "公開前の品質を採点する");
         AIService.WriterAiResponse response = aiService.askWriter(aiService.buildWriterQualityPrompt(
                 theme, audience, price, title, freeSection, paidSection, salesDescription));
-        if (response.errorCode() != null) return writerError(response.errorCode());
+        if (response.errorCode() != null) {
+            activityRepository.finish(activityId, "失敗", response.errorCode());
+            return writerError(response.errorCode());
+        }
         try {
             Map<String, Object> result = new LinkedHashMap<>();
             String scoreText = writerSection(response.text(), "[SCORE]", "[VERDICT]").replaceAll("[^0-9]", "");
@@ -354,9 +383,11 @@ public class AIController {
             result.put("strengths", writerSection(response.text(), "[STRENGTHS]", "[IMPROVEMENTS]"));
             result.put("improvements", writerSection(response.text(), "[IMPROVEMENTS]", "[QUESTIONS]"));
             result.put("questions", writerLastSection(response.text(), "[QUESTIONS]", "[END]"));
+            activityRepository.finish(activityId, "完了", score + "点");
             return result;
         } catch (Exception e) {
             System.out.println("品質管理AI診断: WAI-FORMAT");
+            activityRepository.finish(activityId, "失敗", "WAI-FORMAT");
             return writerError("WAI-FORMAT");
         }
     }

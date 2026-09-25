@@ -15,6 +15,7 @@ public class PostController {
     private final PostDraftRepository repository;
     private final TaskRepository taskRepository;
     private final AuthorFactRepository authorFactRepository;
+    private final AiActivityRepository activityRepository;
     private final RevenueContextService revenueContextService = new RevenueContextService();
 
     public PostController() {
@@ -40,6 +41,7 @@ public class PostController {
         repository = new PostDraftRepository(jdbcUrl, credentials[0], credentials[1]);
         taskRepository = new TaskRepository(jdbcUrl, credentials[0], credentials[1]);
         authorFactRepository = new AuthorFactRepository(jdbcUrl, credentials[0], credentials[1]);
+        activityRepository = new AiActivityRepository(jdbcUrl, credentials[0], credentials[1]);
     }
 
     @GetMapping
@@ -67,18 +69,22 @@ public class PostController {
                         revenueContextService.buildContext(),
                         authorFactRepository.getAllFacts().size());
 
+        long activityId = activityRepository.start("発信AI", "投稿案を作る");
         AIService.WriterAiResponse response = aiService.askWriter(
                 aiService.buildPostPrompt(situation, note, repository.buildRecentPostsText()));
         if (response.errorCode() != null) {
+            activityRepository.finish(activityId, "失敗", response.errorCode());
             return Map.of("errorCode", response.errorCode());
         }
 
         List<String[]> posts = parsePosts(response.text());
         if (posts.isEmpty()) {
             System.out.println("発信AI診断: WAI-FORMAT");
+            activityRepository.finish(activityId, "失敗", "WAI-FORMAT");
             return Map.of("errorCode", "WAI-FORMAT");
         }
         posts.forEach(post -> repository.addDraft(post[0], post[1]));
+        activityRepository.finish(activityId, "完了", posts.size() + "件");
         return Map.of("status", posts.size() + "件の投稿案を作りました");
     }
 

@@ -813,8 +813,11 @@ const VOICE_STATE_LABELS = {
 };
 
 function setVoiceState(state, message) {
+    const label = VOICE_STATE_LABELS[state] ?? state;
     voiceOrb.dataset.voiceState = state;
-    voiceStateLabel.textContent = VOICE_STATE_LABELS[state] ?? state;
+    voiceStateLabel.textContent = label;
+    hudOrb.dataset.voiceState = state;
+    hudOrbLabel.textContent = label;
     if (message) voiceStatus.textContent = message;
 }
 
@@ -1299,6 +1302,128 @@ Object.values(writerSavedIds).forEach(id => {
     document.getElementById(id).addEventListener("input", saveWriterDraft);
 });
 restoreWriterDraft();
+
+const hudOrb = document.getElementById("hud-orb");
+const hudOrbLabel = document.getElementById("hud-orb-label");
+let hudTimer = null;
+
+function formatMinutes(minutes) {
+    const value = Number(minutes ?? 0);
+    if (value <= 0) return "0分";
+    const hours = Math.floor(value / 60);
+    return hours > 0 ? `${hours}時間${value % 60}分` : `${value}分`;
+}
+
+async function loadCommandCenter() {
+    try {
+        const response = await fetch("/api/command-center");
+        if (!response.ok) throw new Error(await response.text());
+        const data = await response.json();
+        const numbers = data.numbers ?? {};
+
+        document.getElementById("hud-revenue").textContent =
+            `${Number(numbers.revenue ?? 0).toLocaleString("ja-JP")}円`;
+        document.getElementById("hud-profit").textContent =
+            `${Number(numbers.profit ?? 0).toLocaleString("ja-JP")}円`;
+        document.getElementById("hud-ai-cost").textContent =
+            `${Number(numbers.aiCost ?? 0).toLocaleString("ja-JP")}円`;
+        document.getElementById("hud-work-time").textContent = formatMinutes(numbers.workMinutes);
+        document.getElementById("hud-articles").textContent = `${numbers.articleCount ?? 0}本`;
+        document.getElementById("hud-posts").textContent = `${numbers.approvedPosts ?? 0}件`;
+
+        renderHudTasks(data.priorityTasks ?? []);
+        renderHudAgents(data.agents ?? []);
+        renderHudLog(data.activities ?? []);
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function renderHudTasks(tasks) {
+    const list = document.getElementById("hud-tasks");
+    list.replaceChildren();
+    if (tasks.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "author-facts-empty";
+        empty.textContent = "未完了のタスクはありません。";
+        list.appendChild(empty);
+        return;
+    }
+    tasks.forEach(task => {
+        const row = document.createElement("div");
+        row.className = `hud-task priority-${task.priority ?? ""}`;
+        const name = document.createElement("strong");
+        name.textContent = task.taskName;
+        const meta = document.createElement("span");
+        meta.textContent = `優先度 ${task.priority}　${task.status}`
+            + (task.assignedAgent ? `　担当 ${task.assignedAgent}` : "");
+        row.append(name, meta);
+        list.appendChild(row);
+    });
+}
+
+function renderHudAgents(agents) {
+    const list = document.getElementById("hud-agents");
+    list.replaceChildren();
+    agents.forEach(agent => {
+        const row = document.createElement("div");
+        row.className = "hud-agent";
+        row.dataset.agentStatus = agent.status;
+
+        const name = document.createElement("strong");
+        name.textContent = agent.agent;
+        const state = document.createElement("span");
+        state.className = "hud-agent-state";
+        state.textContent = agent.status;
+        const last = document.createElement("span");
+        last.className = "hud-agent-last";
+        last.textContent = agent.lastAction || "まだ稼働していません";
+
+        row.append(name, state, last);
+        list.appendChild(row);
+    });
+}
+
+function renderHudLog(activities) {
+    const list = document.getElementById("hud-log");
+    list.replaceChildren();
+    if (activities.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "author-facts-empty";
+        empty.textContent = "まだ実行記録がありません。";
+        list.appendChild(empty);
+        return;
+    }
+    activities.forEach(activity => {
+        const row = document.createElement("div");
+        row.className = "hud-log-row";
+        row.dataset.agentStatus = activity.status;
+
+        const time = document.createElement("span");
+        time.className = "hud-log-time";
+        time.textContent = activity.startedAt ? activity.startedAt.slice(11, 16) : "";
+
+        const body = document.createElement("span");
+        const duration = activity.durationSeconds ? `（${activity.durationSeconds}秒）` : "";
+        body.textContent = `${activity.agent}：${activity.action}${duration}`
+            + (activity.detail ? ` — ${activity.detail}` : "");
+
+        const state = document.createElement("span");
+        state.className = "hud-agent-state";
+        state.textContent = activity.status;
+
+        row.append(time, body, state);
+        list.appendChild(row);
+    });
+}
+
+function startHudUpdates() {
+    loadCommandCenter();
+    clearInterval(hudTimer);
+    hudTimer = setInterval(loadCommandCenter, 5000);
+}
+
+startHudUpdates();
 
 async function loadMetrics() {
     try {

@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project 千人将 | ダッシュボード</title>
 
-    <link rel="stylesheet" href="/style.css?v=20260925-3">
+    <link rel="stylesheet" href="/style.css?v=20260925-4">
 </head>
 
 <body>
@@ -238,6 +238,41 @@
                     <input id="video-file" type="file" accept="video/*">
                     <div id="video-check-result" class="video-check-result" role="status" aria-live="polite">ファイルを選ぶと、サイズ・縦横比・長さを端末内で確認します。動画はサーバーへ送信しません。</div>
                     <p class="video-note">音声、字幕、事実確認、権利、各SNSの最新規約は目視・試聴で確認してから公開してください。</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="page-panel hud-panel" data-page-panel="command">
+            <div class="hud-top">
+                <div class="hud-orb-area">
+                    <div id="hud-orb" class="hud-orb" data-voice-state="idle" aria-hidden="true">
+                        <span class="hud-orb-ring"></span>
+                        <span class="hud-orb-core"></span>
+                    </div>
+                    <p id="hud-orb-label" class="hud-orb-label">待機中</p>
+                </div>
+                <div class="hud-numbers">
+                    <div class="hud-number"><span>売上</span><strong id="hud-revenue">--</strong></div>
+                    <div class="hud-number"><span>利益</span><strong id="hud-profit">--</strong></div>
+                    <div class="hud-number"><span>AI費用</span><strong id="hud-ai-cost">--</strong></div>
+                    <div class="hud-number"><span>作業時間</span><strong id="hud-work-time">--</strong></div>
+                    <div class="hud-number"><span>作成した記事</span><strong id="hud-articles">--</strong></div>
+                    <div class="hud-number"><span>承認した投稿</span><strong id="hud-posts">--</strong></div>
+                </div>
+            </div>
+
+            <div class="hud-grid">
+                <div class="hud-block">
+                    <h3>今日の優先タスク</h3>
+                    <div id="hud-tasks" class="hud-tasks"></div>
+                </div>
+                <div class="hud-block">
+                    <h3>AI社員の状態</h3>
+                    <div id="hud-agents" class="hud-agents"></div>
+                </div>
+                <div class="hud-block hud-block-wide">
+                    <h3>実行ログ</h3>
+                    <div id="hud-log" class="hud-log"></div>
                 </div>
             </div>
         </section>
@@ -542,7 +577,7 @@
         </section>
     </main>
 
-        <script src="/app.js?v=20260925-3"></script>
+        <script src="/app.js?v=20260925-4"></script>
 </body>
 
 </html>
