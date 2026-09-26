@@ -1837,6 +1837,83 @@ function renderHudLog(activities) {
     });
 }
 
+// 開いたときにDBを確認し、前回から変化があるときだけ報告する。AIは呼ばない。
+let latestReport = null;
+
+function reportLines(report) {
+    const lines = [];
+    lines.push(`未完了のタスク：${report.unfinishedCount}件`);
+    if (report.priorityTasks.length > 0) {
+        lines.push(`最優先：${report.priorityTasks[0].taskName}（${report.priorityTasks[0].priority}）`);
+    }
+    lines.push(`確認待ち：${report.waitingApprovals}件`);
+
+    const working = report.agents.filter(agent => agent.status !== "待機中");
+    lines.push(working.length === 0
+        ? "AI社員：全員待機中"
+        : `AI社員：${working.map(a => `${a.agent}（${a.status}）`).join("、")}`);
+
+    lines.push(report.recentErrors.length === 0
+        ? "直近のエラー：なし"
+        : `直近のエラー：${report.recentErrors.map(e => `${e.agent} ${e.action}`).join("、")}`);
+
+    const last = report.lastCompleted;
+    lines.push(last.action === "未登録"
+        ? "最後に完了した作業：未登録"
+        : `最後に完了した作業：${last.agent} ${last.action}${last.detail ? `（${last.detail}）` : ""}`);
+
+    lines.push(`次に行うべき作業：${report.nextAction}`);
+    lines.push(`Azureの利用状況：${report.usage.azure}`);
+    lines.push(`OpenAIの利用状況：${report.usage.openai}`);
+    return lines;
+}
+
+async function loadReport() {
+    try {
+        const response = await fetch("/api/report");
+        if (!response.ok) return;
+        const report = await response.json();
+        latestReport = report;
+
+        const panel = document.getElementById("report-panel");
+        if (!report.changed) {
+            panel.hidden = true;
+            return;
+        }
+        const body = document.getElementById("report-body");
+        body.replaceChildren();
+        reportLines(report).forEach(line => {
+            const row = document.createElement("p");
+            row.textContent = line;
+            body.appendChild(row);
+        });
+        const footer = document.createElement("p");
+        footer.className = "report-footer";
+        footer.textContent = `前回の確認：${report.lastReportedAt}`;
+        body.appendChild(footer);
+        panel.hidden = false;
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+document.getElementById("report-seen").addEventListener("click", async () => {
+    if (!latestReport) return;
+    await fetch("/api/report/seen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signature: latestReport.signature })
+    });
+    document.getElementById("report-panel").hidden = true;
+});
+
+document.getElementById("report-speak").addEventListener("click", () => {
+    if (!latestReport) return;
+    speakAnswer(reportLines(latestReport).join("。"));
+});
+
+loadReport();
+
 function startHudUpdates() {
     loadCommandCenter();
     clearInterval(hudTimer);

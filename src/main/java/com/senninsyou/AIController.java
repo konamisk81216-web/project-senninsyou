@@ -182,7 +182,9 @@ public class AIController {
         String articleLine = latestJob.isEmpty()
                 ? "記事の作成依頼はまだありません。"
                 : "直近の記事：状態 " + latestJob.get("status")
-                  + (latestJob.get("title").isBlank() ? "" : "／タイトル " + latestJob.get("title"));
+                  + (latestJob.get("title").isBlank() ? "" : "／タイトル " + latestJob.get("title"))
+                  + "\nこれまでに作成した記事はすべて動作確認用のテスト成果物であり、"
+                  + "公開・販売の対象ではありません。記事の販売を提案しないでください。";
 
         long waiting = postDraftRepository.getDrafts().stream()
                 .filter(draft -> "承認待ち".equals(draft.get("status")))

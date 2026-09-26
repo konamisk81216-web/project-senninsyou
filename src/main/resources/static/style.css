@@ -724,6 +724,13 @@ body.demo-open { overflow: hidden; }
 .hud-number { background: #101015; border: 1px solid #2c2c34; border-radius: 10px; padding: 14px; }
 .hud-number span { color: #8f8f9b; display: block; font-size: 12px; margin-bottom: 6px; }
 .hud-number strong { font-size: 21px; }
+.report-panel { margin-top: 20px; padding: 18px; border: 1px solid #705a19; border-left: 4px solid #d4af37; border-radius: 10px; background: #1b1913; }
+.report-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.report-head h3 { color: #f2d470; font-size: 16px; margin: 0; }
+.report-head-buttons { display: flex; gap: 8px; }
+.report-head-buttons button { margin: 0; padding: 8px 14px; font-size: 13px; }
+.report-body p { color: #e4e4e8; font-size: 14px; line-height: 1.8; margin: 0; }
+.report-footer { color: #9b9ba5 !important; font-size: 12px !important; margin-top: 8px !important; }
 .hud-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }
 .hud-block { background: #101015; border: 1px solid #2c2c34; border-radius: 10px; padding: 16px; }
 .hud-block-wide { grid-column: 1 / -1; }

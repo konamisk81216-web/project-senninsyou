@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project 千人将 | ダッシュボード</title>
 
-    <link rel="stylesheet" href="/style.css?v=20260926-1">
+    <link rel="stylesheet" href="/style.css?v=20260926-4">
 </head>
 
 <body>
@@ -298,6 +298,17 @@
                     <div class="hud-number"><span>作成した記事</span><strong id="hud-articles">--</strong></div>
                     <div class="hud-number"><span>承認した投稿</span><strong id="hud-posts">--</strong></div>
                 </div>
+            </div>
+
+            <div id="report-panel" class="report-panel" hidden>
+                <div class="report-head">
+                    <h3>📋 前回からの変化</h3>
+                    <div class="report-head-buttons">
+                        <button id="report-speak" type="button" class="secondary-button">🔊 報告を聞く</button>
+                        <button id="report-seen" type="button" class="secondary-button">確認した</button>
+                    </div>
+                </div>
+                <div id="report-body" class="report-body"></div>
             </div>
 
             <div class="hud-grid">
@@ -621,7 +632,7 @@
         </section>
     </main>
 
-        <script src="/app.js?v=20260926-3"></script>
+        <script src="/app.js?v=20260926-4"></script>
 </body>
 
 </html>
