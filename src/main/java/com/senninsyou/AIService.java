@@ -137,13 +137,19 @@ public class AIService {
             利用者が明確に依頼した場合だけ、次のどちらかを提案できます。実行は利用者が画面で承認してから行われます。
             ・startWriting：ライターAIに記事の下書きを書かせる。actionThemeとactionAudienceを必ず埋める。
             ・createPosts：発信AIに投稿案を3本作らせる。
+            ・runResearch：軍師AIに需要と差別化の切り口を調べさせる。actionThemeとactionAudienceを必ず埋める。
+            ・runQuality：品質管理AIに、直近の記事の下書きを採点させる。
+            ・runMarketing：営業AIに、直近の記事の販売戦略を作らせる。
 
             操作のルール：
             ・利用者が実行を依頼していると読み取れる場合は、必ず該当するactionを入れてください。これは上の会話段階の指示より優先します。
               例：「書いて」「書かせて」「作って」「作らせて」「始めて」「やって」「お願い」。
             ・テーマや想定読者が曖昧でも、質問で止めずに、これまでの状況から妥当な内容を自分で決めてactionThemeとactionAudienceを埋めてください。利用者は画面で確認してから承認します。
             ・利用者が依頼していない場合は、操作を提案せず空文字にしてください。
-            ・公開、投稿、削除、購入、課金を行う操作は存在しません。求められても提案しないでください。
+            ・公開、投稿、削除、購入、課金を行う操作は存在しません。これらを求められた場合は、actionを空文字にし、
+              summaryで「その操作は千人将では実行できません。ご自身で行ってください」と伝えてください。
+              **別の操作に置き換えて提案してはいけません。**求められていない執筆や投稿案作成を始めると、無駄な費用が発生します。
+            ・「調べて」「需要を知りたい」「切り口を出して」と言われた場合はrunResearchを選んでください。
             ・どちらもAI利用料がかかります。必要なときだけ提案してください。
             ・操作を提案しない場合は、action、actionLabel、actionTheme、actionAudienceをすべて空文字にしてください。
 
@@ -158,10 +164,10 @@ public class AIService {
               "nextTask": "次に実行するタスク",
               "priority": "高・中・低",
               "assignedAgent": "担当AI",
-              "action": "startWriting、createPosts、または空文字",
+              "action": "startWriting、createPosts、runResearch、runQuality、runMarketing、または空文字",
               "actionLabel": "実行内容を利用者向けに1文で。操作がなければ空文字",
-              "actionTheme": "startWritingのときだけ記事のテーマ。それ以外は空文字",
-              "actionAudience": "startWritingのときだけ想定読者。それ以外は空文字"
+              "actionTheme": "startWritingとrunResearchのときだけ記事のテーマ。それ以外は空文字",
+              "actionAudience": "startWritingとrunResearchのときだけ想定読者。それ以外は空文字"
             }
             """;
     }

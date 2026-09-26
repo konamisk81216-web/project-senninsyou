@@ -796,8 +796,30 @@ async function sendCommand(mode = "discuss", options = {}) {
 
 const ACTION_DESCRIPTIONS = {
     startWriting: "ライターAIが記事の下書きを作ります。1〜2分かかり、AI利用料が発生します。",
-    createPosts: "発信AIが投稿案を3本作ります。30秒ほどかかり、AI利用料が発生します。"
+    createPosts: "発信AIが投稿案を3本作ります。30秒ほどかかり、AI利用料が発生します。",
+    runResearch: "軍師AIが読者の需要と差別化の切り口を調べます。1分ほどかかり、AI利用料が発生します。",
+    runQuality: "品質管理AIが直近の記事を100点満点で採点します。30秒ほどかかり、AI利用料が発生します。",
+    runMarketing: "営業AIが直近の記事の販売戦略を作ります。1分ほどかかり、AI利用料が発生します。"
 };
+
+const ACTION_RUNNERS = {
+    startWriting: runWritingAction,
+    createPosts: runPostsAction,
+    runResearch: runResearchAction,
+    runQuality: runQualityAction,
+    runMarketing: runMarketingAction
+};
+
+// 品質管理AIと営業AIは、直近で完成した記事を対象にする。
+async function loadLatestDraft() {
+    const response = await fetch("/api/ai/writer/jobs/latest");
+    if (!response.ok) throw new Error(await response.text());
+    const job = await response.json();
+    if (!job.id || job.status !== "完了" || !job.title) {
+        return null;
+    }
+    return job;
+}
 
 // AI将軍は提案するだけで、実行するのは承認を押したときだけ。
 function renderActionApproval(container, data) {
@@ -840,10 +862,7 @@ function renderActionApproval(container, data) {
         run.textContent = "実行中...";
         status.textContent = "AI社員が作業しています。実行ログで進み具合を確認できます。";
         try {
-            const result = action === "startWriting"
-                ? await runWritingAction(data)
-                : await runPostsAction();
-            status.textContent = result;
+            status.textContent = await ACTION_RUNNERS[action](data);
             run.hidden = true;
             cancel.textContent = "閉じる";
             cancel.disabled = false;
@@ -879,6 +898,87 @@ async function runWritingAction(data) {
     if (job.errorCode) throw new Error(job.errorCode);
     watchWriterJob(job.id, Date.now());
     return "執筆を始めました。note販売の画面で進み具合と結果を確認できます。";
+}
+
+async function runResearchAction(data) {
+    const response = await fetch("/api/ai/writer/research", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            theme: data.actionTheme,
+            audience: data.actionAudience,
+            sourceNotes: document.getElementById("writer-source-notes").value.trim()
+        })
+    });
+    if (!response.ok) throw new Error(await response.text());
+    const result = await response.json();
+    if (result.errorCode) throw new Error(result.errorCode);
+
+    document.getElementById("writer-output-demand").value = result.demand ?? "";
+    document.getElementById("writer-output-angle").value = result.angle ?? "";
+    document.getElementById("writer-research-result").hidden = false;
+    document.getElementById("writer-theme").value = data.actionTheme;
+    document.getElementById("writer-audience").value = data.actionAudience;
+    saveWriterDraft();
+    return "軍師AIが需要と切り口を出しました。note販売の画面で確認できます。「伝えたい内容」は書き換えていません。";
+}
+
+async function runQualityAction() {
+    const draft = await loadLatestDraft();
+    if (!draft) return "採点できる記事がありません。先に記事の下書きを作ってください。";
+
+    const response = await fetch("/api/ai/writer/quality", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            theme: draft.theme,
+            audience: draft.audience,
+            price: draft.price,
+            title: draft.title,
+            freeSection: draft.freeSection,
+            paidSection: draft.paidSection,
+            salesDescription: draft.salesDescription
+        })
+    });
+    if (!response.ok) throw new Error(await response.text());
+    const result = await response.json();
+    if (result.errorCode) throw new Error(result.errorCode);
+
+    document.getElementById("writer-quality-score").textContent = `${result.score}点 / 100点`;
+    document.getElementById("writer-quality-verdict").textContent = `判定：${result.verdict ?? ""}`;
+    document.getElementById("writer-quality-strengths").textContent = result.strengths ?? "";
+    document.getElementById("writer-quality-improvements").textContent = result.improvements ?? "";
+    document.getElementById("writer-quality-questions").textContent = result.questions ?? "";
+    document.getElementById("writer-quality-result").hidden = false;
+    return `品質管理AIの判定は${result.score}点、${result.verdict}です。note販売の画面で詳細を確認できます。`;
+}
+
+async function runMarketingAction() {
+    const draft = await loadLatestDraft();
+    if (!draft) return "戦略を作れる記事がありません。先に記事の下書きを作ってください。";
+
+    const response = await fetch("/api/ai/writer/marketing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            theme: draft.theme,
+            audience: draft.audience,
+            price: draft.price,
+            title: draft.title,
+            freeSection: draft.freeSection,
+            paidSection: draft.paidSection
+        })
+    });
+    if (!response.ok) throw new Error(await response.text());
+    const result = await response.json();
+    if (result.errorCode) throw new Error(result.errorCode);
+
+    for (const [field, id] of Object.entries(marketingOutputIds)) {
+        document.getElementById(id).value = result[field] ?? "";
+    }
+    document.getElementById("writer-marketing-result").hidden = false;
+    saveWriterDraft();
+    return "営業AIが販売戦略を作りました。note販売の画面で確認できます。";
 }
 
 async function runPostsAction() {

@@ -147,8 +147,12 @@ public class AIController {
         }
     }
 
-    // AI将軍が提案してよい操作はこの2つだけ。ほかの値は捨てる。
-    private static final List<String> ALLOWED_ACTIONS = List.of("startWriting", "createPosts");
+    // AI将軍が提案してよい操作はこの5つだけ。ほかの値は捨てる。
+    private static final List<String> ALLOWED_ACTIONS =
+            List.of("startWriting", "createPosts", "runResearch", "runQuality", "runMarketing");
+    // テーマと読者が無いと始められない操作。
+    private static final List<String> ACTIONS_NEEDING_THEME =
+            List.of("startWriting", "runResearch");
 
     private void applyAllowedAction(ObjectNode result) {
         String action = result.path("action").asText("");
@@ -163,8 +167,7 @@ public class AIController {
         result.put("actionTheme", limit(result.path("actionTheme").asText(""), 200));
         result.put("actionAudience", limit(result.path("actionAudience").asText(""), 300));
 
-        // テーマと読者が無ければ執筆は始められないので、操作として渡さない。
-        if ("startWriting".equals(action)
+        if (ACTIONS_NEEDING_THEME.contains(action)
                 && (result.get("actionTheme").asText().isBlank()
                     || result.get("actionAudience").asText().isBlank())) {
             result.put("action", "");
