@@ -749,6 +749,9 @@ body.demo-open { overflow: hidden; }
 .hud-log-row[data-agent-status="完了"] .hud-agent-state { border-color: #4c7d5c; color: #75f39d; }
 .hud-agent-last { color: #8f8f9b; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hud-log-row { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; font-size: 13px; color: #c7c7cf; padding: 6px 10px; border-radius: 6px; background: #17171d; }
+.hud-log-row.is-new { background: #1d2a20; border-left: 3px solid #75f39d; animation: log-arrive 1.2s ease-out; }
+@keyframes log-arrive { from { background: #2a4030; } to { background: #1d2a20; } }
+@media (prefers-reduced-motion: reduce) { .hud-log-row.is-new { animation: none; } }
 .hud-log-time { color: #6f6f7b; font-variant-numeric: tabular-nums; }
 @media (max-width: 900px) {
     .hud-numbers { grid-template-columns: repeat(2, minmax(0, 1fr)); }

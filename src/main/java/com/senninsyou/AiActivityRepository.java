@@ -75,7 +75,7 @@ public class AiActivityRepository {
     public List<Map<String, String>> recentActivities() {
         List<Map<String, String>> activities = new ArrayList<>();
         String sql = """
-                SELECT agent, action, status, detail, started_at,
+                SELECT id, agent, action, status, detail, started_at,
                        EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - started_at)) AS age_seconds,
                        CASE WHEN finished_at IS NULL THEN NULL
                             ELSE ROUND(EXTRACT(EPOCH FROM (finished_at - started_at)))
@@ -92,6 +92,7 @@ public class AiActivityRepository {
         ) {
             while (result.next()) {
                 Map<String, String> activity = new LinkedHashMap<>();
+                activity.put("id", String.valueOf(result.getLong("id")));
                 activity.put("agent", result.getString("agent"));
                 activity.put("action", result.getString("action"));
                 activity.put("status", displayStatus(

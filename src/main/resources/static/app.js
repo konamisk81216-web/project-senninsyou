@@ -1852,6 +1852,7 @@ async function loadCommandCenter() {
 
         renderHudTasks(data.priorityTasks ?? []);
         renderHudAgents(data.agents ?? []);
+        announceCompletions(data.activities ?? []);
         renderHudLog(data.activities ?? []);
         renderDemoNumbers(numbers, (data.priorityTasks ?? []).length, data.activities ?? []);
     } catch (error) {
@@ -1904,6 +1905,44 @@ function renderHudAgents(agents) {
     });
 }
 
+// 新しく終わった作業を見つけて報告する。読み込み直後の分は報告しない。
+let lastSeenActivityId = null;
+let announcedActivityId = null;
+
+function announceCompletions(activities) {
+    const finished = activities.filter(
+        activity => activity.status === "完了" || activity.status === "エラー");
+    if (finished.length === 0) return;
+
+    const newestId = Number(finished[0].id);
+    if (lastSeenActivityId === null) {
+        lastSeenActivityId = newestId;
+        return;
+    }
+    if (newestId <= lastSeenActivityId) return;
+
+    const activity = finished[0];
+    lastSeenActivityId = newestId;
+    announcedActivityId = activity.id;
+
+    const done = activity.status === "完了";
+    const seconds = activity.durationSeconds ? `${activity.durationSeconds}秒で` : "";
+    const detail = activity.detail ? `。${activity.detail}` : "";
+    const message = done
+        ? `${activity.agent}が「${activity.action}」を${seconds}終えました${detail}`
+        : `${activity.agent}の「${activity.action}」が失敗しました${detail}`;
+
+    setDemoSubtitle(null, message);
+
+    // マイクが開いている間に読み上げると、自分の声を拾ってしまう。
+    const micOpen = voiceSessionActive || Boolean(handsFreeStream);
+    const busy = ["listening", "confirming", "thinking", "speaking"]
+        .includes(voiceOrb.dataset.voiceState);
+    if (!micOpen && !busy) {
+        speakAnswer(message);
+    }
+}
+
 function renderHudLog(activities) {
     const list = document.getElementById("hud-log");
     list.replaceChildren();
@@ -1916,7 +1955,9 @@ function renderHudLog(activities) {
     }
     activities.forEach(activity => {
         const row = document.createElement("div");
-        row.className = "hud-log-row";
+        row.className = activity.id === announcedActivityId
+            ? "hud-log-row is-new"
+            : "hud-log-row";
         row.dataset.agentStatus = activity.status;
 
         const time = document.createElement("span");
