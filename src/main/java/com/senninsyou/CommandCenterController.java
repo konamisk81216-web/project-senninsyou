@@ -65,13 +65,17 @@ public class CommandCenterController {
         numbers.put("profit", "0");
         numbers.put("workMinutes", "0");
         numbers.put("aiCost", "0");
+        numbers.put("aiCostRecorded", "false");
 
+        // AI費用は手入力した記録の合計で、実際のOpenAI請求額ではない。
+        // 記録が1件もないときに「0円」と出すと、無料で動いているように見えてしまう。
         String sql = """
                 SELECT
                     COALESCE((SELECT SUM(revenue) FROM revenue_records), 0) AS revenue,
                     COALESCE((SELECT SUM(expense) FROM revenue_records), 0) AS expense,
                     COALESCE((SELECT SUM(work_minutes) FROM revenue_records), 0) AS work_minutes,
-                    COALESCE((SELECT SUM(amount) FROM monthly_costs), 0) AS ai_cost
+                    COALESCE((SELECT SUM(amount) FROM monthly_costs), 0) AS ai_cost,
+                    (SELECT COUNT(*) FROM monthly_costs) AS ai_cost_count
                 """;
 
         try (
@@ -87,6 +91,7 @@ public class CommandCenterController {
                 numbers.put("profit", String.valueOf(Math.round(revenue - expense - aiCost)));
                 numbers.put("workMinutes", String.valueOf(result.getInt("work_minutes")));
                 numbers.put("aiCost", String.valueOf(Math.round(aiCost)));
+                numbers.put("aiCostRecorded", String.valueOf(result.getInt("ai_cost_count") > 0));
             }
         } catch (Exception e) {
             System.out.println("司令本部の数字を取得できませんでした。");

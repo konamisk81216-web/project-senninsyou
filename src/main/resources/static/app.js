@@ -802,6 +802,32 @@ const ACTION_DESCRIPTIONS = {
     runMarketing: "営業AIが直近の記事の販売戦略を作ります。1分ほどかかり、AI利用料が発生します。"
 };
 
+const ACTION_AGENTS = {
+    startWriting: "ライターAI",
+    createPosts: "発信AI",
+    runResearch: "軍師AI",
+    runQuality: "品質管理AI",
+    runMarketing: "営業AI"
+};
+
+// 承認した時点で担当は確定しているので、次の巡回を待たずに表示する。
+function showDemoWorking(action) {
+    const box = document.getElementById("demo-agent");
+    box.replaceChildren();
+    const row = document.createElement("div");
+    row.className = "demo-agent-row";
+    row.dataset.agentStatus = "作業中";
+    const name = document.createElement("strong");
+    name.textContent = ACTION_AGENTS[action];
+    const doing = document.createElement("span");
+    doing.textContent = "作業を始めました";
+    const state = document.createElement("span");
+    state.className = "demo-agent-state";
+    state.textContent = "作業中";
+    row.append(name, doing, state);
+    box.appendChild(row);
+}
+
 const ACTION_RUNNERS = {
     startWriting: runWritingAction,
     createPosts: runPostsAction,
@@ -854,6 +880,7 @@ function renderActionApproval(container, data) {
     cancel.textContent = "やめる";
     cancel.addEventListener("click", () => {
         card.remove();
+        hideDemoApproval();
     });
 
     run.addEventListener("click", async () => {
@@ -861,24 +888,38 @@ function renderActionApproval(container, data) {
         cancel.disabled = true;
         run.textContent = "実行中...";
         status.textContent = "AI社員が作業しています。実行ログで進み具合を確認できます。";
+        setDemoSubtitle(null, "AI社員が作業しています。");
+        demoRunningAction = action;
+        showDemoWorking(action);
+        setWorkInProgress(true);
         try {
-            status.textContent = await ACTION_RUNNERS[action](data);
+            const result = await ACTION_RUNNERS[action](data);
+            status.textContent = result;
+            setDemoSubtitle(null, result);
+            hideDemoApproval();
             run.hidden = true;
             cancel.textContent = "閉じる";
             cancel.disabled = false;
         } catch (error) {
             status.textContent = "実行できませんでした。時間をおいて試してください。";
+            setDemoSubtitle(null, "実行できませんでした。");
             console.error(error);
             run.disabled = false;
             cancel.disabled = false;
             run.textContent = "実行する";
+            document.getElementById("demo-approve").disabled = false;
+            document.getElementById("demo-decline").disabled = false;
+            document.getElementById("demo-approval").classList.remove("is-approved");
+            document.getElementById("demo-approval-text").textContent = ACTION_DESCRIPTIONS[action];
         }
+        demoRunningAction = null;
         loadCommandCenter();
     });
 
     actions.append(run, cancel);
     card.append(title, detail, actions, status);
     container.appendChild(card);
+    showDemoApproval(ACTION_DESCRIPTIONS[action], run, cancel);
 }
 
 async function runWritingAction(data) {
@@ -1047,17 +1088,35 @@ const VOICE_STATE_LABELS = {
     speaking: "読み上げ中",
     waiting: "次の発言を待っています",
     ended: "会話終了",
-    error: "エラー"
+    error: "エラー",
+    working: "AI社員作業中"
 };
 
-function setVoiceState(state, message) {
+let currentVoiceState = "idle";
+let workInProgress = false;
+
+// 会話中はその状態を優先し、会話していない間にAI社員が働いていれば作業中を出す。
+// マイク横の小さなオーブは会話専用のまま。拍手検知などがその状態を見ているため。
+function applyDisplayOrbs() {
+    const state = currentVoiceState === "idle" && workInProgress ? "working" : currentVoiceState;
     const label = VOICE_STATE_LABELS[state] ?? state;
-    voiceOrb.dataset.voiceState = state;
-    voiceStateLabel.textContent = label;
     hudOrb.dataset.voiceState = state;
     hudOrbLabel.textContent = label;
     demoOrb.dataset.voiceState = state;
     document.getElementById("demo-state").textContent = label;
+}
+
+function setWorkInProgress(value) {
+    if (workInProgress === value) return;
+    workInProgress = value;
+    applyDisplayOrbs();
+}
+
+function setVoiceState(state, message) {
+    currentVoiceState = state;
+    voiceOrb.dataset.voiceState = state;
+    voiceStateLabel.textContent = VOICE_STATE_LABELS[state] ?? state;
+    applyDisplayOrbs();
     if (message) voiceStatus.textContent = message;
 }
 
@@ -1124,6 +1183,7 @@ function startListening() {
     voiceRecognition.interimResults = true;
     voiceRecognition.onstart = () => {
         voiceListening = true;
+        updateMicIndicator();
         voiceInputButton.textContent = "■ 聞き取り停止";
         setVoiceState("listening", "聞き取り中です。マイクが動いています。停止すると送信しません。");
     };
@@ -1159,6 +1219,7 @@ function startListening() {
     };
     voiceRecognition.onend = () => {
         voiceListening = false;
+        updateMicIndicator();
         voiceInputButton.textContent = "🎙️ 声で入力";
         clearTimeout(silenceTimer);
         if (voiceRecognized && !voiceCanceled) {
@@ -1200,9 +1261,12 @@ const SILENCE_LIMIT_MS = 8000;
 let voiceSessionActive = false;
 let silenceTimer = null;
 
+// 1回だけの聞き取りでもマイクは開くので、それも含めて表示する。
 function updateMicIndicator() {
-    const micOn = Boolean(handsFreeStream) || voiceSessionActive;
+    const micOn = Boolean(handsFreeStream) || voiceSessionActive || voiceListening;
     micIndicator.hidden = !micOn;
+    document.getElementById("demo-mic").hidden = !micOn;
+    demoWave.hidden = !handsFreeStream;
 }
 
 function startVoiceSession() {
@@ -1775,29 +1839,108 @@ function setDemoSubtitle(userLine, aiLine) {
     if (aiLine !== null) document.getElementById("demo-ai-line").textContent = aiLine;
 }
 
-function renderDemoNumbers(numbers, taskCount, activities) {
+// HUDが5秒ごとに取得したデータをそのまま使う。デモのために追加で取得しない。
+let demoRunningAction = null;
+
+function renderDemoAgents(agents, activities) {
+    const working = agents.filter(agent => agent.status === "作業中");
+    // AI将軍の作業中は会話の返答待ちで、オーブは「考え中」で表している。
+    // 返答後の巡回までAI将軍が作業中に残るので、ここでは数えない。
+    const unitWorking = working.some(agent => agent.agent !== "AI将軍");
+    setWorkInProgress(unitWorking || demoRunningAction !== null);
+
+    // 承認直後は、サーバーが記録する前の巡回で「誰も作業していない」と返ることがある。
+    if (working.length === 0 && demoRunningAction) {
+        showDemoWorking(demoRunningAction);
+        return;
+    }
+
+    const shown = working.length > 0
+        ? working.map(agent => ({ agent: agent.agent, action: agent.lastAction, status: "作業中" }))
+        : activities.slice(0, 1);
+
+    const agentBox = document.getElementById("demo-agent");
+    agentBox.replaceChildren();
+    if (shown.length === 0) {
+        agentBox.textContent = "まだ実行記録がありません。";
+        return;
+    }
+    shown.forEach(item => {
+        const row = document.createElement("div");
+        row.className = "demo-agent-row";
+        row.dataset.agentStatus = item.status;
+        const name = document.createElement("strong");
+        name.textContent = item.agent;
+        const action = document.createElement("span");
+        action.textContent = item.action;
+        const state = document.createElement("span");
+        state.className = "demo-agent-state";
+        state.textContent = item.status;
+        row.append(name, action, state);
+        agentBox.appendChild(row);
+    });
+}
+
+function renderDemo(numbers, agents, activities) {
     document.getElementById("demo-revenue").textContent =
         `${Number(numbers.revenue ?? 0).toLocaleString("ja-JP")}円`;
     document.getElementById("demo-profit").textContent =
         `${Number(numbers.profit ?? 0).toLocaleString("ja-JP")}円`;
-    document.getElementById("demo-cost").textContent =
-        `${Number(numbers.aiCost ?? 0).toLocaleString("ja-JP")}円`;
+    document.getElementById("demo-cost").textContent = formatRecordedAiCost(numbers);
     document.getElementById("demo-work").textContent = formatMinutes(numbers.workMinutes);
-    document.getElementById("demo-tasks").textContent = `${taskCount}件`;
-    document.getElementById("demo-articles").textContent = `${numbers.articleCount ?? 0}本`;
 
-    const agent = document.getElementById("demo-agent");
-    agent.replaceChildren();
-    const latest = activities[0];
-    if (!latest) {
-        agent.textContent = "まだ実行記録がありません。";
+    renderDemoAgents(agents, activities);
+
+    // 過去の記録は記録された時刻のまま出す。新しい処理に見せかけない。
+    const log = document.getElementById("demo-log");
+    log.replaceChildren();
+    if (activities.length === 0) {
+        log.textContent = "まだ実行記録がありません。";
         return;
     }
-    const name = document.createElement("strong");
-    name.textContent = latest.agent;
-    const action = document.createElement("span");
-    action.textContent = `${latest.action}　${latest.status}`;
-    agent.append(name, action);
+    activities.slice(0, 4).forEach(activity => {
+        const row = document.createElement("div");
+        row.className = activity.id === announcedActivityId ? "demo-log-row is-new" : "demo-log-row";
+        row.dataset.agentStatus = activity.status;
+        const time = document.createElement("span");
+        time.className = "demo-log-time";
+        time.textContent = activity.startedAt ? activity.startedAt.slice(11, 16) : "";
+        const body = document.createElement("span");
+        body.textContent = `${activity.agent}：${activity.action}`
+            + (activity.detail ? `（${activity.detail}）` : "");
+        const state = document.createElement("span");
+        state.className = "demo-agent-state";
+        state.textContent = activity.status;
+        row.append(time, body, state);
+        log.appendChild(row);
+    });
+}
+
+// デモ表示の中で承認できるようにする。実行は通常画面の承認カードと同じ処理を使う。
+function showDemoApproval(label, runButton, cancelButton) {
+    const approve = document.getElementById("demo-approve");
+    const decline = document.getElementById("demo-decline");
+    document.getElementById("demo-approval-text").textContent = label;
+    approve.disabled = false;
+    decline.disabled = false;
+    document.getElementById("demo-approval").classList.remove("is-approved");
+    approve.onclick = () => {
+        approve.disabled = true;
+        decline.disabled = true;
+        // 押したあとも押せそうに見えると、映像では承認待ちのままに見える。
+        document.getElementById("demo-approval").classList.add("is-approved");
+        document.getElementById("demo-approval-text").textContent = `承認しました。${label}`;
+        runButton.click();
+    };
+    decline.onclick = () => {
+        cancelButton.click();
+        hideDemoApproval();
+    };
+    document.getElementById("demo-approval").hidden = false;
+}
+
+function hideDemoApproval() {
+    document.getElementById("demo-approval").hidden = true;
 }
 
 function openDemo() {
@@ -1818,13 +1961,17 @@ document.addEventListener("keydown", event => {
 });
 
 document.getElementById("demo-ask").addEventListener("click", () => {
-    if (handsFreeStream || !SpeechRecognitionClass) {
-        commandInput.value = "今日の状況を教えて";
-        sendCommand("discuss", { speak: true });
+    if (!SpeechRecognitionClass) {
+        setDemoSubtitle("このブラウザは音声入力に対応していません。", null);
         return;
     }
     voiceInputButton.click();
 });
+
+function formatRecordedAiCost(numbers) {
+    if (numbers.aiCostRecorded !== "true") return "未記録";
+    return `${Number(numbers.aiCost ?? 0).toLocaleString("ja-JP")}円`;
+}
 
 function formatMinutes(minutes) {
     const value = Number(minutes ?? 0);
@@ -1844,8 +1991,7 @@ async function loadCommandCenter() {
             `${Number(numbers.revenue ?? 0).toLocaleString("ja-JP")}円`;
         document.getElementById("hud-profit").textContent =
             `${Number(numbers.profit ?? 0).toLocaleString("ja-JP")}円`;
-        document.getElementById("hud-ai-cost").textContent =
-            `${Number(numbers.aiCost ?? 0).toLocaleString("ja-JP")}円`;
+        document.getElementById("hud-ai-cost").textContent = formatRecordedAiCost(numbers);
         document.getElementById("hud-work-time").textContent = formatMinutes(numbers.workMinutes);
         document.getElementById("hud-articles").textContent = `${numbers.articleCount ?? 0}本`;
         document.getElementById("hud-posts").textContent = `${numbers.approvedPosts ?? 0}件`;
@@ -1854,7 +2000,7 @@ async function loadCommandCenter() {
         renderHudAgents(data.agents ?? []);
         announceCompletions(data.activities ?? []);
         renderHudLog(data.activities ?? []);
-        renderDemoNumbers(numbers, (data.priorityTasks ?? []).length, data.activities ?? []);
+        renderDemo(numbers, data.agents ?? [], data.activities ?? []);
     } catch (error) {
         console.error(error);
     }
@@ -1910,8 +2056,10 @@ let lastSeenActivityId = null;
 let announcedActivityId = null;
 
 function announceCompletions(activities) {
-    const finished = activities.filter(
-        activity => activity.status === "完了" || activity.status === "エラー");
+    // AI将軍の返答は、その場で読み上げている。終わったことを二重に報告しない。
+    const finished = activities.filter(activity =>
+        activity.agent !== "AI将軍"
+        && (activity.status === "完了" || activity.status === "エラー"));
     if (finished.length === 0) return;
 
     const newestId = Number(finished[0].id);
@@ -2062,6 +2210,17 @@ function startHudUpdates() {
 }
 
 startHudUpdates();
+
+// 見えていない間は、動きもDBへの問い合わせも止める。
+document.addEventListener("visibilitychange", () => {
+    document.body.classList.toggle("animations-paused", document.hidden);
+    if (document.hidden) {
+        clearInterval(hudTimer);
+        hudTimer = null;
+    } else if (!hudTimer) {
+        startHudUpdates();
+    }
+});
 
 async function loadMetrics() {
     try {
