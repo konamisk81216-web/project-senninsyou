@@ -1898,7 +1898,9 @@ function renderDemo(numbers, agents, activities) {
         log.textContent = "まだ実行記録がありません。";
         return;
     }
-    activities.slice(0, 4).forEach(activity => {
+    // 横長のPCは縦に余裕があるので多めに出す。巡回で取得済みの20件から選ぶだけで、追加の取得はしない。
+    const rows = window.matchMedia("(min-width: 1024px) and (orientation: landscape)").matches ? 8 : 4;
+    activities.slice(0, rows).forEach(activity => {
         const row = document.createElement("div");
         row.className = activity.id === announcedActivityId ? "demo-log-row is-new" : "demo-log-row";
         row.dataset.agentStatus = activity.status;

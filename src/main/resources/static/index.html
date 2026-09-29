@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project 千人将 | ダッシュボード</title>
 
-    <link rel="stylesheet" href="/style.css?v=20260928-7">
+    <link rel="stylesheet" href="/style.css?v=20260929-4">
 </head>
 
 <body>
@@ -54,55 +54,66 @@
             <button id="demo-close" type="button" class="secondary-button">✕ 通常画面へ戻る</button>
         </div>
 
-        <div class="demo-stage">
-            <div id="demo-orb" class="demo-orb" data-voice-state="idle" aria-hidden="true">
-                <span class="demo-orb-ring"></span>
-                <span class="demo-orb-core"></span>
+        <!-- PCの横長では3列（あなた → AI社員 → 記録）に並べる。スマホでは列の枠を消して縦に積む。 -->
+        <div class="demo-col demo-col-you">
+            <p class="demo-col-title">あなた</p>
+            <div class="demo-stage">
+                <div id="demo-orb" class="demo-orb" data-voice-state="idle" aria-hidden="true">
+                    <span class="demo-orb-ring"></span>
+                    <span class="demo-orb-core"></span>
+                </div>
+                <p id="demo-state" class="demo-state">待機中</p>
+                <canvas id="demo-wave" class="demo-wave" width="420" height="44" hidden></canvas>
             </div>
-            <p id="demo-state" class="demo-state">待機中</p>
-            <canvas id="demo-wave" class="demo-wave" width="420" height="44" hidden></canvas>
-        </div>
 
-        <section class="demo-step">
-            <p class="demo-step-label">① 指示</p>
-            <p id="demo-user-line" class="demo-line">話しかけると、ここに指示が表示されます。</p>
-        </section>
+            <section class="demo-step">
+                <p class="demo-step-label">① 指示</p>
+                <p id="demo-user-line" class="demo-line">話しかけると、ここに指示が表示されます。</p>
+            </section>
 
-        <section id="demo-approval" class="demo-step demo-step-approval" hidden>
-            <p class="demo-step-label">② 承認</p>
-            <p id="demo-approval-text" class="demo-approval-text"></p>
-            <div class="demo-approval-buttons">
-                <button id="demo-approve" type="button">実行する</button>
-                <button id="demo-decline" type="button" class="secondary-button">やめる</button>
+            <div class="demo-controls">
+                <button id="demo-ask" type="button">🎙️ 話しかける</button>
             </div>
-        </section>
-
-        <section class="demo-step">
-            <p class="demo-step-label">③ 担当AI社員</p>
-            <div id="demo-agent" class="demo-agent"></div>
-        </section>
-
-        <section class="demo-step">
-            <p class="demo-step-label">④ 結果</p>
-            <p id="demo-ai-line" class="demo-line demo-line-ai">まだ結果はありません。</p>
-        </section>
-
-        <section class="demo-step">
-            <p class="demo-step-label">実行ログ（記録された時刻）</p>
-            <div id="demo-log" class="demo-log"></div>
-        </section>
-
-        <div class="demo-numbers">
-            <div><span>売上</span><strong id="demo-revenue">--</strong></div>
-            <div><span>利益</span><strong id="demo-profit">--</strong></div>
-            <div><span>記録済みAI費用</span><strong id="demo-cost">--</strong></div>
-            <div><span>作業時間</span><strong id="demo-work">--</strong></div>
         </div>
 
-        <div class="demo-controls">
-            <button id="demo-ask" type="button">🎙️ 話しかける</button>
+        <div class="demo-col demo-col-ai">
+            <p class="demo-col-title">AI社員</p>
+            <section id="demo-approval" class="demo-step demo-step-approval" hidden>
+                <p class="demo-step-label">② 承認</p>
+                <p id="demo-approval-text" class="demo-approval-text"></p>
+                <div class="demo-approval-buttons">
+                    <button id="demo-approve" type="button">実行する</button>
+                    <button id="demo-decline" type="button" class="secondary-button">やめる</button>
+                </div>
+            </section>
+
+            <section class="demo-step">
+                <p class="demo-step-label">③ 担当AI社員</p>
+                <div id="demo-agent" class="demo-agent"></div>
+            </section>
+
+            <section class="demo-step demo-step-result">
+                <p class="demo-step-label">④ 結果</p>
+                <p id="demo-ai-line" class="demo-line demo-line-ai">まだ結果はありません。</p>
+            </section>
         </div>
-        <p class="demo-note">表示はすべて現在のデータです。実績がない項目は0と表示します。</p>
+
+        <div class="demo-col demo-col-record">
+            <p class="demo-col-title">記録</p>
+            <section class="demo-step demo-step-log">
+                <p class="demo-step-label">実行ログ（記録された時刻）</p>
+                <div id="demo-log" class="demo-log"></div>
+            </section>
+
+            <div class="demo-numbers">
+                <div><span>売上</span><strong id="demo-revenue">--</strong></div>
+                <div><span>利益</span><strong id="demo-profit">--</strong></div>
+                <div title="OpenAIの請求額ではなく、手入力した費用記録の合計です。"><span>AI費用<span class="demo-label-part">（手入力）</span></span><strong id="demo-cost">--</strong></div>
+                <div><span>作業時間</span><strong id="demo-work">--</strong></div>
+            </div>
+        </div>
+
+        <p class="demo-note">表示はすべて現在のデータです。AI費用はOpenAIの請求額ではなく、手入力した記録の合計です（記録がなければ「未記録」）。売上・利益・作業時間は記録がなければ0と表示します。</p>
     </div>
 
     <main>
@@ -312,7 +323,7 @@
                 <div class="hud-numbers">
                     <div class="hud-number"><span>売上</span><strong id="hud-revenue">--</strong></div>
                     <div class="hud-number"><span>利益</span><strong id="hud-profit">--</strong></div>
-                    <div class="hud-number"><span>記録済みAI費用</span><strong id="hud-ai-cost">--</strong></div>
+                    <div class="hud-number" title="OpenAIの請求額ではなく、手入力した費用記録の合計です。"><span>AI費用（手入力の記録・OpenAI請求額ではない）</span><strong id="hud-ai-cost">--</strong></div>
                     <div class="hud-number"><span>作業時間</span><strong id="hud-work-time">--</strong></div>
                     <div class="hud-number"><span>作成した記事</span><strong id="hud-articles">--</strong></div>
                     <div class="hud-number"><span>承認した投稿</span><strong id="hud-posts">--</strong></div>
@@ -651,7 +662,7 @@
         </section>
     </main>
 
-        <script src="/app.js?v=20260928-8"></script>
+        <script src="/app.js?v=20260929-4"></script>
 </body>
 
 </html>

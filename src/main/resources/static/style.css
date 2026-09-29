@@ -657,7 +657,12 @@ body.demo-open { overflow: hidden; }
     display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px 16px 24px;
     background: radial-gradient(circle at 50% 8%, rgba(212, 175, 55, 0.12), transparent 40%), #06060a;
 }
-.demo-overlay > * { width: 100%; max-width: 480px; }
+.demo-overlay > *, .demo-col > * { width: 100%; max-width: 480px; }
+/* 縦長では列の枠を消し、中身を従来どおりの順に縦に積む。話しかけるボタンは数字の下に置く。 */
+.demo-col { display: contents; }
+.demo-col-title { display: none; }
+.demo-controls { order: 1; }
+.demo-note { order: 2; }
 .demo-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .demo-brand { margin: 0; color: #d4af37; font-size: 22px; font-weight: bold; }
 .demo-brand span { color: #6f6f7b; font-size: 10px; letter-spacing: 3px; display: block; }
@@ -716,12 +721,98 @@ body.demo-open { overflow: hidden; }
 .demo-log-row.is-new { color: #f5f5f7; }
 .demo-log-time { color: #6f6f7b; font-variant-numeric: tabular-nums; }
 .demo-numbers { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
-.demo-numbers div { background: rgba(16, 16, 22, 0.88); border: 1px solid #2c2c36; border-radius: 10px; padding: 8px 4px; text-align: center; }
+.demo-numbers div { background: rgba(16, 16, 22, 0.88); border: 1px solid #2c2c36; border-radius: 10px; padding: 8px 4px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; }
+.demo-numbers .demo-label-part { display: inline; margin: 0; font-size: inherit; white-space: nowrap; }
 .demo-numbers span { color: #8f8f9b; display: block; font-size: 10px; margin-bottom: 3px; }
 .demo-numbers strong { font-size: 15px; }
 .demo-controls { display: flex; justify-content: center; }
+/* 縦長では、結果が長くても話しかけるボタンにすぐ届くよう、結果は枠の中でスクロールさせ、ボタンは画面下に固定する。
+   スクロールする範囲をボタン帯の上で終わらせ、ログなどの文字がボタンの下に隠れないようにする。 */
+.demo-step-result { max-height: 30vh; overflow-y: auto; flex-shrink: 0; }
+.demo-overlay { --demo-footer: 80px; bottom: calc(var(--demo-footer) + env(safe-area-inset-bottom)); }
+.demo-overlay > .demo-controls, .demo-col > .demo-controls {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 101; width: auto; max-width: none;
+    height: var(--demo-footer); padding-bottom: env(safe-area-inset-bottom); align-items: center;
+    background: #06060a; border-top: 1px solid #1c1c24;
+}
 .demo-controls button { margin: 0; font-size: 17px; padding: 14px 28px; }
 .demo-note { margin: 0; text-align: center; color: #6f6f7b; font-size: 11px; }
+
+/* PCの横長(16:9)では、左から「あなたの指示 → AI社員の承認・作業・結果 → 記録」と読めるよう3列にする。 */
+@media (min-width: 1024px) and (orientation: landscape) {
+    .demo-overlay {
+        display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr) auto; align-items: stretch; column-gap: 44px; row-gap: 16px; padding: 24px 40px 18px;
+        background: radial-gradient(circle at 18% 30%, rgba(212, 175, 55, 0.10), transparent 35%), #06060a;
+    }
+    .demo-overlay > *, .demo-col > * { max-width: none; }
+    .demo-head, .demo-note { grid-column: 1 / -1; }
+    .demo-col { display: flex; flex-direction: column; gap: 14px; min-height: 0; position: relative; }
+    .demo-col-you::after, .demo-col-ai::after {
+        content: "›"; position: absolute; right: -32px; top: 45%; color: #d4af37; font-size: 34px; opacity: 0.55;
+    }
+    .demo-col-title { display: block; margin: 0; padding-bottom: 6px; border-bottom: 1px solid #2c2c36; color: #8f8f9b; font-size: 12px; letter-spacing: 5px; }
+    .demo-controls, .demo-note { order: 0; }
+    .demo-overlay { bottom: 0; }
+    .demo-overlay > .demo-controls, .demo-col > .demo-controls {
+        position: static; width: 100%; height: auto; padding: 0; background: none; border-top: 0;
+    }
+    .demo-step-result { max-height: none; }
+    .demo-stage { padding: 10px 0 4px; }
+    .demo-orb { width: 150px; height: 150px; }
+    .demo-orb-ring { inset: 14px; border-width: 4px; }
+    .demo-orb-core { width: 52px; height: 52px; }
+    .demo-state { font-size: 16px; }
+    .demo-step { padding: 14px 18px; gap: 6px; }
+    .demo-step-label { font-size: 13px; }
+    .demo-line { font-size: 22px; }
+    .demo-line-ai { font-size: 19px; }
+    .demo-approval-text { font-size: 17px; }
+    .demo-agent { font-size: 15px; }
+    .demo-agent-row strong { font-size: 20px; }
+    .demo-agent-state { font-size: 12px; }
+    /* 枠は中身の高さに合わせ、大きい画面で空の枠が間延びしないようにする。
+       長い結果やログで画面全体がスクロールしないよう、はみ出す分は枠の中だけでスクロールさせる。 */
+    .demo-step-log, .demo-step-result { flex: 0 1 auto; min-height: 0; overflow-y: auto; align-content: start; }
+    .demo-log { font-size: 15px; gap: 8px; }
+    .demo-numbers { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .demo-numbers div { padding: 12px 8px; }
+    .demo-numbers span { font-size: 12px; }
+    .demo-numbers strong { font-size: 22px; }
+    .demo-controls button { font-size: 18px; padding: 16px 32px; }
+    .demo-note { font-size: 12px; }
+}
+
+/* フルHD以上では、撮影して縮小表示されても読めるよう全体を大きくする。 */
+@media (min-width: 1600px) and (min-height: 900px) and (orientation: landscape) {
+    .demo-overlay { column-gap: 64px; row-gap: 22px; padding: 32px 64px 22px; }
+    .demo-brand { font-size: 30px; }
+    .demo-brand span { font-size: 12px; }
+    .demo-head button { font-size: 15px; padding: 10px 16px; }
+    .demo-col { gap: 18px; }
+    .demo-col-you::after, .demo-col-ai::after { right: -44px; font-size: 44px; }
+    .demo-col-title { font-size: 15px; }
+    .demo-orb { width: 210px; height: 210px; }
+    .demo-orb-ring { inset: 20px; border-width: 5px; }
+    .demo-orb-core { width: 72px; height: 72px; }
+    .demo-state { font-size: 20px; }
+    .demo-step { padding: 18px 24px; gap: 8px; border-radius: 14px; }
+    .demo-step-label { font-size: 16px; }
+    .demo-line { font-size: 30px; }
+    .demo-line-ai { font-size: 25px; }
+    .demo-approval-text { font-size: 22px; }
+    .demo-approval-buttons button { font-size: 20px; padding: 16px; }
+    .demo-agent { font-size: 19px; }
+    .demo-agent-row strong { font-size: 26px; }
+    .demo-agent-state { font-size: 15px; padding: 3px 12px; }
+    .demo-log { font-size: 19px; gap: 10px; }
+    .demo-numbers { gap: 14px; }
+    .demo-numbers div { padding: 16px 10px; }
+    .demo-numbers span { font-size: 15px; }
+    .demo-numbers strong { font-size: 30px; }
+    .demo-controls button { font-size: 22px; padding: 20px 40px; }
+    .demo-note { font-size: 14px; }
+}
 .animations-paused *, .animations-paused *::before, .animations-paused *::after { animation-play-state: paused !important; }
 .action-approval { display: grid; gap: 12px; margin-top: 14px; padding: 18px; border: 1px solid #705a19; border-left: 4px solid #d4af37; border-radius: 10px; background: #1d1a12; }
 .action-approval strong { color: #f2d470; font-size: 16px; }
