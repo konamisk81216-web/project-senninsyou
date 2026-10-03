@@ -45,6 +45,14 @@
             <version>2.20.1</version>
         </dependency>
 
+        <!-- テスト専用（本番のjarには入らない）。mvn test で src/test のテストを実行する。
+             バージョンは Spring Boot の親POMが管理する。 -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>

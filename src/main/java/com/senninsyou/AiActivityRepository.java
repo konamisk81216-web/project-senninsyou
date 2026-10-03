@@ -73,6 +73,16 @@ public class AiActivityRepository {
     }
 
     public List<Map<String, String>> recentActivities() {
+        try (Connection connection = DriverManager.getConnection(jdbcUrl, user, password)) {
+            return recentActivities(connection);
+        } catch (Exception e) {
+            System.out.println("稼働記録の取得に失敗しました。");
+            return null;
+        }
+    }
+
+    // 呼び出し側がすでに接続を開いているときは、それを渡して接続のし直しを省く。
+    public List<Map<String, String>> recentActivities(Connection connection) {
         List<Map<String, String>> activities = new ArrayList<>();
         String sql = """
                 SELECT id, agent, action, status, detail, started_at,
@@ -86,7 +96,6 @@ public class AiActivityRepository {
                 """;
 
         try (
-            Connection connection = DriverManager.getConnection(jdbcUrl, user, password);
             PreparedStatement statement = connection.prepareStatement(sql);
             ResultSet result = statement.executeQuery()
         ) {
@@ -104,11 +113,23 @@ public class AiActivityRepository {
             }
         } catch (Exception e) {
             System.out.println("稼働記録の取得に失敗しました。");
+            // 失敗を「記録なし」と区別するため、空のリストではなく null を返す。
+            return null;
         }
         return activities;
     }
 
-    public List<Map<String, String>> agentStates(int waitingApprovals) {
+    public List<Map<String, String>> agentStates(Integer waitingApprovals) {
+        try (Connection connection = DriverManager.getConnection(jdbcUrl, user, password)) {
+            return agentStates(connection, waitingApprovals);
+        } catch (Exception e) {
+            System.out.println("AI社員の状態取得に失敗しました。");
+            return null;
+        }
+    }
+
+    // 呼び出し側がすでに接続を開いているときは、それを渡して接続のし直しを省く。
+    public List<Map<String, String>> agentStates(Connection connection, Integer waitingApprovals) {
         Map<String, Map<String, String>> latest = new LinkedHashMap<>();
         String sql = """
                 SELECT DISTINCT ON (agent)
@@ -119,7 +140,6 @@ public class AiActivityRepository {
                 """;
 
         try (
-            Connection connection = DriverManager.getConnection(jdbcUrl, user, password);
             PreparedStatement statement = connection.prepareStatement(sql);
             ResultSet result = statement.executeQuery()
         ) {
@@ -132,8 +152,16 @@ public class AiActivityRepository {
             }
         } catch (Exception e) {
             System.out.println("AI社員の状態取得に失敗しました。");
+            // 失敗を全員「待機中」と見せないよう、null を返す。
+            return null;
         }
 
+        return buildStates(latest, waitingApprovals);
+    }
+
+    // 各AI社員の最新の記録から、画面に出す状態を決める。記録がない社員は待機中。
+    private List<Map<String, String>> buildStates(
+            Map<String, Map<String, String>> latest, Integer waitingApprovals) {
         List<Map<String, String>> states = new ArrayList<>();
         for (String agent : AGENTS) {
             Map<String, String> state = new LinkedHashMap<>();
@@ -145,8 +173,13 @@ public class AiActivityRepository {
             if ("完了".equals(status)) {
                 status = "待機中";
             }
-            if ("発信AI".equals(agent) && waitingApprovals > 0 && "待機中".equals(status)) {
-                status = "確認待ち";
+            // 承認待ちの件数が取れなかったときは、確認待ちかどうか分からないので「取得できません」。
+            if ("発信AI".equals(agent) && "待機中".equals(status)) {
+                if (waitingApprovals == null) {
+                    status = "取得できません";
+                } else if (waitingApprovals > 0) {
+                    status = "確認待ち";
+                }
             }
             state.put("status", status);
             states.add(state);

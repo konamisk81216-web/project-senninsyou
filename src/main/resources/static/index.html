@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project 千人将 | ダッシュボード</title>
 
-    <link rel="stylesheet" href="/style.css?v=20260929-4">
+    <link rel="stylesheet" href="/style.css?v=20261003-3">
 </head>
 
 <body>
@@ -107,13 +107,13 @@
 
             <div class="demo-numbers">
                 <div><span>売上</span><strong id="demo-revenue">--</strong></div>
-                <div><span>利益</span><strong id="demo-profit">--</strong></div>
-                <div title="OpenAIの請求額ではなく、手入力した費用記録の合計です。"><span>AI費用<span class="demo-label-part">（手入力）</span></span><strong id="demo-cost">--</strong></div>
+                <div title="売上から案件の直接経費だけを引いた金額です。月々の費用は差し引いていません。"><span>案件利益<span class="demo-label-part">（月々の費用は差引前）</span></span><strong id="demo-profit">--</strong></div>
+                <div title="OpenAIやAzureの実請求額を自動取得した数字ではなく、手入力した費用記録の合計です。案件利益からは差し引いていません。"><span>月々の費用<span class="demo-label-part">（手入力）</span></span><strong id="demo-cost">--</strong></div>
                 <div><span>作業時間</span><strong id="demo-work">--</strong></div>
             </div>
         </div>
 
-        <p class="demo-note">表示はすべて現在のデータです。AI費用はOpenAIの請求額ではなく、手入力した記録の合計です（記録がなければ「未記録」）。売上・利益・作業時間は記録がなければ0と表示します。</p>
+        <p class="demo-note">表示はすべて現在のデータです。案件利益は「売上−案件の直接経費」で、月々の費用は差引前です。月々の費用は手入力した記録の合計で、OpenAIやAzureの実請求額ではありません。どの数字も、元の記録がなければ「未記録」と表示します。</p>
     </div>
 
     <main>
@@ -322,10 +322,10 @@
                 </div>
                 <div class="hud-numbers">
                     <div class="hud-number"><span>売上</span><strong id="hud-revenue">--</strong></div>
-                    <div class="hud-number"><span>利益</span><strong id="hud-profit">--</strong></div>
-                    <div class="hud-number" title="OpenAIの請求額ではなく、手入力した費用記録の合計です。"><span>AI費用（手入力の記録・OpenAI請求額ではない）</span><strong id="hud-ai-cost">--</strong></div>
+                    <div class="hud-number" title="売上から案件の直接経費だけを引いた金額です。月々の費用は差し引いていません。"><span>案件利益（月々の費用は差引前）</span><strong id="hud-profit">--</strong></div>
+                    <div class="hud-number" title="OpenAIやAzureの実請求額を自動取得した数字ではなく、手入力した費用記録の合計です。案件利益からは差し引いていません。"><span>月々の費用（手入力・OpenAIやAzureの実請求額ではない）</span><strong id="hud-ai-cost">--</strong></div>
                     <div class="hud-number"><span>作業時間</span><strong id="hud-work-time">--</strong></div>
-                    <div class="hud-number"><span>作成した記事</span><strong id="hud-articles">--</strong></div>
+                    <div class="hud-number" title="AIが作り終えた記事の下書きの数です。公開した数ではありません。"><span>作成済みの下書き</span><strong id="hud-articles">--</strong></div>
                     <div class="hud-number"><span>承認した投稿</span><strong id="hud-posts">--</strong></div>
                 </div>
             </div>
@@ -434,7 +434,7 @@
                     </div>
                     <div class="hq-revenue-summary">
                         <div><span>累計売上</span><strong id="hq-total-revenue">--</strong></div>
-                        <div><span>累計利益</span><strong id="hq-total-profit">--</strong></div>
+                        <div title="売上から案件の直接経費だけを引いた金額です。月々の費用は差し引いていません。"><span>累計の案件利益（月々の費用は差引前）</span><strong id="hq-total-profit">--</strong></div>
                         <div><span>作業時間</span><strong id="hq-total-work-time">--</strong></div>
                     </div>
                 </div>
@@ -522,7 +522,7 @@
 
             <div class="revenue-summary">
                 <div class="summary-card">
-                    <span>作成した記事</span>
+                    <span>作成済みの下書き</span>
                     <strong id="metrics-article-count">--</strong>
                 </div>
                 <div class="summary-card">
@@ -534,7 +534,7 @@
                     <strong id="metrics-approved-posts">--</strong>
                 </div>
                 <div class="summary-card">
-                    <span>記録済みのAI利用料</span>
+                    <span>月々の費用（手入力）</span>
                     <strong id="metrics-total-cost">--</strong>
                 </div>
             </div>
@@ -555,7 +555,8 @@
             </div>
 
             <div class="writer-interview">
-                <h4>AI利用料など月々の費用</h4>
+                <h4>月々の費用（手入力）</h4>
+                <p class="note-intro">ChatGPT・OpenAI・Azureなどの月額や利用料を、自分で確認して記録します。OpenAIやAzureの実請求額を自動取得した数字ではありません。ここに記録した費用は案件の経費には入れないでください。案件利益からは差し引いていません。</p>
                 <div class="metrics-form">
                     <label>対象月<input id="cost-month" type="month"></label>
                     <label>サービス名<input id="cost-service" maxlength="100" placeholder="例：ChatGPT"></label>
@@ -575,11 +576,11 @@
                     <strong id="total-revenue">--</strong>
                 </div>
                 <div class="summary-card">
-                    <span>累計経費</span>
+                    <span>累計の直接経費</span>
                     <strong id="total-expense">--</strong>
                 </div>
                 <div class="summary-card profit-card">
-                    <span>累計利益</span>
+                    <span>累計の案件利益（月々の費用は差引前）</span>
                     <strong id="total-profit">--</strong>
                 </div>
                 <div class="summary-card">
@@ -592,15 +593,16 @@
                 <div class="task-analysis-heading">
                     <div>
                         <h3>📊 タスク別 実績分析</h3>
-                        <p>利益・投下時間・効率をタスクごとに比較します。</p>
+                        <p>案件利益・投下時間・効率をタスクごとに比較します。</p>
                     </div>
-                    <span>ROI = 利益 ÷ 経費</span>
+                    <span>ROI = 案件利益 ÷ 直接経費</span>
                 </div>
                 <div id="task-revenue-analysis">タスク別の実績を読み込み中...</div>
             </div>
 
             <form id="revenue-form">
                 <h3>実績を記録</h3>
+                <p class="field-hint">経費には、その案件に直接かかった費用だけを入れてください（外注費・素材代など）。ChatGPTなど月々の費用はここに入れず、上の「月々の費用（手入力）」に記録します。案件利益は「売上−案件の直接経費」で計算し、月々の費用は差し引きません。</p>
 
                 <label for="revenue-description">内容</label>
                 <input
@@ -623,7 +625,7 @@
                                placeholder="金額を入力または選択" data-number-options="amount">
                     </div>
                     <div>
-                        <label for="expense-amount">経費（円）</label>
+                        <label for="expense-amount">案件の直接経費（円）</label>
                         <input id="expense-amount" type="text" inputmode="numeric" pattern="[0-9]*"
                                placeholder="金額を入力または選択" data-number-options="amount">
                     </div>
@@ -662,7 +664,7 @@
         </section>
     </main>
 
-        <script src="/app.js?v=20260929-4"></script>
+        <script src="/app.js?v=20261003-3"></script>
 </body>
 
 </html>

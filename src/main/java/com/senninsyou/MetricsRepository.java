@@ -134,24 +134,30 @@ public class MetricsRepository {
     }
 
     // 記事の作成時間と投稿数は、すでに記録されているデータから計算する。
+    // 金額（月々の費用など）はここでは扱わない。RevenueRepository.getSummary が唯一の集計元。
     public Map<String, String> getSummary() {
-        Map<String, String> summary = new LinkedHashMap<>();
-        summary.put("articleCount", "0");
-        summary.put("averageWritingSeconds", "0");
-        summary.put("approvedPosts", "0");
-        summary.put("totalCost", "0");
+        try (Connection connection = DriverManager.getConnection(jdbcUrl, user, password)) {
+            return getSummary(connection);
+        } catch (Exception e) {
+            System.out.println("実績の集計に失敗しました。");
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    // 呼び出し側がすでに接続を開いているときは、それを渡して接続のし直しを省く。
+    public Map<String, String> getSummary(Connection connection) {
+        Map<String, String> summary = emptySummary();
 
         String sql = """
                 SELECT
                     (SELECT COUNT(*) FROM writer_jobs WHERE status = '完了') AS article_count,
                     (SELECT COALESCE(ROUND(AVG(EXTRACT(EPOCH FROM (updated_at - created_at)))), 0)
                        FROM writer_jobs WHERE status = '完了') AS avg_seconds,
-                    (SELECT COUNT(*) FROM post_drafts WHERE status = '承認済み') AS approved_posts,
-                    (SELECT COALESCE(SUM(amount), 0) FROM monthly_costs) AS total_cost
+                    (SELECT COUNT(*) FROM post_drafts WHERE status = '承認済み') AS approved_posts
                 """;
 
         try (
-            Connection connection = DriverManager.getConnection(jdbcUrl, user, password);
             PreparedStatement statement = connection.prepareStatement(sql);
             ResultSet result = statement.executeQuery()
         ) {
@@ -159,12 +165,20 @@ public class MetricsRepository {
                 summary.put("articleCount", String.valueOf(result.getInt("article_count")));
                 summary.put("averageWritingSeconds", String.valueOf(result.getInt("avg_seconds")));
                 summary.put("approvedPosts", String.valueOf(result.getInt("approved_posts")));
-                summary.put("totalCost", String.valueOf(result.getBigDecimal("total_cost")));
             }
         } catch (Exception e) {
             System.out.println("実績の集計に失敗しました。");
-            e.printStackTrace();
+            // 失敗を「0本」と見せないよう、null を返す（画面では「取得できません」）。
+            return null;
         }
+        return summary;
+    }
+
+    private Map<String, String> emptySummary() {
+        Map<String, String> summary = new LinkedHashMap<>();
+        summary.put("articleCount", "0");
+        summary.put("averageWritingSeconds", "0");
+        summary.put("approvedPosts", "0");
         return summary;
     }
 

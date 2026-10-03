@@ -2,10 +2,8 @@ package com.senninsyou;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.net.URI;
 import java.sql.Connection;
 import java.sql.Date;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -17,26 +15,7 @@ import java.util.List;
 public class RevenueRepository {
 
     private Connection getConnection() throws SQLException {
-        String databaseUrl = System.getenv("DATABASE_URL");
-
-        if (databaseUrl == null || databaseUrl.isBlank()) {
-            throw new IllegalStateException("DATABASE_URLが設定されていません。");
-        }
-
-        URI dbUri = URI.create(databaseUrl);
-        String userInfo = dbUri.getUserInfo();
-
-        if (userInfo == null || !userInfo.contains(":")) {
-            throw new IllegalStateException("DATABASE_URLの形式が正しくありません。");
-        }
-
-        String[] credentials = userInfo.split(":", 2);
-        int port = dbUri.getPort() == -1 ? 5432 : dbUri.getPort();
-        String jdbcUrl = "jdbc:postgresql://" + dbUri.getHost() + ":" + port
-                + dbUri.getPath() + "?sslmode=require";
-
-        return DriverManager.getConnection(
-                jdbcUrl, credentials[0], credentials[1]);
+        return Database.connect();
     }
 
     public RevenueRecord add(
@@ -127,18 +106,28 @@ public class RevenueRepository {
     }
 
     public RevenueSummary getSummary() throws SQLException {
+        try (Connection connection = getConnection()) {
+            return getSummary(connection);
+        }
+    }
+
+    // 画面の数字（売上・直接経費・案件利益・作業時間・月々の費用）の唯一の集計元。
+    // 案件利益は表の profit 列（売上−経費の自動計算列）の合計で、月々の費用は差し引かない。
+    // 呼び出し側がすでに接続を開いているときは、それを渡して接続のし直しを省く。
+    public RevenueSummary getSummary(Connection connection) throws SQLException {
         String sql = """
                 SELECT
                     COALESCE(SUM(revenue), 0) AS total_revenue,
                     COALESCE(SUM(expense), 0) AS total_expense,
                     COALESCE(SUM(profit), 0) AS total_profit,
                     COALESCE(SUM(work_minutes), 0) AS total_work_minutes,
-                    COUNT(*) AS record_count
+                    COUNT(*) AS record_count,
+                    (SELECT COALESCE(SUM(amount), 0) FROM monthly_costs) AS monthly_cost,
+                    (SELECT COUNT(*) FROM monthly_costs) AS monthly_cost_count
                 FROM revenue_records
                 """;
 
-        try (Connection connection = getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql);
+        try (PreparedStatement statement = connection.prepareStatement(sql);
              ResultSet result = statement.executeQuery()) {
 
             result.next();
@@ -147,7 +136,9 @@ public class RevenueRepository {
                     result.getBigDecimal("total_expense"),
                     result.getBigDecimal("total_profit"),
                     result.getInt("total_work_minutes"),
-                    result.getInt("record_count"));
+                    result.getInt("record_count"),
+                    result.getBigDecimal("monthly_cost"),
+                    result.getInt("monthly_cost_count"));
         }
     }
 

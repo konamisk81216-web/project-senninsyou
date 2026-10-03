@@ -1,6 +1,7 @@
 package com.senninsyou;
 
 import java.net.URI;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -37,10 +38,13 @@ public class MetricsController {
 
     @GetMapping
     public Map<String, Object> list() {
-        return Map.of(
-                "entries", repository.getMetrics(),
-                "costs", repository.getCosts(),
-                "summary", repository.getSummary());
+        // 集計に失敗したときの summary は null（画面で「取得できません」と出す）。
+        // Map.of は null を入れられないので LinkedHashMap を使う。
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("entries", repository.getMetrics());
+        result.put("costs", repository.getCosts());
+        result.put("summary", repository.getSummary());
+        return result;
     }
 
     @PostMapping

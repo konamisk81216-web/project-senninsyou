@@ -38,10 +38,10 @@ public class RevenueContextService {
             context.append("累計売上: ")
                     .append(summary.getTotalRevenue().toPlainString())
                     .append("円\n");
-            context.append("累計経費: ")
+            context.append("累計の案件の直接経費: ")
                     .append(summary.getTotalExpense().toPlainString())
                     .append("円\n");
-            context.append("累計利益: ")
+            context.append("累計の案件利益（売上−案件の直接経費。月々の費用は差引前）: ")
                     .append(summary.getTotalProfit().toPlainString())
                     .append("円\n");
             context.append("総作業時間: ")
@@ -50,6 +50,10 @@ public class RevenueContextService {
             context.append("収益記録数: ")
                     .append(summary.getRecordCount())
                     .append("件\n");
+            // 画面と同じ定義をAI将軍にも伝える。月々の費用を引いた「最終利益」はまだ算出していない。
+            context.append("利益の定義: ここでの利益はすべて「案件利益＝売上−案件の直接経費」です。"
+                    + "ChatGPTなど月々の費用は差し引いていません。最終利益や手取りと呼ばないでください。"
+                    + "収益記録数が0件のときの0円は実績ではなく未記録です。\n");
             context.append("注意: 以下は利用者が入力した記録です。受注・販売・入金などの事実は別途確認が必要です。動作確認やテストの記録は事業実績として扱わないでください。\n");
 
             if (recentRecords.isEmpty()) {
@@ -64,9 +68,9 @@ public class RevenueContextService {
                             .append(record.getDescription())
                             .append(" | 売上 ")
                             .append(record.getRevenue().toPlainString())
-                            .append("円 | 経費 ")
+                            .append("円 | 直接経費 ")
                             .append(record.getExpense().toPlainString())
-                            .append("円 | 利益 ")
+                            .append("円 | 案件利益 ")
                             .append(record.getProfit().toPlainString())
                             .append("円 | 作業 ")
                             .append(formatWorkTime(record.getWorkMinutes()))
@@ -95,11 +99,11 @@ public class RevenueContextService {
 
         analyses.stream().limit(5).forEach(analysis -> context.append("- ")
                 .append(analysis.taskName())
-                .append(" | 利益 ")
+                .append(" | 案件利益 ")
                 .append(analysis.totalProfit().toPlainString())
                 .append("円 | 作業 ")
                 .append(formatWorkTime(analysis.totalWorkMinutes()))
-                .append(" | 1時間あたり利益 ")
+                .append(" | 1時間あたり案件利益 ")
                 .append(formatMoneyOrUnavailable(analysis.profitPerHour()))
                 .append(" | 投資ROI ")
                 .append(formatPercentOrUnavailable(analysis.investmentRoiPercent()))

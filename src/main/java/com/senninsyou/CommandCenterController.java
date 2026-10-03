@@ -1,8 +1,6 @@
 package com.senninsyou;
 
-import java.net.URI;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 
@@ -19,92 +17,74 @@ public class CommandCenterController {
 
     private final AiActivityRepository activityRepository;
     private final MetricsRepository metricsRepository;
-    private final String jdbcUrl;
-    private final String user;
-    private final String password;
+    private final RevenueRepository revenueRepository;
 
     public CommandCenterController() {
-        String databaseUrl = System.getenv("DATABASE_URL");
-
-        if (databaseUrl == null) {
-            throw new IllegalStateException("DATABASE_URLが設定されていません。");
-        }
-
-        URI dbUri = URI.create(databaseUrl);
-        String userInfo = dbUri.getUserInfo();
-
-        if (userInfo == null || !userInfo.contains(":")) {
-            throw new IllegalStateException("DATABASE_URLの形式が正しくありません。");
-        }
-
-        String[] credentials = userInfo.split(":", 2);
-        int port = dbUri.getPort() == -1 ? 5432 : dbUri.getPort();
-
-        jdbcUrl = "jdbc:postgresql://" + dbUri.getHost() + ":" + port + dbUri.getPath()
-                + "?sslmode=require";
-        user = credentials[0];
-        password = credentials[1];
-
-        activityRepository = new AiActivityRepository(jdbcUrl, user, password);
-        metricsRepository = new MetricsRepository(jdbcUrl, user, password);
+        this(newActivityRepository(), newMetricsRepository(), new RevenueRepository());
     }
 
+    // テストから、DBにつながない部品を差し込めるようにする。
+    CommandCenterController(
+            AiActivityRepository activityRepository,
+            MetricsRepository metricsRepository,
+            RevenueRepository revenueRepository) {
+        this.activityRepository = activityRepository;
+        this.metricsRepository = metricsRepository;
+        this.revenueRepository = revenueRepository;
+    }
+
+    private static AiActivityRepository newActivityRepository() {
+        Database.Settings settings = Database.settings();
+        return new AiActivityRepository(settings.jdbcUrl(), settings.user(), settings.password());
+    }
+
+    private static MetricsRepository newMetricsRepository() {
+        Database.Settings settings = Database.settings();
+        return new MetricsRepository(settings.jdbcUrl(), settings.user(), settings.password());
+    }
+
+    // 画面が5秒ごとに呼ぶ。接続を読み取りごとに開くと1回で約5秒かかっていたので、
+    // 接続は1回だけ開いて、すべての読み取りに使い回す。
     @GetMapping
     public Map<String, Object> status() {
+        try (Connection connection = Database.connect()) {
+            return status(connection);
+        } catch (Exception e) {
+            // 接続できないときは、数字を0や「未記録」に見せず、画面で「取得できません」と出す。
+            System.out.println("司令本部のデータを取得できませんでした。");
+            Map<String, Object> status = new LinkedHashMap<>();
+            status.put("money", null);
+            status.put("numbers", null);
+            status.put("priorityTasks", null);
+            status.put("agents", null);
+            status.put("activities", null);
+            return status;
+        }
+    }
+
+    // 読み取りが途中で1つ失敗しても、その項目だけ null（画面では「取得できません」）にして、
+    // ほかの項目は出す。失敗を「0本」「タスクなし」などの実績ゼロと見せないため。
+    Map<String, Object> status(Connection connection) {
         Map<String, Object> status = new LinkedHashMap<>();
-        status.put("numbers", loadNumbers());
-        status.put("priorityTasks", loadPriorityTasks());
-        status.put("agents", activityRepository.agentStates(countWaitingApprovals()));
-        status.put("activities", activityRepository.recentActivities());
+        status.put("money", loadMoney(connection));
+        status.put("numbers", metricsRepository.getSummary(connection));
+        status.put("priorityTasks", loadPriorityTasks(connection));
+        status.put("agents", activityRepository.agentStates(connection, countWaitingApprovals(connection)));
+        status.put("activities", activityRepository.recentActivities(connection));
         return status;
     }
 
-    private Map<String, String> loadNumbers() {
-        Map<String, String> numbers = new LinkedHashMap<>();
-        numbers.put("revenue", "0");
-        numbers.put("profit", "0");
-        numbers.put("workMinutes", "0");
-        numbers.put("aiCost", "0");
-        numbers.put("aiCostRecorded", "false");
-
-        // AI費用は手入力した記録の合計で、実際のOpenAI請求額ではない。
-        // 記録が1件もないときに「0円」と出すと、無料で動いているように見えてしまう。
-        String sql = """
-                SELECT
-                    COALESCE((SELECT SUM(revenue) FROM revenue_records), 0) AS revenue,
-                    COALESCE((SELECT SUM(expense) FROM revenue_records), 0) AS expense,
-                    COALESCE((SELECT SUM(work_minutes) FROM revenue_records), 0) AS work_minutes,
-                    COALESCE((SELECT SUM(amount) FROM monthly_costs), 0) AS ai_cost,
-                    (SELECT COUNT(*) FROM monthly_costs) AS ai_cost_count
-                """;
-
-        try (
-            Connection connection = DriverManager.getConnection(jdbcUrl, user, password);
-            PreparedStatement statement = connection.prepareStatement(sql);
-            ResultSet result = statement.executeQuery()
-        ) {
-            if (result.next()) {
-                double revenue = result.getDouble("revenue");
-                double expense = result.getDouble("expense");
-                double aiCost = result.getDouble("ai_cost");
-                numbers.put("revenue", String.valueOf(Math.round(revenue)));
-                numbers.put("profit", String.valueOf(Math.round(revenue - expense - aiCost)));
-                numbers.put("workMinutes", String.valueOf(result.getInt("work_minutes")));
-                numbers.put("aiCost", String.valueOf(Math.round(aiCost)));
-                numbers.put("aiCostRecorded", String.valueOf(result.getInt("ai_cost_count") > 0));
-            }
+    // 売上・直接経費・案件利益・作業時間・月々の費用。集計は RevenueRepository.getSummary の1か所だけ。
+    private RevenueSummary loadMoney(Connection connection) {
+        try {
+            return revenueRepository.getSummary(connection);
         } catch (Exception e) {
             System.out.println("司令本部の数字を取得できませんでした。");
+            return null;
         }
-
-        Map<String, String> summary = metricsRepository.getSummary();
-        numbers.put("articleCount", summary.getOrDefault("articleCount", "0"));
-        numbers.put("averageWritingSeconds", summary.getOrDefault("averageWritingSeconds", "0"));
-        numbers.put("approvedPosts", summary.getOrDefault("approvedPosts", "0"));
-        return numbers;
     }
 
-    private List<Map<String, String>> loadPriorityTasks() {
+    private List<Map<String, String>> loadPriorityTasks(Connection connection) {
         List<Map<String, String>> tasks = new ArrayList<>();
         String sql = """
                 SELECT task_name, priority, assigned_agent, status
@@ -115,7 +95,6 @@ public class CommandCenterController {
                 """;
 
         try (
-            Connection connection = DriverManager.getConnection(jdbcUrl, user, password);
             PreparedStatement statement = connection.prepareStatement(sql);
             ResultSet result = statement.executeQuery()
         ) {
@@ -129,15 +108,17 @@ public class CommandCenterController {
             }
         } catch (Exception e) {
             System.out.println("優先タスクを取得できませんでした。");
+            // 失敗を「未完了のタスクはありません」と見せないよう、null を返す。
+            return null;
         }
         return tasks;
     }
 
-    private int countWaitingApprovals() {
+    // 取得に失敗したときは null（0件と区別する）。
+    private Integer countWaitingApprovals(Connection connection) {
         String sql = "SELECT COUNT(*) AS waiting FROM post_drafts WHERE status = '承認待ち'";
 
         try (
-            Connection connection = DriverManager.getConnection(jdbcUrl, user, password);
             PreparedStatement statement = connection.prepareStatement(sql);
             ResultSet result = statement.executeQuery()
         ) {
@@ -147,7 +128,7 @@ public class CommandCenterController {
         } catch (Exception e) {
             System.out.println("承認待ちの件数を取得できませんでした。");
         }
-        return 0;
+        return null;
     }
 
     private String text(String value) {

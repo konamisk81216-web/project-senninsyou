@@ -483,6 +483,7 @@ function formatSignedYen(value) {
 
 async function loadRevenueDashboard() {
     const revenueList = document.getElementById("revenue-list");
+    let moneyShown = false;
 
     try {
         const [summaryResponse, recordsResponse, analysisResponse] = await Promise.all([
@@ -491,33 +492,23 @@ async function loadRevenueDashboard() {
             fetch("/api/revenue/task-analysis")
         ]);
 
-        if (!summaryResponse.ok || !recordsResponse.ok || !analysisResponse.ok) {
+        // 合計の数字は、記録一覧や分析の取得とは別に出す（合計だけ失敗したら「取得できません」）。
+        renderMoney(summaryResponse.ok ? await summaryResponse.json() : null);
+        moneyShown = true;
+
+        if (!recordsResponse.ok || !analysisResponse.ok) {
             throw new Error("収益情報の取得に失敗しました。");
         }
 
-        const summary = await summaryResponse.json();
         const records = await recordsResponse.json();
         const analyses = await analysisResponse.json();
-
-        document.getElementById("total-revenue").textContent =
-            formatYen(summary.totalRevenue);
-        document.getElementById("total-expense").textContent =
-            formatYen(summary.totalExpense);
-        document.getElementById("total-profit").textContent =
-            formatYen(summary.totalProfit);
-        document.getElementById("total-work-time").textContent =
-            formatWorkTime(summary.totalWorkMinutes);
-        document.getElementById("hq-total-revenue").textContent =
-            formatYen(summary.totalRevenue);
-        document.getElementById("hq-total-profit").textContent =
-            formatYen(summary.totalProfit);
-        document.getElementById("hq-total-work-time").textContent =
-            formatWorkTime(summary.totalWorkMinutes);
 
         renderRevenueRecords(records);
         renderTaskRevenueAnalysis(analyses);
     } catch (error) {
         revenueList.textContent = "収益記録の取得に失敗しました。";
+        // 通信そのものが失敗したときは、前の合計を出し続けない。
+        if (!moneyShown) renderMoney(null);
         console.error(error);
     }
 }
@@ -553,9 +544,9 @@ function renderTaskRevenueAnalysis(analyses) {
         metrics.className = "task-analysis-metrics";
 
         const metricValues = [
-            ["利益", formatYen(analysis.totalProfit)],
+            ["案件利益", formatYen(analysis.totalProfit)],
             ["作業時間", formatWorkTime(analysis.totalWorkMinutes)],
-            ["1時間あたり利益", analysis.profitPerHour == null ? "算出不可" : formatYen(analysis.profitPerHour)],
+            ["1時間あたり案件利益", analysis.profitPerHour == null ? "算出不可" : formatYen(analysis.profitPerHour)],
             ["利益率", formatPercent(analysis.profitMarginPercent)],
             ["投資ROI", formatPercent(analysis.investmentRoiPercent)]
         ];
@@ -594,7 +585,7 @@ function renderRevenueRecords(records) {
         const result = document.createElement("p");
         result.className = "revenue-result";
         result.textContent =
-            `売上 ${formatYen(record.revenue)} − 経費 ${formatYen(record.expense)} = 利益 ${formatYen(record.profit)}`;
+            `売上 ${formatYen(record.revenue)} − 直接経費 ${formatYen(record.expense)} = 案件利益 ${formatYen(record.profit)}`;
 
         const details = document.createElement("p");
         details.textContent =
@@ -1637,7 +1628,7 @@ function renderNoteWorkflow() {
     if (linkedRecords.length === 0) revenueList.textContent = "関連付けられた実績はまだありません。";
     for (const item of linkedRecords) {
         const row = document.createElement("p");
-        row.textContent = `${item.description}／売上 ${formatYen(item.revenue)}／利益 ${formatYen(item.profit)}`;
+        row.textContent = `${item.description}／売上 ${formatYen(item.revenue)}／案件利益 ${formatYen(item.profit)}`;
         revenueList.appendChild(row);
     }
 }
@@ -1843,6 +1834,18 @@ function setDemoSubtitle(userLine, aiLine) {
 let demoRunningAction = null;
 
 function renderDemoAgents(agents, activities) {
+    const agentBox = document.getElementById("demo-agent");
+    // 状態が取れないときは、実行中の承認作業があればそれを出し、なければ「取得できません」。
+    if (agents === null) {
+        setWorkInProgress(demoRunningAction !== null);
+        if (demoRunningAction) {
+            showDemoWorking(demoRunningAction);
+        } else {
+            agentBox.textContent = UNAVAILABLE;
+        }
+        return;
+    }
+
     const working = agents.filter(agent => agent.status === "作業中");
     // AI将軍の作業中は会話の返答待ちで、オーブは「考え中」で表している。
     // 返答後の巡回までAI将軍が作業中に残るので、ここでは数えない。
@@ -1855,11 +1858,14 @@ function renderDemoAgents(agents, activities) {
         return;
     }
 
+    if (working.length === 0 && activities === null) {
+        agentBox.textContent = UNAVAILABLE;
+        return;
+    }
     const shown = working.length > 0
         ? working.map(agent => ({ agent: agent.agent, action: agent.lastAction, status: "作業中" }))
         : activities.slice(0, 1);
 
-    const agentBox = document.getElementById("demo-agent");
     agentBox.replaceChildren();
     if (shown.length === 0) {
         agentBox.textContent = "まだ実行記録がありません。";
@@ -1881,19 +1887,17 @@ function renderDemoAgents(agents, activities) {
     });
 }
 
-function renderDemo(numbers, agents, activities) {
-    document.getElementById("demo-revenue").textContent =
-        `${Number(numbers.revenue ?? 0).toLocaleString("ja-JP")}円`;
-    document.getElementById("demo-profit").textContent =
-        `${Number(numbers.profit ?? 0).toLocaleString("ja-JP")}円`;
-    document.getElementById("demo-cost").textContent = formatRecordedAiCost(numbers);
-    document.getElementById("demo-work").textContent = formatMinutes(numbers.workMinutes);
-
+// デモの数字は renderMoney が HUD と同時に書き出す。ここでは担当AI社員とログだけを出す。
+function renderDemo(agents, activities) {
     renderDemoAgents(agents, activities);
 
     // 過去の記録は記録された時刻のまま出す。新しい処理に見せかけない。
     const log = document.getElementById("demo-log");
     log.replaceChildren();
+    if (activities === null) {
+        log.textContent = UNAVAILABLE;
+        return;
+    }
     if (activities.length === 0) {
         log.textContent = "まだ実行記録がありません。";
         return;
@@ -1970,9 +1974,81 @@ document.getElementById("demo-ask").addEventListener("click", () => {
     voiceInputButton.click();
 });
 
-function formatRecordedAiCost(numbers) {
-    if (numbers.aiCostRecorded !== "true") return "未記録";
-    return `${Number(numbers.aiCost ?? 0).toLocaleString("ja-JP")}円`;
+// ===== お金と作業時間の数字 =====
+// 集計はサーバーの RevenueRepository.getSummary の1か所だけで、/api/command-center の money と
+// /api/revenue/summary が同じ形で返す。画面への書き出しも renderMoney の1か所だけ。
+// 数字の出し方や出す場所を変えるときは、下の MONEY_FIELDS の表だけを直す。
+function formatYenSuffix(value) {
+    return `${Number(value ?? 0).toLocaleString("ja-JP")}円`;
+}
+
+const MONEY_FIELDS = [
+    {
+        name: "売上",
+        value: money => money.totalRevenue,
+        recorded: money => money.revenueRecorded,
+        targets: [["hud-revenue", formatYenSuffix], ["demo-revenue", formatYenSuffix],
+                  ["hq-total-revenue", formatYen], ["total-revenue", formatYen]]
+    },
+    {
+        // 案件利益＝売上−案件の直接経費。月々の費用は差し引かない（二重計上を防ぐため）。
+        name: "案件利益",
+        value: money => money.totalProfit,
+        recorded: money => money.revenueRecorded,
+        targets: [["hud-profit", formatYenSuffix], ["demo-profit", formatYenSuffix],
+                  ["hq-total-profit", formatYen], ["total-profit", formatYen]]
+    },
+    {
+        name: "作業時間",
+        value: money => money.totalWorkMinutes,
+        recorded: money => money.revenueRecorded,
+        targets: [["hud-work-time", formatMinutes], ["demo-work", formatMinutes],
+                  ["hq-total-work-time", formatWorkTime], ["total-work-time", formatWorkTime]]
+    },
+    {
+        // 月々の費用は手入力した記録の合計。OpenAIやAzureの実請求額ではない。
+        name: "月々の費用",
+        value: money => money.monthlyCost,
+        recorded: money => money.monthlyCostRecorded,
+        targets: [["hud-ai-cost", formatYenSuffix], ["demo-cost", formatYenSuffix],
+                  ["metrics-total-cost", formatYenSuffix]]
+    },
+    {
+        // 直接経費は今のところ記録がなくても0円と出す（従来どおり）。
+        name: "直接経費",
+        value: money => money.totalExpense,
+        recorded: () => true,
+        targets: [["total-expense", formatYen]]
+    }
+];
+
+// money が null のとき（サーバーに届かない・集計に失敗した）は、0や未記録に見せず「取得できません」。
+// 記録が1件もないときの0は実績0ではないので「未記録」。
+function renderMoney(money) {
+    MONEY_FIELDS.forEach(field => {
+        field.targets.forEach(([id, format]) => {
+            let text;
+            if (money == null) {
+                text = "取得できません";
+            } else if (!field.recorded(money)) {
+                text = "未記録";
+            } else {
+                text = format(field.value(money));
+            }
+            document.getElementById(id).textContent = text;
+        });
+    });
+}
+
+// 費用を記録・削除した直後など、数字だけを更新したいときに使う（記録一覧や分析は読み直さない）。
+async function refreshMoney() {
+    try {
+        const response = await fetch("/api/revenue/summary");
+        renderMoney(response.ok ? await response.json() : null);
+    } catch (error) {
+        console.error(error);
+        renderMoney(null);
+    }
 }
 
 function formatMinutes(minutes) {
@@ -1986,30 +2062,49 @@ async function loadCommandCenter() {
     try {
         const response = await fetch("/api/command-center");
         if (!response.ok) throw new Error(await response.text());
-        const data = await response.json();
-        const numbers = data.numbers ?? {};
-
-        document.getElementById("hud-revenue").textContent =
-            `${Number(numbers.revenue ?? 0).toLocaleString("ja-JP")}円`;
-        document.getElementById("hud-profit").textContent =
-            `${Number(numbers.profit ?? 0).toLocaleString("ja-JP")}円`;
-        document.getElementById("hud-ai-cost").textContent = formatRecordedAiCost(numbers);
-        document.getElementById("hud-work-time").textContent = formatMinutes(numbers.workMinutes);
-        document.getElementById("hud-articles").textContent = `${numbers.articleCount ?? 0}本`;
-        document.getElementById("hud-posts").textContent = `${numbers.approvedPosts ?? 0}件`;
-
-        renderHudTasks(data.priorityTasks ?? []);
-        renderHudAgents(data.agents ?? []);
-        announceCompletions(data.activities ?? []);
-        renderHudLog(data.activities ?? []);
-        renderDemo(numbers, data.agents ?? [], data.activities ?? []);
+        renderCommandCenter(await response.json());
     } catch (error) {
         console.error(error);
+        // サーバーに届かないときも、前の数字を出し続けたり0に見せたりせず「取得できません」と出す。
+        renderCommandCenter({});
     }
+}
+
+// 項目ごとに、取得に失敗した（null・欠けている）ときは「取得できません」と出す。
+// 失敗を「0本」「タスクなし」「全員待機中」などの実績ゼロと見せないため、?? [] や ?? 0 で埋めない。
+const UNAVAILABLE = "取得できません";
+
+function renderCommandCenter(data) {
+    const numbers = data.numbers ?? null;
+    const agents = data.agents ?? null;
+    const activities = data.activities ?? null;
+
+    renderMoney(data.money ?? null);
+    document.getElementById("hud-articles").textContent =
+        numbers === null ? UNAVAILABLE : `${numbers.articleCount}本`;
+    document.getElementById("hud-posts").textContent =
+        numbers === null ? UNAVAILABLE : `${numbers.approvedPosts}件`;
+
+    renderHudTasks(data.priorityTasks ?? null);
+    renderHudAgents(agents);
+    if (activities !== null) announceCompletions(activities);
+    renderHudLog(activities);
+    renderDemo(agents, activities);
+}
+
+function renderUnavailable(container) {
+    const message = document.createElement("p");
+    message.className = "author-facts-empty";
+    message.textContent = UNAVAILABLE;
+    container.replaceChildren(message);
 }
 
 function renderHudTasks(tasks) {
     const list = document.getElementById("hud-tasks");
+    if (tasks === null) {
+        renderUnavailable(list);
+        return;
+    }
     list.replaceChildren();
     if (tasks.length === 0) {
         const empty = document.createElement("p");
@@ -2033,6 +2128,10 @@ function renderHudTasks(tasks) {
 
 function renderHudAgents(agents) {
     const list = document.getElementById("hud-agents");
+    if (agents === null) {
+        renderUnavailable(list);
+        return;
+    }
     list.replaceChildren();
     agents.forEach(agent => {
         const row = document.createElement("div");
@@ -2095,6 +2194,10 @@ function announceCompletions(activities) {
 
 function renderHudLog(activities) {
     const list = document.getElementById("hud-log");
+    if (activities === null) {
+        renderUnavailable(list);
+        return;
+    }
     list.replaceChildren();
     if (activities.length === 0) {
         const empty = document.createElement("p");
@@ -2131,27 +2234,50 @@ function renderHudLog(activities) {
 // 開いたときにDBを確認し、前回から変化があるときだけ報告する。AIは呼ばない。
 let latestReport = null;
 
+// 項目が null（取得に失敗）のときは「取得できません」。本当に0件・なし・未登録のときだけそう言う。
 function reportLines(report) {
+    if (report.available === false) {
+        return [`前回からの変化：${UNAVAILABLE}`];
+    }
     const lines = [];
-    lines.push(`未完了のタスク：${report.unfinishedCount}件`);
-    if (report.priorityTasks.length > 0) {
+    lines.push(report.unfinishedCount == null
+        ? `未完了のタスク：${UNAVAILABLE}`
+        : `未完了のタスク：${report.unfinishedCount}件`);
+    if (report.priorityTasks == null) {
+        lines.push(`最優先：${UNAVAILABLE}`);
+    } else if (report.priorityTasks.length > 0) {
         lines.push(`最優先：${report.priorityTasks[0].taskName}（${report.priorityTasks[0].priority}）`);
     }
-    lines.push(`確認待ち：${report.waitingApprovals}件`);
+    lines.push(report.waitingApprovals == null
+        ? `確認待ち：${UNAVAILABLE}`
+        : `確認待ち：${report.waitingApprovals}件`);
 
-    const working = report.agents.filter(agent => agent.status !== "待機中");
-    lines.push(working.length === 0
-        ? "AI社員：全員待機中"
-        : `AI社員：${working.map(a => `${a.agent}（${a.status}）`).join("、")}`);
+    // 状態が取れなかったときに「全員待機中」と言わない。
+    if (report.agents == null) {
+        lines.push(`AI社員：${UNAVAILABLE}`);
+    } else {
+        const working = report.agents.filter(agent => agent.status !== "待機中");
+        lines.push(working.length === 0
+            ? "AI社員：全員待機中"
+            : `AI社員：${working.map(a => `${a.agent}（${a.status}）`).join("、")}`);
+    }
 
-    lines.push(report.recentErrors.length === 0
-        ? "直近のエラー：なし"
-        : `直近のエラー：${report.recentErrors.map(e => `${e.agent} ${e.action}`).join("、")}`);
+    if (report.recentErrors == null) {
+        lines.push(`直近のエラー：${UNAVAILABLE}`);
+    } else {
+        lines.push(report.recentErrors.length === 0
+            ? "直近のエラー：なし"
+            : `直近のエラー：${report.recentErrors.map(e => `${e.agent} ${e.action}`).join("、")}`);
+    }
 
     const last = report.lastCompleted;
-    lines.push(last.action === "未登録"
-        ? "最後に完了した作業：未登録"
-        : `最後に完了した作業：${last.agent} ${last.action}${last.detail ? `（${last.detail}）` : ""}`);
+    if (last == null) {
+        lines.push(`最後に完了した作業：${UNAVAILABLE}`);
+    } else {
+        lines.push(last.action === "未登録"
+            ? "最後に完了した作業：未登録"
+            : `最後に完了した作業：${last.agent} ${last.action}${last.detail ? `（${last.detail}）` : ""}`);
+    }
 
     lines.push(`次に行うべき作業：${report.nextAction}`);
     lines.push(`Azureの利用状況：${report.usage.azure}`);
@@ -2162,34 +2288,44 @@ function reportLines(report) {
 async function loadReport() {
     try {
         const response = await fetch("/api/report");
-        if (!response.ok) return;
-        const report = await response.json();
-        latestReport = report;
-
-        const panel = document.getElementById("report-panel");
-        if (!report.changed) {
-            panel.hidden = true;
-            return;
-        }
-        const body = document.getElementById("report-body");
-        body.replaceChildren();
-        reportLines(report).forEach(line => {
-            const row = document.createElement("p");
-            row.textContent = line;
-            body.appendChild(row);
-        });
-        const footer = document.createElement("p");
-        footer.className = "report-footer";
-        footer.textContent = `前回の確認：${report.lastReportedAt}`;
-        body.appendChild(footer);
-        panel.hidden = false;
+        // 取得に失敗したときは、黙って隠さず「取得できません」と出す。
+        renderReportPanel(response.ok ? await response.json() : { available: false, changed: true });
     } catch (error) {
         console.error(error);
+        // 通信そのものが失敗したときも同じ。
+        renderReportPanel({ available: false, changed: true });
     }
+}
+
+function renderReportPanel(report) {
+    latestReport = report;
+
+    const panel = document.getElementById("report-panel");
+    if (!report.changed) {
+        panel.hidden = true;
+        return;
+    }
+    const body = document.getElementById("report-body");
+    body.replaceChildren();
+    reportLines(report).forEach(line => {
+        const row = document.createElement("p");
+        row.textContent = line;
+        body.appendChild(row);
+    });
+    const footer = document.createElement("p");
+    footer.className = "report-footer";
+    footer.textContent = `前回の確認：${report.lastReportedAt ?? UNAVAILABLE}`;
+    body.appendChild(footer);
+    panel.hidden = false;
 }
 
 document.getElementById("report-seen").addEventListener("click", async () => {
     if (!latestReport) return;
+    // 報告そのものが取れなかったときは、確認済みの記録（前回の目印）を空で上書きしない。
+    if (latestReport.available === false) {
+        document.getElementById("report-panel").hidden = true;
+        return;
+    }
     await fetch("/api/report/seen", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2230,20 +2366,30 @@ async function loadMetrics() {
         if (!response.ok) throw new Error(await response.text());
         const data = await response.json();
 
-        const summary = data.summary ?? {};
-        const seconds = Number(summary.averageWritingSeconds ?? 0);
-        document.getElementById("metrics-article-count").textContent = `${summary.articleCount ?? 0}本`;
-        document.getElementById("metrics-avg-writing").textContent =
-            seconds > 0 ? `${Math.floor(seconds / 60)}分${seconds % 60}秒` : "--";
-        document.getElementById("metrics-approved-posts").textContent = `${summary.approvedPosts ?? 0}件`;
-        document.getElementById("metrics-total-cost").textContent =
-            `${Number(summary.totalCost ?? 0).toLocaleString("ja-JP")}円`;
-
+        renderMetricsSummary(data.summary ?? null);
         renderMetrics(data.entries ?? []);
         renderCosts(data.costs ?? []);
     } catch (error) {
         console.error(error);
+        renderMetricsSummary(null);
     }
+}
+
+// 集計に失敗したとき（null）は、「0本」と見せず「取得できません」と出す。
+function renderMetricsSummary(summary) {
+    const articles = document.getElementById("metrics-article-count");
+    const writing = document.getElementById("metrics-avg-writing");
+    const posts = document.getElementById("metrics-approved-posts");
+    if (summary === null) {
+        articles.textContent = UNAVAILABLE;
+        writing.textContent = UNAVAILABLE;
+        posts.textContent = UNAVAILABLE;
+        return;
+    }
+    const seconds = Number(summary.averageWritingSeconds);
+    articles.textContent = `${summary.articleCount}本`;
+    writing.textContent = seconds > 0 ? `${Math.floor(seconds / 60)}分${seconds % 60}秒` : "--";
+    posts.textContent = `${summary.approvedPosts}件`;
 }
 
 function renderMetrics(entries) {
@@ -2314,6 +2460,7 @@ function renderCosts(costs) {
         remove.addEventListener("click", async () => {
             await fetch(`/api/metrics/costs/${cost.id}`, { method: "DELETE" });
             loadMetrics();
+            refreshMoney();
         });
 
         row.append(month, body, remove);
@@ -2371,6 +2518,7 @@ document.getElementById("cost-add").addEventListener("click", async () => {
         if (!response.ok) throw new Error(await response.text());
         status.textContent = "費用を記録しました。";
         loadMetrics();
+        refreshMoney();
     } catch (error) {
         status.textContent = "費用を記録できませんでした。";
         console.error(error);
