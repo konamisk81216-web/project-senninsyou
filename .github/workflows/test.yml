@@ -1,0 +1,32 @@
+name: Test only (no deploy)
+
+# main 以外のブランチへの push と、main 向けのプルリクエストで、テストだけを実行する。
+# デプロイはしない（Azure へのデプロイは、main への push で動く別のワークフローが担当する）。
+# テストは偽のDB接続を使うので、本番DBやOpenAIの接続情報（Secrets）は使わない。
+on:
+  push:
+    branches-ignore:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java version
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'microsoft'
+          cache: maven
+
+      - name: Run tests
+        run: mvn -B test
