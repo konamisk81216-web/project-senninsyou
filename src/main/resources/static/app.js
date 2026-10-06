@@ -2014,10 +2014,10 @@ const MONEY_FIELDS = [
                   ["metrics-total-cost", formatYenSuffix]]
     },
     {
-        // 直接経費は今のところ記録がなくても0円と出す（従来どおり）。
+        // 直接経費も売上と同じ売上記録の合計。記録が1件もなければ「未記録」、0円の記録があれば0円。
         name: "直接経費",
         value: money => money.totalExpense,
-        recorded: () => true,
+        recorded: money => money.revenueRecorded,
         targets: [["total-expense", formatYen]]
     }
 ];
