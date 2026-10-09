@@ -673,7 +673,14 @@ async function restoreConversation() {
 
 restoreConversation();
 
+// AI将軍の返答を待っている間は true。
+let commandInFlight = false;
+
 async function sendCommand(mode = "discuss", options = {}) {
+    // 返答を待っている間は、どの経路（音声・Enter・ボタン）からも次の送信を受け付けない。
+    // 1つの発言が二重に送られ、AI将軍への依頼と会話記録が重複するのを防ぐ。
+    if (commandInFlight) return;
+
     const input = document.getElementById("command-input");
     const command = mode === "propose"
         ? "これまで話した内容を踏まえ、登録前に確認するタスク案を1件まとめて。"
@@ -687,6 +694,7 @@ async function sendCommand(mode = "discuss", options = {}) {
     const commandButton = document.getElementById("command-button");
     const proposalButton = document.getElementById("propose-task-button");
     const status = document.getElementById("command-status");
+    commandInFlight = true;
     commandButton.disabled = true;
     proposalButton.disabled = true;
     voiceInputButton.disabled = true;
@@ -774,6 +782,7 @@ async function sendCommand(mode = "discuss", options = {}) {
         alert("AI将軍への送信に失敗しました。");
         console.error(error);
     } finally {
+        commandInFlight = false;
         commandButton.disabled = false;
         proposalButton.disabled = false;
         voiceInputButton.disabled = !SpeechRecognitionClass;
@@ -1141,6 +1150,9 @@ function startSendCountdown() {
         }
         stopSendCountdown();
         showInterim("");
+        // この聞き取りの結果はここで使い切る。
+        voiceRecognized = false;
+        if (commandInFlight) return;
         setVoiceState("sending", "将軍へ送っています。");
         sendCommand("discuss", { speak: true });
     }, 1000);
@@ -1163,22 +1175,43 @@ if (!window.speechSynthesis) {
 
 function startListening() {
     if (!SpeechRecognitionClass) return;
+    // 返答を待っている間は聞き取りを始めない（考え中に話した内容が続けて送られてしまうため）。
+    if (commandInFlight) return;
+    // 聞き取りを同時に2つ動かさない。前の聞き取りは止め、その通知は以後すべて無視する。
+    const previous = voiceRecognition;
+    voiceRecognition = null;
+    if (previous) {
+        try {
+            previous.abort();
+        } catch (error) {
+            // すでに終わっている聞き取りは止める必要がない。
+        }
+        // 古い聞き取りの終了通知は無視するので、聞き取り中の表示はここで戻す。
+        voiceListening = false;
+    }
     stopSendCountdown();
     showInterim("");
     voiceRecognized = false;
     voiceCanceled = false;
     voiceError = false;
-    voiceRecognition = new SpeechRecognitionClass();
-    voiceRecognition.lang = "ja-JP";
-    voiceRecognition.continuous = false;
-    voiceRecognition.interimResults = true;
-    voiceRecognition.onstart = () => {
+    const recognition = new SpeechRecognitionClass();
+    voiceRecognition = recognition;
+    // 古い聞き取りからの通知か。古いものは画面にも送信にも使わない。
+    const isCurrent = () => recognition === voiceRecognition;
+    // 同じ聞き取りの終了通知が2回届いても、2回目は使わない。
+    let ended = false;
+    recognition.lang = "ja-JP";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.onstart = () => {
+        if (!isCurrent()) return;
         voiceListening = true;
         updateMicIndicator();
         voiceInputButton.textContent = "■ 聞き取り停止";
         setVoiceState("listening", "聞き取り中です。マイクが動いています。停止すると送信しません。");
     };
-    voiceRecognition.onresult = event => {
+    recognition.onresult = event => {
+        if (!isCurrent() || ended) return;
         const results = Array.from(event.results);
         const interim = results
             .filter(result => !result.isFinal)
@@ -1197,7 +1230,8 @@ function startListening() {
             showInterim(interim);
         }
     };
-    voiceRecognition.onerror = event => {
+    recognition.onerror = event => {
+        if (!isCurrent()) return;
         voiceCanceled = true;
         voiceError = true;
         showInterim("");
@@ -1208,7 +1242,9 @@ function startListening() {
         // 権限が無い状態で再開し続けないよう、会話は終了する。
         if (voiceSessionActive) endVoiceSession(denied ? "マイクを使えないため会話を終了しました。" : null);
     };
-    voiceRecognition.onend = () => {
+    recognition.onend = () => {
+        if (!isCurrent() || ended) return;
+        ended = true;
         voiceListening = false;
         updateMicIndicator();
         voiceInputButton.textContent = "🎙️ 声で入力";
@@ -1230,7 +1266,7 @@ function startListening() {
         setVoiceState("idle", "音声が認識されませんでした。もう一度試してください。");
     };
     try {
-        voiceRecognition.start();
+        recognition.start();
     } catch (error) {
         setVoiceState("error", "音声入力を開始できませんでした。文字入力をお使いください。");
         if (voiceSessionActive) endVoiceSession(null);
@@ -1290,6 +1326,11 @@ const voiceSessionButton = document.getElementById("voice-session-toggle");
 voiceSessionButton.addEventListener("click", () => {
     if (voiceSessionActive) {
         endVoiceSession(null);
+        return;
+    }
+    // 返答を待っている間に会話を始めると、聞き取りが動かないまま会話中の表示になるため受け付けない。
+    if (commandInFlight) {
+        voiceStatus.textContent = "AI将軍の返答を待っています。返答のあとに会話を始めてください。";
         return;
     }
     startVoiceSession();
@@ -3287,7 +3328,8 @@ document.getElementById("continue-conversation-button").addEventListener("click"
 });
 
 commandInput.addEventListener("keydown", event => {
-    if (event.key === "Enter") {
+    // 日本語入力の変換を確定する Enter では送らない（keyCode 229 は変換中の古いブラウザ向け）。
+    if (event.key === "Enter" && !event.isComposing && event.keyCode !== 229) {
         sendCommand();
     }
 });
