@@ -1118,6 +1118,9 @@ function setVoiceState(state, message) {
     voiceStateLabel.textContent = VOICE_STATE_LABELS[state] ?? state;
     applyDisplayOrbs();
     if (message) voiceStatus.textContent = message;
+    // 待機に戻ったら、話している間に預かったAI社員の報告を読み上げる。
+    // 呼び出し元がマイクの状態などを変え終わってから判断するため、少しだけ後にする。
+    if (state === "idle") setTimeout(speakPendingReports, 0);
 }
 
 function showInterim(text) {
@@ -1188,6 +1191,11 @@ function startListening() {
         }
         // 古い聞き取りの終了通知は無視するので、聞き取り中の表示はここで戻す。
         voiceListening = false;
+    }
+    // 読み上げたまま聞き取ると、読み上げの声を拾って将軍へ送ってしまう。先に止める。
+    if (window.speechSynthesis?.speaking || window.speechSynthesis?.pending) {
+        window.speechSynthesis.cancel();
+        voiceStopButton.hidden = true;
     }
     stopSendCountdown();
     showInterim("");
@@ -1486,17 +1494,41 @@ handsFreeToggle.addEventListener("click", () => {
     enableHandsFree();
 });
 
-function speakAnswer(answer) {
+// hooks（AI社員の報告用）：
+//   started(): 読み上げが始まったとき。settled(reason): 終わった・止まった・始められなかったとき。どちらも1回だけ呼ぶ。
+//   abandoned(): true の間は、この読み上げの通知をすべて無視する（待ちきれずに諦めたあと）。
+//   lateStart(): 終わったあと・諦めたあとに、遅れて開始の通知が届いたとき。
+//   failedMessage(): 読み上げに失敗したときに出す文。
+function speakAnswer(answer, hooks = {}) {
     if (!answer || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(answer);
     utterance.lang = "ja-JP";
     utterance.rate = 1;
+    // 開始・終了の通知は1回目だけ使う。遅れて2回目が届いても、状態を戻したり報告を二重に処理したりしない。
+    let begun = false;
+    let finished = false;
+    const finish = reason => {
+        if (finished || hooks.abandoned?.()) return false;
+        finished = true;
+        hooks.settled?.(reason);
+        return true;
+    };
     utterance.onstart = () => {
+        if (begun) return;
+        if (finished || hooks.abandoned?.()) {
+            hooks.lateStart?.();
+            return;
+        }
+        begun = true;
+        // 読み上げが動いたので、始められずに止めていた報告の再試行も再開してよい。
+        reportStartFailures = 0;
         voiceStopButton.hidden = false;
-        setVoiceState("speaking", "AI将軍の返答を読み上げています。");
+        setVoiceState("speaking", hooks.speakingMessage ?? "AI将軍の返答を読み上げています。");
+        hooks.started?.();
     };
     utterance.onend = () => {
+        if (!finish("end")) return;
         voiceStopButton.hidden = true;
         if (!voiceSessionActive) {
             setVoiceState("idle", "読み上げが終わりました。");
@@ -1512,12 +1544,13 @@ function speakAnswer(answer) {
         startListening();
     };
     utterance.onerror = event => {
+        if (!finish(event.error)) return;
         if (event.error === "interrupted" || event.error === "canceled") return;
         voiceStopButton.hidden = true;
-        setVoiceState("idle", "読み上げに失敗しました。画面の返答を確認してください。");
+        setVoiceState("idle", hooks.failedMessage?.() ?? "読み上げに失敗しました。画面の返答を確認してください。");
     };
     // onstartの通知を待つと、その間だけ待機中に見えてしまうため先に切り替える。
-    setVoiceState("speaking", "AI将軍の返答を読み上げます。");
+    setVoiceState("speaking", hooks.speakingMessage ?? "AI将軍の返答を読み上げます。");
     window.speechSynthesis.speak(utterance);
 }
 
@@ -1947,7 +1980,7 @@ function renderDemo(agents, activities) {
     const rows = window.matchMedia("(min-width: 1024px) and (orientation: landscape)").matches ? 8 : 4;
     activities.slice(0, rows).forEach(activity => {
         const row = document.createElement("div");
-        row.className = activity.id === announcedActivityId ? "demo-log-row is-new" : "demo-log-row";
+        row.className = highlightedActivityIds.has(activity.id) ? "demo-log-row is-new" : "demo-log-row";
         row.dataset.agentStatus = activity.status;
         const time = document.createElement("span");
         time.className = "demo-log-time";
@@ -2194,43 +2227,130 @@ function renderHudAgents(agents) {
 }
 
 // 新しく終わった作業を見つけて報告する。読み込み直後の分は報告しない。
-let lastSeenActivityId = null;
-let announcedActivityId = null;
+// 話している間（聞き取り・読み上げ・会話・拍手起動の待ち受け）に届いた報告は預かり、
+// 待機に戻ったら1回だけ読み上げる。字幕と実行ログの強調は、届いたときにすぐ出す。
+const MAX_REPORTS_READ = 3;
+const REPORT_START_TIMEOUT_MS = 5000;
+const REPORT_RETRY_MS = 5000;
+// 読み上げを始められない状態が続いたら、自動の再試行はここで止める（報告は預かったまま）。
+// 新しい報告が届くか、何かの読み上げが始まったら、もう一度試す。
+const REPORT_MAX_START_FAILURES = 3;
+let reportedActivityIds = null;        // 報告済み、または読み込んだ時点で終わっていた記録の id
+let highlightedActivityIds = new Set();
+let pendingReports = [];               // まだ読み上げを始めていない報告（古い順）
+let reportSpeaking = false;
+let reportRetryAt = 0;
+let reportStartFailures = 0;
+
+function reportMessage(activity) {
+    const done = activity.status === "完了";
+    const seconds = activity.durationSeconds ? `${activity.durationSeconds}秒で` : "";
+    const detail = activity.detail ? `。${activity.detail}` : "";
+    return done
+        ? `${activity.agent}が「${activity.action}」を${seconds}終えました${detail}`
+        : `${activity.agent}の「${activity.action}」が失敗しました${detail}`;
+}
+
+// 1件ならそのまま。複数なら件数を言い、4件以上は新しい3件だけ読んで残りは実行ログに任せる。
+function reportText(messages) {
+    if (messages.length === 1) return messages[0];
+    const read = messages.slice(-MAX_REPORTS_READ);
+    const skipped = messages.length - read.length;
+    return `${messages.length}件の報告があります。`
+        + (skipped > 0 ? `新しい${read.length}件です。` : "")
+        + read.join("。")
+        + (skipped > 0 ? `。ほか${skipped}件は実行ログを確認してください。` : "");
+}
 
 function announceCompletions(activities) {
     // AI将軍の返答は、その場で読み上げている。終わったことを二重に報告しない。
     const finished = activities.filter(activity =>
         activity.agent !== "AI将軍"
         && (activity.status === "完了" || activity.status === "エラー"));
-    if (finished.length === 0) return;
 
-    const newestId = Number(finished[0].id);
-    if (lastSeenActivityId === null) {
-        lastSeenActivityId = newestId;
+    if (reportedActivityIds === null) {
+        reportedActivityIds = new Set(finished.map(activity => activity.id));
         return;
     }
-    if (newestId <= lastSeenActivityId) return;
 
-    const activity = finished[0];
-    lastSeenActivityId = newestId;
-    announcedActivityId = activity.id;
+    // 1回の巡回の間に複数終わっても、すべて報告する。id の大小ではなく、まだ報告していないかで見る。
+    const arrived = finished.filter(activity => !reportedActivityIds.has(activity.id)).reverse();
+    // 一覧（直近20件）から外れた id は二度と戻らないので、覚えておく必要がない。
+    const listed = new Set(activities.map(activity => activity.id));
+    reportedActivityIds = new Set([...reportedActivityIds].filter(id => listed.has(id)));
+    arrived.forEach(activity => reportedActivityIds.add(activity.id));
 
-    const done = activity.status === "完了";
-    const seconds = activity.durationSeconds ? `${activity.durationSeconds}秒で` : "";
-    const detail = activity.detail ? `。${activity.detail}` : "";
-    const message = done
-        ? `${activity.agent}が「${activity.action}」を${seconds}終えました${detail}`
-        : `${activity.agent}の「${activity.action}」が失敗しました${detail}`;
-
-    setDemoSubtitle(null, message);
-
-    // マイクが開いている間に読み上げると、自分の声を拾ってしまう。
-    const micOpen = voiceSessionActive || Boolean(handsFreeStream);
-    const busy = ["listening", "confirming", "thinking", "speaking"]
-        .includes(voiceOrb.dataset.voiceState);
-    if (!micOpen && !busy) {
-        speakAnswer(message);
+    if (arrived.length > 0) {
+        highlightedActivityIds = new Set(arrived.map(activity => activity.id));
+        const messages = arrived.map(reportMessage);
+        setDemoSubtitle(null, reportText(messages));
+        pendingReports.push(...messages);
+        reportStartFailures = 0;
     }
+    speakPendingReports();
+}
+
+// マイクが開いている間や話している間に読み上げると、自分の声を拾ったり会話を遮ったりする。
+function canSpeakReports() {
+    if (!window.speechSynthesis || reportSpeaking || Date.now() < reportRetryAt) return false;
+    if (reportStartFailures >= REPORT_MAX_START_FAILURES) return false;
+    const micOpen = voiceSessionActive || Boolean(handsFreeStream) || voiceListening;
+    const busy = ["listening", "confirming", "thinking", "speaking", "waiting", "ended"]
+        .includes(currentVoiceState);
+    return !micOpen && !busy;
+}
+
+function speakPendingReports() {
+    if (pendingReports.length === 0 || !canSpeakReports()) return;
+
+    // 一覧から外すのは読み上げが始まってから。始められなかった報告は失わずに次の機会へ回す。
+    const attempt = { count: pendingReports.length, started: false, abandoned: false };
+    let startTimer = null;
+    // 始められなかったときは少し待って再試行する。ほかの読み上げや聞き取りに止められたときは、失敗に数えない。
+    const retryLater = countAsFailure => {
+        reportSpeaking = false;
+        reportRetryAt = Date.now() + REPORT_RETRY_MS;
+        if (countAsFailure) reportStartFailures++;
+    };
+    const failedMessage = () => reportStartFailures >= REPORT_MAX_START_FAILURES
+        ? "AI社員の報告を読み上げられないため、自動の読み上げを止めました。実行ログを確認してください。"
+        : "AI社員の報告を読み上げられませんでした。少ししてからもう一度読み上げます。";
+    reportSpeaking = true;
+    speakAnswer(reportText(pendingReports), {
+        speakingMessage: "AI社員の報告を読み上げています。",
+        failedMessage,
+        abandoned: () => attempt.abandoned,
+        // 諦めた読み上げが遅れて始まった。再試行と重なって二重に聞こえないよう、ほかに読み上げていなければ止める。
+        lateStart: () => {
+            if (currentVoiceState !== "speaking") window.speechSynthesis.cancel();
+        },
+        started: () => {
+            attempt.started = true;
+            clearTimeout(startTimer);
+            // 読み上げ中に届いた報告は、この後ろに残って次に読む。途中で止められても繰り返さない。
+            pendingReports = pendingReports.slice(attempt.count);
+        },
+        settled: reason => {
+            clearTimeout(startTimer);
+            if (attempt.started) {
+                reportSpeaking = false;
+                return;
+            }
+            retryLater(reason !== "interrupted" && reason !== "canceled");
+        }
+    });
+    // 開始の通知も失敗の通知も来ないまま止まることがあるので、待ちすぎたら諦めて次の機会に回す。
+    // 諦めたあとに届く通知は、この読み上げのものとしては使わない。
+    startTimer = setTimeout(() => {
+        if (attempt.started) return;
+        attempt.abandoned = true;
+        retryLater(true);
+        window.speechSynthesis.cancel();
+        if (currentVoiceState === "speaking") {
+            voiceStopButton.hidden = true;
+            setVoiceState("idle", failedMessage());
+        }
+    }, REPORT_START_TIMEOUT_MS);
 }
 
 function renderHudLog(activities) {
@@ -2249,7 +2369,7 @@ function renderHudLog(activities) {
     }
     activities.forEach(activity => {
         const row = document.createElement("div");
-        row.className = activity.id === announcedActivityId
+        row.className = highlightedActivityIds.has(activity.id)
             ? "hud-log-row is-new"
             : "hud-log-row";
         row.dataset.agentStatus = activity.status;
