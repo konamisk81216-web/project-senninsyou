@@ -7,14 +7,54 @@ import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import com.openai.core.JsonValue;
 import com.openai.models.ChatModel;
 import com.openai.models.responses.Response;
 import com.openai.models.responses.ResponseCreateParams;
+import com.openai.models.responses.ResponseFormatTextJsonSchemaConfig;
+import com.openai.models.responses.ResponseStatus;
+import com.openai.models.responses.ResponseTextConfig;
 
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 
 public class AIService {
+
+    // AI将軍の返答の形。Structured Outputs（strict）でこの形を指定し、項目の追加・不足をAPI側で防ぐ。
+    // 項目の意味はプロンプトの「返答形式」に書く。項目を変えるときは両方を直すこと。
+    static final List<String> GENERAL_ANSWER_FIELDS = List.of(
+            "summary", "revenueInsight", "performanceDecision", "marketOpportunity",
+            "nextTask", "priority", "assignedAgent",
+            "action", "actionLabel", "actionTheme", "actionAudience");
+    static final List<String> GENERAL_PRIORITIES = List.of("高", "中", "低", "");
+    static final List<String> GENERAL_ACTIONS =
+            List.of("", "startWriting", "createPosts", "runResearch", "runQuality", "runMarketing");
+
+    static ResponseTextConfig generalAnswerFormat() {
+        Map<String, Object> properties = new LinkedHashMap<>();
+        for (String field : GENERAL_ANSWER_FIELDS) {
+            properties.put(field, Map.of("type", "string"));
+        }
+        properties.put("priority", Map.of("type", "string", "enum", GENERAL_PRIORITIES));
+        properties.put("action", Map.of("type", "string", "enum", GENERAL_ACTIONS));
+
+        ResponseFormatTextJsonSchemaConfig.Schema schema = ResponseFormatTextJsonSchemaConfig.Schema.builder()
+                .putAdditionalProperty("type", JsonValue.from("object"))
+                .putAdditionalProperty("properties", JsonValue.from(properties))
+                .putAdditionalProperty("required", JsonValue.from(GENERAL_ANSWER_FIELDS))
+                .putAdditionalProperty("additionalProperties", JsonValue.from(false))
+                .build();
+        return ResponseTextConfig.builder()
+                .format(ResponseFormatTextJsonSchemaConfig.builder()
+                        .name("general_answer")
+                        .schema(schema)
+                        .strict(true)
+                        .build())
+                .build();
+    }
 
     private String apiKey;
     private OpenAIClient client;
@@ -540,6 +580,15 @@ public class AIService {
 
     public record WriterAiResponse(String text, String errorCode) {}
 
+    // AI将軍への依頼の中身。送る前に形を確かめられるよう、組み立てだけを分けておく。
+    static ResponseCreateParams generalParams(String prompt) {
+        return ResponseCreateParams.builder()
+            .input(prompt)
+            .model(ChatModel.GPT_5_2)
+            .text(generalAnswerFormat())
+            .build();
+    }
+
     public String askGeneral(String prompt) {
 
     if (client == null) {
@@ -549,12 +598,13 @@ public class AIService {
 
     try {
 
-        ResponseCreateParams params = ResponseCreateParams.builder()
-            .input(prompt)
-            .model(ChatModel.GPT_5_2)
-            .build();
+        Response response = client.responses().create(generalParams(prompt));
 
-        Response response = client.responses().create(params);
+        // 途中で終わった返答（出力の上限に達したなど）や状態の分からない返答は、JSONとして読めても使わない。
+        if (!response.status().map(ResponseStatus.COMPLETED::equals).orElse(false)) {
+            System.out.println("AI将軍の返答が完了していません。");
+            return null;
+        }
 
         return response.output().stream()
             .flatMap(item -> item.message().stream())
