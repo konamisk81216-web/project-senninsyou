@@ -716,6 +716,7 @@ body.demo-open { overflow: hidden; }
 [data-agent-status="作業中"] > .demo-agent-state { border-color: #64a9ff; color: #64a9ff; }
 [data-agent-status="完了"] > .demo-agent-state { border-color: #4c7d5c; color: #75f39d; }
 [data-agent-status="エラー"] > .demo-agent-state { border-color: #ff7b7b; color: #ff7b7b; }
+[data-agent-status="長時間実行中"] > .demo-agent-state { border-color: #e0bd49; color: #e0bd49; }
 .demo-log { display: grid; gap: 5px; color: #9b9ba5; font-size: 13px; }
 .demo-log-row { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; color: #c7c7cf; }
 .demo-log-row.is-new { color: #f5f5f7; }
@@ -867,6 +868,8 @@ body.demo-open { overflow: hidden; }
 .hud-agent[data-agent-status="確認待ち"] .hud-agent-state { border-color: #e0bd49; color: #e0bd49; }
 .hud-agent[data-agent-status="エラー"] .hud-agent-state, .hud-log-row[data-agent-status="エラー"] .hud-agent-state { border-color: #ff7b7b; color: #ff7b7b; }
 .hud-log-row[data-agent-status="完了"] .hud-agent-state { border-color: #4c7d5c; color: #75f39d; }
+/* 長時間実行中は失敗ではない。状態の確認が要る印として、失敗の赤とは分けて黄色にする。 */
+.hud-agent[data-agent-status="長時間実行中"] .hud-agent-state, .hud-log-row[data-agent-status="長時間実行中"] .hud-agent-state { border-color: #e0bd49; color: #e0bd49; }
 .hud-agent-last { color: #8f8f9b; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hud-log-row { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; font-size: 13px; color: #c7c7cf; padding: 6px 10px; border-radius: 6px; background: #17171d; }
 .hud-log-row.is-new { background: #1d2a20; border-left: 3px solid #75f39d; animation: log-arrive 1.2s ease-out; }

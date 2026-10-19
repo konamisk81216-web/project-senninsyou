@@ -12,8 +12,9 @@ import java.util.Map;
 
 public class AiActivityRepository {
 
-    // 中断したまま残った記録を、いつまでも作業中と表示しないための区切り。
-    private static final int STALE_MINUTES = 10;
+    // これを超えて作業中のままの記録は「長時間実行中」と表示する（中断したのか、まだ動いているのかは分からない）。
+    static final int STALE_MINUTES = 10;
+    static final String LONG_RUNNING = "長時間実行中";
 
     public static final List<String> AGENTS = List.of(
             "AI将軍", "軍師AI", "取材AI", "ライターAI", "品質管理AI", "営業AI", "発信AI");
@@ -187,9 +188,11 @@ public class AiActivityRepository {
         return states;
     }
 
+    // 時間がかかっているだけでは失敗と決めない。失敗と表示するのは、記録が「失敗」になったときだけ。
+    // 長時間実行中は結果ではないので、画面はこれを完了・失敗として読み上げず、あとで記録が完了・失敗になったときに報告する。
     private String displayStatus(String status, double ageSeconds) {
         if ("作業中".equals(status) && ageSeconds > STALE_MINUTES * 60) {
-            return "エラー";
+            return LONG_RUNNING;
         }
         if ("失敗".equals(status)) {
             return "エラー";
