@@ -811,19 +811,20 @@ const ACTION_AGENTS = {
 };
 
 // 承認した時点で担当は確定しているので、次の巡回を待たずに表示する。
-function showDemoWorking(action) {
+// 今回の操作の記録を確かめられないときは、作業中と言わず「応答待ち」と出す。
+function showDemoWorking(action, status = "作業中", doingText = "作業を始めました") {
     const box = document.getElementById("demo-agent");
     box.replaceChildren();
     const row = document.createElement("div");
     row.className = "demo-agent-row";
-    row.dataset.agentStatus = "作業中";
+    row.dataset.agentStatus = status;
     const name = document.createElement("strong");
     name.textContent = ACTION_AGENTS[action];
     const doing = document.createElement("span");
-    doing.textContent = "作業を始めました";
+    doing.textContent = doingText;
     const state = document.createElement("span");
     state.className = "demo-agent-state";
-    state.textContent = "作業中";
+    state.textContent = status;
     row.append(name, doing, state);
     box.appendChild(row);
 }
@@ -890,8 +891,16 @@ function renderActionApproval(container, data) {
         status.textContent = "AI社員が作業しています。実行ログで進み具合を確認できます。";
         setDemoSubtitle(null, "AI社員が作業しています。");
         demoRunningAction = action;
-        showDemoWorking(action);
-        setWorkInProgress(true);
+        // 承認した時点で見えていた最新の記録より新しいものだけを、今回の操作の記録とみなす。
+        // 直前の取得に失敗していて基準がないときは、復旧後も今回の操作の記録を推定しない。
+        demoRunningAfterId = latestActivityId;
+        if (demoRunningAfterId === null) {
+            showDemoWorking(action, AWAITING_UNCONFIRMED, "操作の応答を待っています");
+            setAwaitingUnconfirmed(true);
+        } else {
+            showDemoWorking(action);
+            setWorkInProgress(true);
+        }
         try {
             const result = await ACTION_RUNNERS[action](data);
             status.textContent = result;
@@ -913,6 +922,7 @@ function renderActionApproval(container, data) {
             document.getElementById("demo-approval-text").textContent = ACTION_DESCRIPTIONS[action];
         }
         demoRunningAction = null;
+        demoRunningAfterId = null;
         loadCommandCenter();
     });
 
@@ -1089,17 +1099,40 @@ const VOICE_STATE_LABELS = {
     waiting: "次の発言を待っています",
     ended: "会話終了",
     error: "エラー",
-    working: "AI社員作業中"
+    working: "AI社員作業中",
+    "long-running": "長時間実行中・状態は要確認",
+    awaiting: "操作の応答待ち・実行状態は未確認"
 };
+// 作業中の社員と、長時間実行中の社員が同時にいるとき。
+const WORKING_WITH_LONG_RUNNING_LABEL = "AI社員作業中・長時間の作業は要確認";
+// 承認した操作の記録を特定できないまま、別の長時間実行中の社員もいるとき。
+const AWAITING_WITH_LONG_RUNNING_LABEL = "操作の応答待ち・長時間の作業は要確認";
+// 承認した操作の記録を特定できない間、デモ欄の社員に出す状態。
+const AWAITING_UNCONFIRMED = "応答待ち";
 
 let currentVoiceState = "idle";
 let workInProgress = false;
+let longRunningUnits = false;
+let awaitingUnconfirmed = false;
 
-// 会話中はその状態を優先し、会話していない間にAI社員が働いていれば作業中を出す。
+// 会話中はその状態を優先する。会話していない間は、作業中の社員がいれば作業中、
+// 長時間実行中の社員だけなら「長時間実行中・状態は要確認」、どちらもいなければ待機中を出す。
+// 長時間実行中は、まだ動いているのか中断したのか分からないので、作業中とも待機中とも言わない。
+// 承認した操作の記録を特定できない間（実行ログが取れない・承認時に基準がない）は「操作の応答待ち・実行状態は未確認」。
 // マイク横の小さなオーブは会話専用のまま。拍手検知などがその状態を見ているため。
 function applyDisplayOrbs() {
-    const state = currentVoiceState === "idle" && workInProgress ? "working" : currentVoiceState;
-    const label = VOICE_STATE_LABELS[state] ?? state;
+    let state = currentVoiceState;
+    let label = VOICE_STATE_LABELS[state] ?? state;
+    if (currentVoiceState === "idle" && workInProgress) {
+        state = "working";
+        label = longRunningUnits ? WORKING_WITH_LONG_RUNNING_LABEL : VOICE_STATE_LABELS.working;
+    } else if (currentVoiceState === "idle" && awaitingUnconfirmed) {
+        state = "awaiting";
+        label = longRunningUnits ? AWAITING_WITH_LONG_RUNNING_LABEL : VOICE_STATE_LABELS.awaiting;
+    } else if (currentVoiceState === "idle" && longRunningUnits) {
+        state = "long-running";
+        label = VOICE_STATE_LABELS[state];
+    }
     hudOrb.dataset.voiceState = state;
     hudOrbLabel.textContent = label;
     demoOrb.dataset.voiceState = state;
@@ -1109,6 +1142,18 @@ function applyDisplayOrbs() {
 function setWorkInProgress(value) {
     if (workInProgress === value) return;
     workInProgress = value;
+    applyDisplayOrbs();
+}
+
+function setLongRunningUnits(value) {
+    if (longRunningUnits === value) return;
+    longRunningUnits = value;
+    applyDisplayOrbs();
+}
+
+function setAwaitingUnconfirmed(value) {
+    if (awaitingUnconfirmed === value) return;
+    awaitingUnconfirmed = value;
     applyDisplayOrbs();
 }
 
@@ -1906,14 +1951,25 @@ function setDemoSubtitle(userLine, aiLine) {
 
 // HUDが5秒ごとに取得したデータをそのまま使う。デモのために追加で取得しない。
 let demoRunningAction = null;
+// 承認した時点で見えていた最新の記録の id。同じ社員の古い記録を、今回の操作の記録と取り違えないために使う。
+// 承認したときに実行ログが取れていなければ null で、そのあいだは今回の操作の記録を特定しない。
+let demoRunningAfterId = null;
+let latestActivityId = null;
 
 function renderDemoAgents(agents, activities) {
     const agentBox = document.getElementById("demo-agent");
-    // 状態が取れないときは、実行中の承認作業があればそれを出し、なければ「取得できません」。
+    // 実行ログが取れなかったときは基準を無効にする。古い基準のまま承認すると、
+    // 取れていなかった承認前の記録を、今回の操作の記録と取り違えてしまうため。
+    latestActivityId = activities === null
+        ? null
+        : activities.reduce((max, activity) => Math.max(max, Number(activity.id)), 0);
+    // 状態が取れないときは、承認した操作があれば「応答待ち・実行状態は未確認」と出し、なければ「取得できません」。
     if (agents === null) {
-        setWorkInProgress(demoRunningAction !== null);
+        setWorkInProgress(false);
+        setLongRunningUnits(false);
+        setAwaitingUnconfirmed(demoRunningAction !== null);
         if (demoRunningAction) {
-            showDemoWorking(demoRunningAction);
+            showDemoWorking(demoRunningAction, AWAITING_UNCONFIRMED, "操作の応答を待っています");
         } else {
             agentBox.textContent = UNAVAILABLE;
         }
@@ -1924,11 +1980,28 @@ function renderDemoAgents(agents, activities) {
     // AI将軍の作業中は会話の返答待ちで、オーブは「考え中」で表している。
     // 返答後の巡回までAI将軍が作業中に残るので、ここでは数えない。
     const unitWorking = working.some(agent => agent.agent !== "AI将軍");
-    setWorkInProgress(unitWorking || demoRunningAction !== null);
+    // 承認した操作の返答を待っている間は作業中として出す（承認直後で記録がまだないときも）。
+    // ただし、今回の操作の記録が長時間実行中になったら、返答を待っているだけで作業中とは言えないので数えない。
+    // 今回の操作の記録は、承認より後にできた同じ社員の記録だけ。社員名が同じだけの古い記録は使わない。
+    // 承認したときに基準がなかった操作や、いま実行ログが取れない間は、今回の操作の記録を特定できない。
+    // そのあいだは作業中とも長時間実行中とも言わず、「応答待ち・実行状態は未確認」として分けて出す。
+    const approvedAgent = demoRunningAction ? ACTION_AGENTS[demoRunningAction] : null;
+    const unidentified = demoRunningAction !== null && (demoRunningAfterId === null || activities === null);
+    const approvedRecord = demoRunningAction !== null && !unidentified
+        ? activities.find(activity => activity.agent === approvedAgent && Number(activity.id) > demoRunningAfterId)
+        : undefined;
+    const awaitingApproved = demoRunningAction !== null && !unidentified && approvedRecord?.status !== "長時間実行中";
+    setWorkInProgress(unitWorking || awaitingApproved);
+    setLongRunningUnits(agents.some(agent => agent.agent !== "AI将軍" && agent.status === "長時間実行中"));
+    setAwaitingUnconfirmed(unidentified);
 
     // 承認直後は、サーバーが記録する前の巡回で「誰も作業していない」と返ることがある。
-    if (working.length === 0 && demoRunningAction) {
+    if (working.length === 0 && awaitingApproved) {
         showDemoWorking(demoRunningAction);
+        return;
+    }
+    if (working.length === 0 && unidentified) {
+        showDemoWorking(demoRunningAction, AWAITING_UNCONFIRMED, "操作の応答を待っています");
         return;
     }
 

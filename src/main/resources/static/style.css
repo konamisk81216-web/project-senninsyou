@@ -682,6 +682,16 @@ body.demo-open { overflow: hidden; }
     .demo-orb[data-voice-state="working"] .demo-orb-ring,
     .hud-orb[data-voice-state="working"] .hud-orb-ring { animation: none; border-color: #b48cff; }
 }
+/* 長時間実行中の社員だけがいる間。動いているとは限らないので回さず、要確認の黄色で止めて表示する。 */
+.demo-orb[data-voice-state="long-running"] .demo-orb-ring,
+.hud-orb[data-voice-state="long-running"] .hud-orb-ring { border-color: #e0bd49; border-style: dashed; }
+.demo-orb[data-voice-state="long-running"] .demo-orb-core,
+.hud-orb[data-voice-state="long-running"] .hud-orb-core { background: #e0bd49; }
+/* 承認した操作の記録を特定できない間。実行しているかどうかも分からないので回さず、灰色の点線で止めて表示する。 */
+.demo-orb[data-voice-state="awaiting"] .demo-orb-ring,
+.hud-orb[data-voice-state="awaiting"] .hud-orb-ring { border-color: #9aa3b5; border-style: dashed; }
+.demo-orb[data-voice-state="awaiting"] .demo-orb-core,
+.hud-orb[data-voice-state="awaiting"] .hud-orb-core { background: #9aa3b5; }
 .demo-orb[data-voice-state="sending"] .demo-orb-ring { border-color: #e08c3b; }
 .demo-orb[data-voice-state="sending"] .demo-orb-core { background: #e08c3b; }
 .demo-orb[data-voice-state="waiting"] .demo-orb-ring { border-color: #8a7430; }
