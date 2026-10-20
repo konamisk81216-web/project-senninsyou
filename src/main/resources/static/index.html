@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project 千人将 | ダッシュボード</title>
 
-    <link rel="stylesheet" href="/style.css?v=20261020-1">
+    <link rel="stylesheet" href="/style.css?v=20261020-6">
 </head>
 
 <body>
@@ -20,6 +20,9 @@
         <nav aria-label="主要メニュー">
             <button class="nav-button active" type="button" data-page="command" aria-current="page">
                 <span>🏯</span> ダッシュボード
+            </button>
+            <button class="nav-button" type="button" data-page="talk">
+                <span>🌀</span> 会話
             </button>
             <button class="nav-button" type="button" data-page="tasks">
                 <span>⚔️</span> タスク管理
@@ -309,6 +312,47 @@
                     <p class="video-note">音声、字幕、事実確認、権利、各SNSの最新規約は目視・試聴で確認してから公開してください。</p>
                 </div>
             </div>
+        </section>
+
+        <!-- 会話画面。表示は talk-visual.js が受け持つ。会話の処理（聞き取り・送信・承認・報告）は今までどおり app.js。 -->
+        <section class="page-panel talk-panel" data-page-panel="talk" hidden>
+            <div class="talk-layout">
+                <section class="talk-side" aria-labelledby="talk-agents-title">
+                    <h3 id="talk-agents-title">AI社員の状態</h3>
+                    <div id="talk-agents" class="talk-agents">読み込み中...</div>
+                </section>
+                <div class="talk-stage">
+                    <canvas id="talk-orb" class="talk-orb" aria-hidden="true"></canvas>
+                    <div class="talk-state-area">
+                        <p id="talk-state" class="talk-state">待機中</p>
+                        <div class="talk-meter" aria-hidden="true"><span id="talk-meter"></span></div>
+                        <p id="talk-source" class="talk-source">反応の元：なし</p>
+                        <p id="talk-diag" class="talk-source">見た目用のマイク：オフ</p>
+                        <p id="talk-work" class="talk-work" hidden></p>
+                    </div>
+                    <div class="talk-subtitles" aria-live="polite">
+                        <p class="talk-sub"><span class="talk-sub-who talk-sub-you">あなた</span><span id="talk-sub-user"></span></p>
+                        <p class="talk-sub"><span class="talk-sub-who talk-sub-ai">AI将軍</span><span id="talk-sub-ai"></span></p>
+                    </div>
+                </div>
+                <section class="talk-side" aria-labelledby="talk-log-title">
+                    <h3 id="talk-log-title">直近の実行ログ</h3>
+                    <div id="talk-log" class="talk-log">読み込み中...</div>
+                </section>
+            </div>
+            <div class="talk-controls">
+                <button id="talk-session-toggle" class="secondary-button" type="button">💬 音声会話を開始</button>
+                <button id="talk-mic-toggle" class="secondary-button" type="button" aria-pressed="false">🎚 声に反応させる</button>
+                <label class="talk-sensitivity">感度
+                    <select id="talk-sensitivity">
+                        <option value="low" selected>低め</option>
+                        <option value="std">標準</option>
+                        <option value="high">高め</option>
+                    </select>
+                </label>
+            </div>
+            <p id="talk-voice-status" class="talk-note" role="status"></p>
+            <p id="talk-notice" class="talk-note">「声に反応させる」は見た目のためだけのマイクです。声の大きさを端末の中で数値にするだけで、録音・保存・送信はしません。音声認識や送信には使いません。音声会話の聞き取りは「音声会話を開始」で、今までどおり動きます。</p>
         </section>
 
         <section class="page-panel hud-panel" data-page-panel="command">
@@ -664,7 +708,8 @@
         </section>
     </main>
 
-        <script src="/app.js?v=20261020-1"></script>
+        <script src="/app.js?v=20261020-6"></script>
+        <script src="/talk-visual.js?v=20261020-6"></script>
 </body>
 
 </html>

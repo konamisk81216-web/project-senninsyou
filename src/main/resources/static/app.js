@@ -1617,6 +1617,7 @@ const pagePanels = document.querySelectorAll("[data-page-panel]");
 
 const pageTitles = {
     command: "ダッシュボード",
+    talk: "会話",
     tasks: "タスク管理",
     note: "note販売",
     opportunities: "機会発見レーダー",
@@ -2237,6 +2238,14 @@ function renderCommandCenter(data) {
     if (activities !== null) announceCompletions(activities);
     renderHudLog(activities);
     renderDemo(agents, activities);
+    // 会話画面（talk-visual.js）にも同じデータを渡す。表示だけで、ここでの失敗はほかの表示・報告に影響させない。
+    if (typeof window.renderTalkPanels === "function") {
+        try {
+            window.renderTalkPanels(agents, activities);
+        } catch (error) {
+            console.error(error);
+        }
+    }
 }
 
 function renderUnavailable(container) {

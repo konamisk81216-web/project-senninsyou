@@ -1644,3 +1644,51 @@ body.demo-open { overflow: hidden; }
 .voice-controls button { min-height: 44px; }
 .voice-status { margin: 10px 0 0; color: #bbbcc4; font-size: 14px; line-height: 1.6; }
 @media (max-width: 480px) { .voice-controls button { flex: 1 1 100%; } }
+
+/* 会話画面（talk-visual.js）。暗い背景の中央に発光体、左にAI社員の状態、右に直近の実行ログ、下に字幕。スマートフォンでは縦に並べる。 */
+.talk-panel { background: radial-gradient(ellipse at 50% 35%, #0a1d30 0%, #050b14 60%, #020408 100%); border-color: rgba(80, 200, 255, 0.18); }
+.talk-layout { display: grid; grid-template-columns: minmax(180px, 230px) minmax(0, 1fr) minmax(190px, 250px); gap: 14px; align-items: stretch; }
+.talk-side { background: rgba(9, 18, 30, 0.72); border: 1px solid rgba(80, 200, 255, 0.16); border-radius: 12px; padding: 12px; min-width: 0; }
+.talk-side h3 { margin: 0 0 10px; color: #7fd8ff; font-size: 12px; letter-spacing: 2px; }
+.talk-stage { display: grid; grid-template-rows: minmax(340px, 1fr) auto auto; min-width: 0; }
+.talk-orb { display: block; width: 100%; height: 100%; min-height: 300px; }
+.talk-state-area { display: grid; gap: 4px; justify-items: center; text-align: center; padding: 4px 0 8px; }
+.talk-state { margin: 0; color: #bfefff; font-size: 15px; letter-spacing: 4px; }
+.talk-meter { width: min(260px, 70%); height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.talk-meter span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #1d8fb3, #3ff0ff); }
+.talk-source { margin: 0; color: #8aa3b8; font-size: 11px; }
+.talk-work { margin: 0; color: #c7d7e4; font-size: 11px; border: 1px dashed rgba(80, 200, 255, 0.3); border-radius: 999px; padding: 2px 10px; }
+.talk-subtitles { border-top: 1px solid rgba(80, 200, 255, 0.16); padding: 10px 4px 2px; display: grid; gap: 6px; }
+.talk-sub { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; color: #8aa3b8; font-size: 16px; line-height: 1.6; overflow-wrap: anywhere; }
+.talk-sub.is-current { color: #e6f3ff; }
+.talk-sub-who { font-size: 12px; letter-spacing: 1px; padding-top: 3px; white-space: nowrap; }
+.talk-sub-you { color: #9fe8ff; }
+.talk-sub-ai { color: #d4af37; }
+.talk-agents, .talk-log { display: grid; gap: 6px; color: #8aa3b8; font-size: 12px; }
+.talk-agent { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; align-items: center; padding: 7px 9px; border-radius: 9px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(80, 200, 255, 0.12); }
+.talk-agent strong { color: #e6f3ff; font-size: 13px; }
+.talk-agent .talk-tag { grid-row: 1 / span 2; }
+.talk-agent-last { grid-column: 2; font-size: 11px; overflow-wrap: anywhere; }
+.talk-log-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 8px; padding: 6px 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.03); color: #c7d7e4; }
+.talk-log-row time { color: #6f8293; font-variant-numeric: tabular-nums; }
+.talk-log-row .talk-tag { grid-column: 2; justify-self: start; }
+/* 状態の印は、ダッシュボードと同じ色と意味。動いていると断定しない状態（長時間実行中）は点線。 */
+.talk-tag { --c: #8f8f9b; display: inline-block; border: 1px solid var(--c); color: var(--c); border-radius: 8px; font-size: 10px; line-height: 1.4; padding: 2px 7px; text-align: center; white-space: nowrap; }
+.talk-tag-line { display: block; }
+.talk-tag[data-status="作業中"] { --c: #64a9ff; }
+.talk-tag[data-status="長時間実行中"] { --c: #e0bd49; border-style: dashed; }
+.talk-tag[data-status="エラー"] { --c: #ff7b7b; }
+.talk-tag[data-status="確認待ち"] { --c: #e08c3b; }
+.talk-tag[data-status="完了"] { --c: #75f39d; }
+.talk-tag[data-status="取得できません"] { --c: #6f6f7b; border-style: dotted; }
+.talk-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; }
+.talk-controls button { margin: 0; min-height: 44px; }
+.talk-sensitivity { color: #bbbcc4; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+.talk-note { margin: 8px 0 0; color: #9aaabb; font-size: 12px; line-height: 1.6; }
+.talk-note:empty { display: none; }
+@media (max-width: 900px) {
+    .talk-layout { grid-template-columns: minmax(0, 1fr); }
+    .talk-stage { order: -1; grid-template-rows: 300px auto auto; }
+    .talk-sub { font-size: 15px; }
+}
+@media (max-width: 480px) { .talk-controls button, .talk-sensitivity { flex: 1 1 100%; } }
