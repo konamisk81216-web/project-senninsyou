@@ -267,8 +267,13 @@
         return "";
     }
 
-    // ===== 発光体（試作4版目と同じ描き方） =====
-    let W = 0, H = 0, particles = [], filaments = [];
+    // ===== 発光体（試作4版目と同じ描き方。散り方と、周りの粒子の雲だけ変える） =====
+    // 散り方（本人が見比べて採用した「外側からはがれる」）：見えている輪郭の外側の粒子から順にはがれて飛び、内側ほど遅れて続く。
+    // 周りの雲も、中心寄りは残り、外側の層だけがはがれる。
+    // 散り始める強さ（0.6）といちばん大きく散る強さ（0.9）、音の実測と判定は変えない。
+    // 散ったあとの戻りだけ、見た目の上で約2秒かけて滑らかに戻す（peelLevel。声の強さの値そのもの＝level.smooth は変えない）。
+    // 描画領域の四角い境界が見えないよう、粒子と雲は中心からの距離で丸く薄くする（多くの粒子が重なっても明るさが残らないよう、二乗で効かせる）。
+    let W = 0, H = 0, particles = [], filaments = [], cloud = [];
     function makeParticles(n) {
         particles = [];
         const golden = Math.PI * (3 - Math.sqrt(5));
@@ -278,6 +283,44 @@
                 fly: 0.3 + Math.pow(Math.random(), 1.6) * 2.4, ox: Math.random() * 2 - 1, oy: Math.random() * 2 - 1 });
         }
         filaments = Array.from({ length: n > 600 ? 16 : 10 }, () => ({ a: Math.random() * Math.PI * 2, b: Math.acos(2 * Math.random() - 1), seed: Math.random() * 1000, len: 0.6 + Math.random() * 0.6 }));
+        makeCloud(Math.max(240, Math.round(n * 0.4)));
+    }
+    // 周りの粒子の雲（たっぷり）。オーブの輪郭のすぐ外から外側まで（短い辺の半分を1として0.5〜0.97。オーブとの間に空白ができないように）に、面積あたりむらなく散らばる位置
+    // （ハルトン列。乱数よりも偏りが少ない）を割り当てる。rn は中心からの距離（同じ単位）。
+    const halton = (i, base) => { let f = 1, r = 0; while (i > 0) { f /= base; r += f * (i % base); i = Math.floor(i / base); } return r; };
+    const CLOUD_INNER = 0.5, CLOUD_OUTER = 0.97;
+    function makeCloud(count) {
+        cloud = [];
+        for (let i = 1; i <= count; i++) {
+            const a = halton(i, 2) * Math.PI * 2;
+            const rn = Math.sqrt(CLOUD_INNER ** 2 + halton(i, 3) * (CLOUD_OUTER ** 2 - CLOUD_INNER ** 2));
+            cloud.push({ a, rn, x: null, y: null, seed: Math.random() * 1000, size: 0.7 + Math.random() * 1.4, fly: 0.35 + Math.random() * 0.5 });
+        }
+    }
+    // 中心からの距離に応じた薄さ（1：十分内側、0：短い辺の半分の位置より外）。丸く薄くなるので、四角い境界は出ない。
+    const roundFade = (x, y, cx, cy, half) => { const f = 1 - smooth(half * 0.72, half, Math.hypot(x - cx, y - cy)); return f * f; };
+    // 静かなときも、オーブの周りをむらなく覆ってゆっくり漂う。声の大きさで明るくなる。
+    // 散るときは外側の層だけが外へはがれ（外側ほど先に、遠くへ）、中心寄りの雲は残るので、オーブとの間に空白ができない。
+    // 戻るときも同じ順で、外側の層がゆっくり元の位置へ戻る。動きを減らす設定では描かない。
+    function drawCloud(t, e, peel, cx, cy, half, hue) {
+        if (reduced) return;
+        for (const c of cloud) {
+            const layer = smooth(0.78, CLOUD_OUTER, c.rn);
+            const lag = (1 - layer) * 0.4;
+            const lift = layer * smooth(0, 1, (peel - lag) / (1 - lag)) * c.fly;
+            const wobble = noise(c.seed, t * 0.35) * 0.05;
+            const r = (c.rn + lift + wobble) * half;
+            const a = c.a + noise(c.seed + 5, t * 0.2) * 0.04;
+            const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+            const twinkle = 0.75 + 0.25 * Math.sin(t * 1.3 + c.seed);
+            // 雲はまばらで重なりにくいので、粒子より外側から、ゆるやかに薄くする。
+            const fade = 1 - smooth(half * 0.8, half, Math.hypot(x - cx, y - cy));
+            const alpha = (0.32 + 0.4 * e) * twinkle * fade;
+            if (alpha < 0.01) continue;
+            const size = c.size * (1 + e * 0.5);
+            g.fillStyle = `rgba(${hue},${Math.min(1, alpha)})`;
+            g.fillRect(x - size / 2, y - size / 2, size, size);
+        }
     }
     function resize() {
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -291,7 +334,9 @@
     const noise = (s, t) => Math.sin(s * 1.7 + t * 1.3) * 0.5 + Math.sin(s * 3.1 - t * 2.1) * 0.3 + Math.sin(s * 5.3 + t * 0.7) * 0.2;
     const smooth = (a, b, v) => { const k = clamp((v - a) / (b - a), 0, 1); return k * k * (3 - 2 * k); };
     const view = { energy: 0, coreR: 0, spread: 0, scatter: 0, mode: "idle", source: "none" };
-    let angle = 0, last = performance.now(), slowFrames = 0, lastTextAt = 0, running = false, speakPulse = 0, nextPulseAt = 0;
+    let angle = 0, last = performance.now(), slowFrames = 0, lastTextAt = 0, running = false, speakPulse = 0, nextPulseAt = 0, peelLevel = 0, peelVelocity = 0;
+    // 戻りの速さ（大きいほど速い）。2.5 で、声が止まってから約1秒で3割ほど、約2秒でほぼ元（4%ほど）まで戻る。
+    const PEEL_RETURN_RATE = 2.5;
     const SOURCE_TEXT = { mic: "マイクの実測音量", show: "演出（実測ではない）", none: "なし" };
 
     function frame(now) {
@@ -344,6 +389,22 @@
         // 大きな声で中心のオーブが散る（強さ0.6から散り始め、0.9でいちばん大きく）。動きを減らす設定では散らさない。
         const scatter = reduced ? 0 : smooth(0.6, 0.9, e);
         view.scatter = scatter;
+        const t = now / 1000;
+        // はがれ具合の見た目。強くなるときはすぐ追う。弱くなるときは、急に吸い戻さないよう動き出しをなめらかにし
+        // （ばねのような減衰）、声が止まってから約2秒でほぼ元へ戻す。
+        const peelTarget = reduced ? 0 : smooth(0.55, 0.9, e);
+        if (peelTarget >= peelLevel) {
+            peelLevel += (peelTarget - peelLevel) * (1 - Math.exp(-dt / 0.05));
+            peelVelocity = 0;
+        } else {
+            const w = PEEL_RETURN_RATE;
+            peelVelocity += (w * w * (peelTarget - peelLevel) - 2 * w * peelVelocity) * dt;
+            peelLevel += peelVelocity * dt;
+            if (peelLevel < peelTarget) { peelLevel = peelTarget; peelVelocity = 0; }
+        }
+        if (peelLevel < 0.002) peelLevel = 0;
+        const half = Math.min(W, H) / 2;
+        drawCloud(t, e, peelLevel, cx, cy, half, hue);
         const coreR = R * (0.22 + e * 0.18) * (1 - scatter * 0.55);
         view.coreR = coreR;
         const glow = g.createRadialGradient(cx, cy, 0, cx, cy, coreR * 3.2);
@@ -354,9 +415,9 @@
         g.beginPath(); g.arc(cx, cy, coreR * 3.2, 0, Math.PI * 2); g.fill();
 
         g.lineWidth = 1.2;
-        const t = now / 1000;
         for (const f of filaments) {
-            const len = R * f.len * (0.55 + e * 0.9);
+            // 光の線は、粒子が薄くなり始める位置より外へ伸ばさない（端で切れて見えないように）。
+            const len = Math.min(R * f.len * (0.55 + e * 0.9), half * 0.72);
             const a = f.a + (reduced ? 0 : angle * 0.5);
             const dx = Math.cos(a) * Math.sin(f.b), dy = Math.cos(f.b) * 0.8;
             const wob = reduced ? 0 : noise(f.seed, t) * 0.35 * (0.3 + e);
@@ -375,12 +436,18 @@
             const n = reduced ? 0 : noise(p.seed, t * (mode === "thinking" ? 1.6 : 1));
             const push = 1 + n * (0.04 + e * 0.35) + (mode === "thinking" ? Math.sin(p.band * 12 + t * 2) * 0.05 : 0);
             const persp = 1.8 / (2.6 - z);
-            const fly = scatter * p.fly * (1.1 + 0.25 * noise(p.seed + 7, t * 0.8));
-            const drift = scatter * 0.55;
+            // 画面上で輪郭に近い粒子ほど早く、内側ほど遅れてはがれる（戻るときは内側から先に戻る）。
+            const delay = (1 - Math.min(1, Math.hypot(x, y))) * 0.4;
+            const peel = smooth(0, 1, (peelLevel - delay) / (1 - delay));
+            const fly = peel * p.fly * 1.4;
+            const px = x * (push + fly) + p.ox * peel * 0.3;
+            const py = y * (push + fly) + p.oy * peel * 0.3;
             spreadSum += Math.abs(push - 1) + fly;
-            const sx = cx + (x * (push + fly) + p.ox * drift) * R * persp;
-            const sy = cy + (y * (push + fly) + p.oy * drift) * R * persp;
-            const alpha = (0.15 + (z + 1) * 0.3) * (0.5 + e * 0.8);
+            const sx = cx + px * R * persp;
+            const sy = cy + py * R * persp;
+            const fade = roundFade(sx, sy, cx, cy, half);
+            if (fade <= 0) continue;
+            const alpha = (0.15 + (z + 1) * 0.3) * (0.5 + e * 0.8) * fade;
             const size = (0.6 + (z + 1) * 0.7) * (1 + e * 0.8);
             g.fillStyle = `rgba(${hue},${Math.min(1, alpha)})`;
             g.fillRect(sx - size / 2, sy - size / 2, size, size);
@@ -421,6 +488,8 @@
         get micTracks() { return audio.stream ? audio.stream.getTracks().map(track => track.readyState) : []; },
         get running() { return running; },
         get sensitivity() { return Object.keys(SENSITIVITY).find(key => SENSITIVITY[key] === sens); },
+        get cloudCount() { return cloud.length; },
+        get peelLevel() { return peelLevel; },
         startVisualMic, stopVisualMic
     };
 })();
