@@ -270,7 +270,8 @@
     // ===== 発光体（試作4版目と同じ描き方。散り方と、周りの粒子の雲だけ変える） =====
     // 散り方（本人が見比べて採用した「外側からはがれる」）：見えている輪郭の外側の粒子から順にはがれて飛び、内側ほど遅れて続く。
     // 周りの雲も、中心寄りは残り、外側の層だけがはがれる。
-    // 散り始める強さ（0.6）といちばん大きく散る強さ（0.9）、音の実測と判定は変えない。
+    // 音の実測と判定（声の強さの値）は変えない。その値から「どれだけ散らすか」への写し方だけを、同じ声でも前より大きく広がるようにした
+    // （SCATTER_FROM〜SCATTER_TO。前は0.6〜0.9で、前に大声で出していた広がりが、今は普通に大きめの声で出る）。
     // 散ったあとの戻りだけ、見た目の上で約2秒かけて滑らかに戻す（peelLevel。声の強さの値そのもの＝level.smooth は変えない）。
     // 描画領域の四角い境界が見えないよう、粒子と雲は中心からの距離で丸く薄くする（多くの粒子が重なっても明るさが残らないよう、二乗で効かせる）。
     let W = 0, H = 0, particles = [], filaments = [], cloud = [];
@@ -337,6 +338,9 @@
     let angle = 0, last = performance.now(), slowFrames = 0, lastTextAt = 0, running = false, speakPulse = 0, nextPulseAt = 0, peelLevel = 0, peelVelocity = 0;
     // 戻りの速さ（大きいほど速い）。2.5 で、声が止まってから約1秒で3割ほど、約2秒でほぼ元（4%ほど）まで戻る。
     const PEEL_RETURN_RATE = 2.5;
+    // 声の強さ（0〜1）から散らばりへの写し方。この強さから散り始め、この強さでいちばん大きく散る。
+    // 普通の声（模擬試験で約0.24）では散らさず、大きめの声（約0.5〜0.7）で、前の版の大声と同じくらいまで広がる。
+    const SCATTER_FROM = 0.42, SCATTER_TO = 0.72;
     const SOURCE_TEXT = { mic: "マイクの実測音量", show: "演出（実測ではない）", none: "なし" };
 
     function frame(now) {
@@ -386,13 +390,13 @@
         g.fillRect(0, 0, W, H);
         g.globalCompositeOperation = "lighter";
 
-        // 大きな声で中心のオーブが散る（強さ0.6から散り始め、0.9でいちばん大きく）。動きを減らす設定では散らさない。
-        const scatter = reduced ? 0 : smooth(0.6, 0.9, e);
+        // 大きめの声で中心のオーブが散る（強さ SCATTER_FROM から散り始め、SCATTER_TO でいちばん大きく）。動きを減らす設定では散らさない。
+        const scatter = reduced ? 0 : smooth(SCATTER_FROM, SCATTER_TO, e);
         view.scatter = scatter;
         const t = now / 1000;
         // はがれ具合の見た目。強くなるときはすぐ追う。弱くなるときは、急に吸い戻さないよう動き出しをなめらかにし
         // （ばねのような減衰）、声が止まってから約2秒でほぼ元へ戻す。
-        const peelTarget = reduced ? 0 : smooth(0.55, 0.9, e);
+        const peelTarget = reduced ? 0 : smooth(SCATTER_FROM - 0.05, SCATTER_TO, e);
         if (peelTarget >= peelLevel) {
             peelLevel += (peelTarget - peelLevel) * (1 - Math.exp(-dt / 0.05));
             peelVelocity = 0;
