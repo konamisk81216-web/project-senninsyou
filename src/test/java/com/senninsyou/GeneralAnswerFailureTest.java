@@ -173,10 +173,13 @@ class GeneralAnswerFailureTest {
         return new AIController.CommandRequest("今の状況は？", "", "discuss");
     }
 
+    // 相談の返答（話者つきの16項目）。ここではハルが1人で答えた形にする。
     private static String json(String summary, String action) {
         return "{\"summary\":\"" + summary + "\",\"revenueInsight\":\"\",\"performanceDecision\":\"\","
                 + "\"marketOpportunity\":\"\",\"nextTask\":\"\",\"priority\":\"\",\"assignedAgent\":\"\","
-                + "\"action\":\"" + action + "\",\"actionLabel\":\"\",\"actionTheme\":\"\",\"actionAudience\":\"\"}";
+                + "\"action\":\"" + action + "\",\"actionLabel\":\"\",\"actionTheme\":\"\",\"actionAudience\":\"\","
+                + "\"speaker\":\"ハル\",\"speakerReason\":\"事業の判断\",\"haruText\":\"" + summary + "\","
+                + "\"gakuText\":\"\",\"clarifyQuestion\":\"\"}";
     }
 
     private static String outputText(String text) {

@@ -3,7 +3,7 @@
 //
 // この画面は表示だけを受け持つ。音声認識・送信・承認・報告の判断には関わらない。
 // ・会話の状態（聞き取り中・考え中・読み上げ中など）は app.js の currentVoiceState を読むだけ。書き換えない。
-// ・字幕は、app.js がデモ表示の字幕（#demo-user-line・#demo-ai-line）に書いた文字を写すだけ。
+// ・字幕は、app.js がデモ表示の字幕（#demo-user-line・#demo-ai-line）に書いた文字と話者を写すだけ。
 // ・AI社員の状態と実行ログは、司令本部の巡回（5秒ごと）で取れたデータを renderTalkPanels で受け取って描くだけ。
 // ・「声に反応させる」は、見た目のためだけに別のマイク入力を開く。音は端末の中で音量の数値にするだけで、
 //   録音・保存・送信はしない。音声認識（ブラウザによっては音声が認識サービスへ送られる）とは別の仕組みで、
@@ -188,11 +188,20 @@
     new MutationObserver(syncStatus).observe(voiceStatus, { childList: true, characterData: true, subtree: true });
     syncStatus();
 
-    // ===== 字幕（デモ表示の字幕を写す。今の話者は「あなた」と「AI将軍」） =====
+    // ===== 字幕（デモ表示の字幕を写す。話者は「あなた」と、AI側は読み上げている発言の話者） =====
+    // AI側の話者名は、app.js が字幕に付けた話者（ハル・ガク・AI将軍（確認））を写す。話者がない文は「AI将軍」。
     const userLine = $("demo-user-line"), aiLine = $("demo-ai-line");
-    const subUser = $("talk-sub-user"), subAi = $("talk-sub-ai");
-    const syncSubtitles = () => { subUser.textContent = userLine.textContent; subAi.textContent = aiLine.textContent; };
-    for (const line of [userLine, aiLine]) new MutationObserver(syncSubtitles).observe(line, { childList: true, characterData: true, subtree: true });
+    const subUser = $("talk-sub-user"), subAi = $("talk-sub-ai"), subAiWho = $("talk-sub-ai-who");
+    const aiSpeaker = () => aiLine.dataset.speaker || "";
+    const syncSubtitles = () => {
+        subUser.textContent = userLine.textContent;
+        subAi.textContent = aiLine.textContent;
+        subAiWho.textContent = aiSpeaker() || "AI将軍";
+        subAi.parentElement.dataset.speaker = aiSpeaker();
+    };
+    for (const line of [userLine, aiLine]) {
+        new MutationObserver(syncSubtitles).observe(line, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ["data-speaker"] });
+    }
     syncSubtitles();
 
     // ===== AI社員の状態と直近の実行ログ（司令本部の巡回のデータを描くだけ） =====
@@ -342,6 +351,7 @@
     // 普通の声（模擬試験で約0.24）では散らさず、大きめの声（約0.5〜0.7）で、前の版の大声と同じくらいまで広がる。
     const SCATTER_FROM = 0.42, SCATTER_TO = 0.72;
     const SOURCE_TEXT = { mic: "マイクの実測音量", show: "演出（実測ではない）", none: "なし" };
+    const SPEAKER_HUES = { "ハル": [255, 181, 71], "ガク": [62, 232, 181] };
 
     function frame(now) {
         if (!running) return;
@@ -381,7 +391,10 @@
             subAi.parentElement.classList.toggle("is-current", mode === "speaking");
         }
 
-        const hue = mode === "thinking" ? [120, 140, 255] : [63, 220, 255];
+        // 読み上げ中は、話している発言の話者の色（ハルは橙、ガクは緑。AI将軍は今までの水色）。
+        const hue = mode === "thinking" ? [120, 140, 255]
+            : mode === "speaking" && SPEAKER_HUES[aiSpeaker()] ? SPEAKER_HUES[aiSpeaker()] : [63, 220, 255];
+        view.hue = hue;
         const cx = W / 2, cy = H / 2;
         const R = Math.min(W, H) * 0.30 * (1 + e * 0.22);
         angle += dt * (reduced ? 0 : (mode === "thinking" ? 0.9 : 0.12 + e * 0.6));

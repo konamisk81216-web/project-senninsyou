@@ -725,16 +725,27 @@ async function sendCommand(mode = "discuss", options = {}) {
         if (mode !== "propose") {
             appendConversationMessage(aiResponse, "あなた", command);
         }
-        const answer = data.summary ?? "回答を受け取れませんでした。";
-        appendConversationMessage(aiResponse, "AI将軍", answer, data, mode);
+        // 相談の返答は、ハル・ガク・AI将軍（確認）の発言ごとに分けて表示し、続けて読む。
+        // タスク案の整理と、話者の項目がない返答は、今までどおりAI将軍の1発言。
+        const segments = mode === "propose" ? null : answerSegments(data);
+        const answer = segments ? spokenBody(segments) : data.summary ?? "回答を受け取れませんでした。";
+        if (segments) {
+            // 判断の内訳は最後の発言にだけ付ける。
+            segments.forEach((segment, index) => appendConversationMessage(aiResponse, segment.speaker, segment.text,
+                index === segments.length - 1 ? data : null, mode));
+        } else {
+            appendConversationMessage(aiResponse, "AI将軍", answer, data, mode);
+        }
         renderActionApproval(aiResponse, data);
         setDemoSubtitle(null, answer);
         loadCommandCenter();
+        // AIへ渡す会話の続きには、サーバーが保存したのと同じ本文（話者名つき）を使う。
         conversation.push({role: "利用者", text: command}, {role: "AI将軍", text: answer});
+        lastSpeechGroup = segments;
         document.getElementById("voice-read-button").hidden = false;
         if (options.speak) {
             if (window.speechSynthesis) {
-                speakAnswer(answer);
+                speakAnswer(segments ?? answer);
             } else {
                 voiceStatus.textContent = "返答は表示されましたが、このブラウザでは自動読み上げに対応していません。";
             }
@@ -856,6 +867,11 @@ function renderActionApproval(container, data) {
     const card = document.createElement("div");
     card.className = "action-approval";
 
+    // ハル・ガクの助言と区別する。操作を提案するのは、話者に関係なくAI将軍。
+    const heading = document.createElement("p");
+    heading.className = "action-approval-heading";
+    heading.textContent = "AI将軍の操作の提案（承認すると実行）";
+
     const title = document.createElement("strong");
     title.textContent = data.actionLabel || "この操作を実行しますか？";
 
@@ -927,7 +943,7 @@ function renderActionApproval(container, data) {
     });
 
     actions.append(run, cancel);
-    card.append(title, detail, actions, status);
+    card.append(heading, title, detail, actions, status);
     container.appendChild(card);
     showDemoApproval(ACTION_DESCRIPTIONS[action], run, cancel);
 }
@@ -1049,6 +1065,8 @@ function appendConversationMessage(container, speaker, message, data, mode) {
     if (!container.querySelector(".conversation-message")) container.replaceChildren();
     const entry = document.createElement("article");
     entry.className = `conversation-message ${speaker === "あなた" ? "from-user" : "from-general"}`;
+    // 話者ごとの色は style.css で付ける（ハル・ガク・AI将軍（確認））。
+    entry.dataset.speaker = speaker;
     const label = document.createElement("strong");
     label.textContent = speaker;
     const text = document.createElement("p");
@@ -1238,8 +1256,8 @@ function startListening() {
         voiceListening = false;
     }
     // 読み上げたまま聞き取ると、読み上げの声を拾って将軍へ送ってしまう。先に止める。
-    if (window.speechSynthesis?.speaking || window.speechSynthesis?.pending) {
-        window.speechSynthesis.cancel();
+    if (activeSpeech || window.speechSynthesis?.speaking || window.speechSynthesis?.pending) {
+        cancelSpeech();
         voiceStopButton.hidden = true;
     }
     stopSendCountdown();
@@ -1368,7 +1386,7 @@ function endVoiceSession(message) {
         voiceCanceled = true;
         voiceRecognition?.stop();
     }
-    window.speechSynthesis?.cancel();
+    cancelSpeech();
     setVoiceState("ended", message ?? "会話を終了しました。マイクは停止しています。");
     setTimeout(() => {
         if (!voiceSessionActive) setVoiceState("idle");
@@ -1539,75 +1557,257 @@ handsFreeToggle.addEventListener("click", () => {
     enableHandsFree();
 });
 
+// ===== ハル・ガクの発言 =====
+// ハルとガクは別々のAIではなく、AI将軍の1回の返答の中の話者。返答の話者の項目から、話した順の発言に分ける。
+// 話者の項目がない返答（タスク案の整理や、話者の導入前の形）は null で、今までどおりAI将軍の1発言として扱う。
+function answerSegments(data) {
+    const plan = {
+        "ハル": [["ハル", data.haruText]],
+        "ガク": [["ガク", data.gakuText]],
+        "両方": [["ハル", data.haruText], ["ガク", data.gakuText]],
+        "確認": [["AI将軍（確認）", data.clarifyQuestion]]
+    }[data.speaker];
+    const segments = (plan ?? [])
+        .map(([speaker, text]) => ({ speaker, text: (text ?? "").trim() }))
+        .filter(segment => segment.text);
+    return segments.length > 0 ? segments : null;
+}
+
+// サーバーが会話記録に保存するのと同じ書き方（「ハル：…」改行「ガク：…」）。
+function spokenBody(segments) {
+    return segments.map(segment => `${segment.speaker}：${segment.text}`).join("\n");
+}
+
+// 「もう一度聞く」で読み直す、直前の返答の発言の並び。再読み込み後は無いので、保存した本文を1つの文として読む。
+let lastSpeechGroup = null;
+
+// ===== 話者ごとの声（この端末のブラウザ内にだけ保存する。サーバーには送らない） =====
+// 使える声は端末ごとに違うので、端末ごとに選ぶ。選ぶまでは、ブラウザの標準の声で読む（声は分けない）。
+const SPEAKER_VOICE_KEY = "senninsyou.speakerVoices";
+const VOICE_SPEAKERS = { "ハル": "speaker-voice-haru", "ガク": "speaker-voice-gaku" };
+const STORAGE_UNAVAILABLE_NOTE = "この端末のブラウザに保存できないため、選んだ声はこのページを開いている間だけ使います。";
+// { ハル: { uri, name }, ガク: { uri, name } }。選んでいない話者は入れない。
+let speakerVoices = {};
+let speakerVoicesSessionOnly = false;
+
+function loadSpeakerVoices() {
+    speakerVoices = {};
+    try {
+        const saved = JSON.parse(localStorage.getItem(SPEAKER_VOICE_KEY) ?? "{}");
+        for (const speaker of Object.keys(VOICE_SPEAKERS)) {
+            const choice = saved?.[speaker];
+            if (typeof choice?.uri === "string" && choice.uri) {
+                speakerVoices[speaker] = { uri: choice.uri, name: String(choice.name ?? choice.uri) };
+            }
+        }
+        speakerVoicesSessionOnly = false;
+    } catch (error) {
+        speakerVoicesSessionOnly = true;
+    }
+}
+
+function saveSpeakerVoices() {
+    try {
+        localStorage.setItem(SPEAKER_VOICE_KEY, JSON.stringify(speakerVoices));
+        speakerVoicesSessionOnly = false;
+    } catch (error) {
+        // 保存できなくても、選んだ声はこのページを開いている間は使う。読み上げや会話は止めない。
+        speakerVoicesSessionOnly = true;
+    }
+}
+
+// ネット経由の声は、読み上げる文章が外部の読み上げサービスへ送られる。利用者が自分で選んだときだけ使う。
+function voiceOptionLabel(voice) {
+    return voice.localService ? voice.name : `${voice.name}（ネット経由）`;
+}
+
+// 話者の声を決める。選んだ声が見つからないときは、ネット経由の声へは切り替えず、端末内の日本語の声で読む。
+// 端末内の日本語の声もなければ、読み上げない（silent）。
+function resolveSpeakerVoice(speaker) {
+    const chosen = speaker ? speakerVoices[speaker] : null;
+    if (!chosen) return { voice: null };
+    const voices = window.speechSynthesis.getVoices();
+    const found = voices.find(voice => voice.voiceURI === chosen.uri);
+    if (found) return { voice: found };
+    const local = voices.find(voice => voice.localService && /^ja/i.test(voice.lang));
+    if (local) {
+        return { voice: local, notice: `選んだ${speaker}の声（${chosen.name}）が見つかりません。端末内の声（${local.name}）で読みます。声を選び直してください。` };
+    }
+    return { silent: true, notice: `選んだ${speaker}の声（${chosen.name}）が見つかりません。端末内の日本語の声もないため、読み上げずに文字だけ表示しています。声を選び直してください。` };
+}
+
+// いま読み上げている発話グループ。止めるときは、ブラウザの通知を待たずにグループごと終わらせる。
+// （ブラウザによって、止めた発言や後ろに並んでいた発言の通知が「終わった」で届くことがあり、それで聞き取りを再開しないため）
+let activeSpeech = null;
+
+function cancelSpeech() {
+    const group = activeSpeech;
+    activeSpeech = null;
+    group?.interrupt();
+    window.speechSynthesis?.cancel();
+}
+
+// 読み上げ。answer は1つの文か、発言の並び [{ speaker, text }]（ハル→ガクなど）。
+// 発言の並びは1つのグループとして続けて読む。グループの最初から最後まで「読み上げ中」のままにし、
+// 発言の間で待機に戻さない（AI社員の報告が割り込まない・聞き取りを再開しない）。止めるとグループ全体が止まる。
+// 聞き取りの再開は、最後の発言が終わったときだけ。
 // hooks（AI社員の報告用）：
 //   started(): 読み上げが始まったとき。settled(reason): 終わった・止まった・始められなかったとき。どちらも1回だけ呼ぶ。
 //   abandoned(): true の間は、この読み上げの通知をすべて無視する（待ちきれずに諦めたあと）。
 //   lateStart(): 終わったあと・諦めたあとに、遅れて開始の通知が届いたとき。
 //   failedMessage(): 読み上げに失敗したときに出す文。
 function speakAnswer(answer, hooks = {}) {
-    if (!answer || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(answer);
-    utterance.lang = "ja-JP";
-    utterance.rate = 1;
+    if (!window.speechSynthesis) return;
+    const segments = (Array.isArray(answer) ? answer : [{ speaker: null, text: answer }])
+        .filter(segment => segment?.text);
+    if (segments.length === 0) return;
+    cancelSpeech();
+    const voices = segments.map(segment => resolveSpeakerVoice(segment.speaker));
+    const notice = [...new Set(voices.map(choice => choice.notice).filter(Boolean))].join("");
+    if (voices.some(choice => choice.silent)) {
+        voiceStopButton.hidden = true;
+        hooks.settled?.("no-voice");
+        setVoiceState("idle", notice);
+        return;
+    }
     // 開始・終了の通知は1回目だけ使う。遅れて2回目が届いても、状態を戻したり報告を二重に処理したりしない。
     let begun = false;
     let finished = false;
+    const group = {};
     const finish = reason => {
         if (finished || hooks.abandoned?.()) return false;
         finished = true;
+        if (activeSpeech === group) activeSpeech = null;
         hooks.settled?.(reason);
         return true;
     };
-    utterance.onstart = () => {
-        if (begun) return;
-        if (finished || hooks.abandoned?.()) {
-            hooks.lateStart?.();
-            return;
-        }
-        begun = true;
-        // 読み上げが動いたので、始められずに止めていた報告の再試行も再開してよい。
-        reportStartFailures = 0;
-        voiceStopButton.hidden = false;
-        setVoiceState("speaking", hooks.speakingMessage ?? "AI将軍の返答を読み上げています。");
-        hooks.started?.();
-    };
-    utterance.onend = () => {
-        if (!finish("end")) return;
-        voiceStopButton.hidden = true;
-        if (!voiceSessionActive) {
-            setVoiceState("idle", "読み上げが終わりました。");
-            return;
-        }
-        // 読み上げが終わってから聞き取りを再開する。先に開くと自分の声を拾う。
-        setVoiceState("waiting", "次の発言を待っています。8秒間なければ会話を終了します。");
-        silenceTimer = setTimeout(() => {
-            if (voiceSessionActive && !voiceRecognized) {
-                endVoiceSession("発言がなかったため、会話を終了しました。");
+    group.interrupt = () => finish("canceled");
+    activeSpeech = group;
+    const lastIndex = segments.length - 1;
+    const utterances = segments.map((segment, index) => {
+        const utterance = new SpeechSynthesisUtterance(segment.text);
+        utterance.lang = "ja-JP";
+        utterance.rate = 1;
+        if (voices[index].voice) utterance.voice = voices[index].voice;
+        utterance.onstart = () => {
+            if (finished || hooks.abandoned?.()) {
+                if (!begun) hooks.lateStart?.();
+                return;
             }
-        }, SILENCE_LIMIT_MS);
-        startListening();
-    };
-    utterance.onerror = event => {
-        if (!finish(event.error)) return;
-        if (event.error === "interrupted" || event.error === "canceled") return;
-        voiceStopButton.hidden = true;
-        setVoiceState("idle", hooks.failedMessage?.() ?? "読み上げに失敗しました。画面の返答を確認してください。");
-    };
+            // 字幕・話者名・色を、いま読んでいる発言に合わせる。
+            if (segment.speaker) setDemoSubtitle(null, segment.text, segment.speaker);
+            if (begun) return;
+            begun = true;
+            // 読み上げが動いたので、始められずに止めていた報告の再試行も再開してよい。
+            reportStartFailures = 0;
+            voiceStopButton.hidden = false;
+            setVoiceState("speaking", notice || (hooks.speakingMessage ?? "AI将軍の返答を読み上げています。"));
+            hooks.started?.();
+        };
+        utterance.onend = () => {
+            // 途中の発言が終わっても、次の発言へ続く。待機にも戻さず、聞き取りも始めない。
+            if (index < lastIndex) return;
+            if (!finish("end")) return;
+            voiceStopButton.hidden = true;
+            if (!voiceSessionActive) {
+                setVoiceState("idle", "読み上げが終わりました。");
+                return;
+            }
+            // 読み上げが終わってから聞き取りを再開する。先に開くと自分の声を拾う。
+            setVoiceState("waiting", "次の発言を待っています。8秒間なければ会話を終了します。");
+            silenceTimer = setTimeout(() => {
+                if (voiceSessionActive && !voiceRecognized) {
+                    endVoiceSession("発言がなかったため、会話を終了しました。");
+                }
+            }, SILENCE_LIMIT_MS);
+            startListening();
+        };
+        utterance.onerror = event => {
+            if (!finish(event.error)) return;
+            if (event.error === "interrupted" || event.error === "canceled") return;
+            // どれかの発言で失敗したら、グループを終える。後ろの発言は読まず、聞き取りも再開しない。画面の文は残す。
+            window.speechSynthesis.cancel();
+            voiceStopButton.hidden = true;
+            setVoiceState("idle", hooks.failedMessage?.() ?? "読み上げに失敗しました。画面の返答を確認してください。");
+        };
+        return utterance;
+    });
     // onstartの通知を待つと、その間だけ待機中に見えてしまうため先に切り替える。
-    setVoiceState("speaking", hooks.speakingMessage ?? "AI将軍の返答を読み上げます。");
-    window.speechSynthesis.speak(utterance);
+    setVoiceState("speaking", notice || (hooks.speakingMessage ?? "AI将軍の返答を読み上げます。"));
+    // まとめて並べる。止めたとき（cancel）に、後ろの発言もブラウザの順番待ちから消える。
+    utterances.forEach(utterance => window.speechSynthesis.speak(utterance));
 }
 
 voiceReadButton.addEventListener("click", () => {
-    speakAnswer(conversation.at(-1)?.text);
+    speakAnswer(lastSpeechGroup ?? conversation.at(-1)?.text);
 });
 
 voiceStopButton.addEventListener("click", () => {
-    window.speechSynthesis.cancel();
+    cancelSpeech();
     voiceStopButton.hidden = true;
     setVoiceState("idle", "読み上げを停止しました。");
 });
+
+// 声の選択欄。端末で使える日本語の声を並べ、ネット経由の声には「（ネット経由）」と付ける。
+const speakerVoiceNote = document.getElementById("speaker-voice-note");
+
+function showSpeakerVoiceNote(message = "") {
+    speakerVoiceNote.textContent = [message, speakerVoicesSessionOnly ? STORAGE_UNAVAILABLE_NOTE : ""]
+        .filter(Boolean).join("");
+}
+
+function renderSpeakerVoiceOptions() {
+    if (!window.speechSynthesis) return;
+    const voices = window.speechSynthesis.getVoices().filter(voice => /^ja/i.test(voice.lang));
+    const missing = [];
+    for (const [speaker, id] of Object.entries(VOICE_SPEAKERS)) {
+        const select = document.getElementById(id);
+        const options = [new Option("ブラウザの標準の声", "")];
+        voices.forEach(voice => options.push(new Option(voiceOptionLabel(voice), voice.voiceURI)));
+        const chosen = speakerVoices[speaker];
+        if (chosen && !voices.some(voice => voice.voiceURI === chosen.uri)) {
+            options.push(new Option(`${chosen.name}（この端末では見つかりません）`, chosen.uri));
+            missing.push(`${speaker}の声（${chosen.name}）`);
+        }
+        select.replaceChildren(...options);
+        select.value = chosen?.uri ?? "";
+    }
+    showSpeakerVoiceNote(missing.length > 0
+        ? `選んだ${missing.join("・")}が見つかりません。読み上げのときは端末内の声を使います。声を選び直してください。`
+        : "");
+}
+
+for (const [speaker, id] of Object.entries(VOICE_SPEAKERS)) {
+    const select = document.getElementById(id);
+    select.addEventListener("change", () => {
+        const voice = window.speechSynthesis?.getVoices().find(item => item.voiceURI === select.value);
+        if (select.value && voice) {
+            speakerVoices[speaker] = { uri: voice.voiceURI, name: voice.name };
+        } else if (!select.value) {
+            delete speakerVoices[speaker];
+        }
+        saveSpeakerVoices();
+        renderSpeakerVoiceOptions();
+    });
+    document.getElementById(`${id}-test`).addEventListener("click", () => {
+        // 会話の途中で試聴すると、会話の読み上げや聞き取りと重なるため、待機中だけ試せる。
+        if (currentVoiceState !== "idle" || commandInFlight || voiceSessionActive) {
+            showSpeakerVoiceNote("会話や読み上げの途中は試聴できません。終わってから試してください。");
+            return;
+        }
+        speakAnswer([{ speaker, text: `${speaker}です。この声で読み上げます。` }]);
+    });
+}
+
+if (window.speechSynthesis) {
+    loadSpeakerVoices();
+    renderSpeakerVoiceOptions();
+    // 声の一覧は、ページを開いた直後には空のことがある。届いたら並べ直す。
+    window.speechSynthesis.addEventListener?.("voiceschanged", renderSpeakerVoiceOptions);
+} else {
+    document.getElementById("speaker-voice-settings").hidden = true;
+}
+
 const revenueForm = document.getElementById("revenue-form");
 const revenueDate = document.getElementById("revenue-date");
 const opportunityForm = document.getElementById("opportunity-form");
@@ -1945,9 +2145,15 @@ const demoWave = document.getElementById("demo-wave");
 let hudTimer = null;
 
 // 撮影用の大きな表示。数字も字幕も、実際のデータだけを出す。
-function setDemoSubtitle(userLine, aiLine) {
+// aiSpeaker は読み上げている発言の話者（ハル・ガク・AI将軍（確認））。それ以外の文（報告・状況など）は空。
+// 会話画面（talk-visual.js）は、この話者を字幕の名前と色に写す。
+function setDemoSubtitle(userLine, aiLine, aiSpeaker = "") {
     if (userLine !== null) document.getElementById("demo-user-line").textContent = userLine;
-    if (aiLine !== null) document.getElementById("demo-ai-line").textContent = aiLine;
+    if (aiLine !== null) {
+        const line = document.getElementById("demo-ai-line");
+        line.textContent = aiLine;
+        line.dataset.speaker = aiSpeaker;
+    }
 }
 
 // HUDが5秒ごとに取得したデータをそのまま使う。デモのために追加で取得しない。
@@ -2404,7 +2610,7 @@ function speakPendingReports() {
         abandoned: () => attempt.abandoned,
         // 諦めた読み上げが遅れて始まった。再試行と重なって二重に聞こえないよう、ほかに読み上げていなければ止める。
         lateStart: () => {
-            if (currentVoiceState !== "speaking") window.speechSynthesis.cancel();
+            if (currentVoiceState !== "speaking") cancelSpeech();
         },
         started: () => {
             attempt.started = true;
@@ -2427,7 +2633,7 @@ function speakPendingReports() {
         if (attempt.started) return;
         attempt.abandoned = true;
         retryLater(true);
-        window.speechSynthesis.cancel();
+        cancelSpeech();
         if (currentVoiceState === "speaking") {
             voiceStopButton.hidden = true;
             setVoiceState("idle", failedMessage());

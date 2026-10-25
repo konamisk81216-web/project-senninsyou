@@ -113,8 +113,9 @@ public class AIController {
                         command, taskStatus, revenueStatus, history, propose,
                         buildProductionStatus());
 
+        // 相談は話者つきの形（16項目）、タスク案の整理は今までの形（11項目）。どちらも呼び出しは1回だけ。
         String response =
-                aiService.askGeneral(prompt);
+                aiService.askGeneral(prompt, !propose);
 
         if (response == null || response.isBlank()) {
             activityRepository.finish(activityId, "失敗", "返答を受け取れませんでした");
@@ -129,7 +130,9 @@ public class AIController {
             }
             ObjectNode result = (ObjectNode) new ObjectMapper()
                     .readTree(response.substring(start, end + 1));
+            // 相談の返答は、話者と発言・操作の組み合わせを確かめる。外れていたら補正せず失敗にする（作り直しの呼び出しもしない）。
             if (!propose) {
+                checkSpeakers(result);
                 result.put("nextTask", "");
                 result.put("priority", "");
                 result.put("assignedAgent", "");
@@ -138,12 +141,65 @@ public class AIController {
             if (!propose) {
                 conversationRepository.add("利用者", command);
             }
-            conversationRepository.add("AI将軍", result.path("summary").asText(""));
+            // AI側は「AI将軍」として1件。相談では、実際に話した内容を話者つきで残す（要約だけにしない）。
+            conversationRepository.add("AI将軍", propose ? result.path("summary").asText("") : spokenText(result));
             activityRepository.finish(activityId, "完了", "");
             return result.toString();
+        } catch (SpeakerMismatchException e) {
+            // 状態は今までどおり「失敗」。理由は詳細欄で見分ける。
+            activityRepository.finish(activityId, "失敗", "話者と発言の組み合わせが正しくありませんでした");
+            throw new IllegalStateException("AI将軍の返答形式が正しくありません。", e);
         } catch (Exception e) {
             activityRepository.finish(activityId, "失敗", "返答の形式が正しくありませんでした");
             throw new IllegalStateException("AI将軍の返答形式が正しくありません。", e);
+        }
+    }
+
+    // 話者と発言・操作の組み合わせ。speakerReason は補足なので、空でもここでは見ない。
+    //   ハル：haruText あり、gakuText と clarifyQuestion は空
+    //   ガク：gakuText あり、haruText と clarifyQuestion は空
+    //   両方：haruText と gakuText あり、clarifyQuestion は空
+    //   確認：clarifyQuestion あり、haruText・gakuText・操作（action など4つ）は空
+    // summary が空のときも失敗にする。
+    static void checkSpeakers(ObjectNode result) {
+        String speaker = result.path("speaker").asText("");
+        boolean haru = !result.path("haruText").asText("").isBlank();
+        boolean gaku = !result.path("gakuText").asText("").isBlank();
+        boolean clarify = !result.path("clarifyQuestion").asText("").isBlank();
+        boolean action = !(result.path("action").asText("").isBlank()
+                && result.path("actionLabel").asText("").isBlank()
+                && result.path("actionTheme").asText("").isBlank()
+                && result.path("actionAudience").asText("").isBlank());
+        boolean ok = switch (speaker) {
+            case "ハル" -> haru && !gaku && !clarify;
+            case "ガク" -> gaku && !haru && !clarify;
+            case "両方" -> haru && gaku && !clarify;
+            case "確認" -> clarify && !haru && !gaku && !action;
+            default -> false;
+        };
+        if (!ok || result.path("summary").asText("").isBlank()) {
+            throw new SpeakerMismatchException();
+        }
+    }
+
+    // 会話記録に残す本文。「ハル：…」「ガク：…」「AI将軍（確認）：…」の形で、話した順に並べる。
+    static String spokenText(ObjectNode result) {
+        String speaker = result.path("speaker").asText("");
+        if ("確認".equals(speaker)) {
+            return "AI将軍（確認）：" + result.path("clarifyQuestion").asText("");
+        }
+        StringBuilder text = new StringBuilder();
+        if (!"ガク".equals(speaker)) text.append("ハル：").append(result.path("haruText").asText(""));
+        if (!"ハル".equals(speaker)) {
+            if (text.length() > 0) text.append("\n");
+            text.append("ガク：").append(result.path("gakuText").asText(""));
+        }
+        return text.toString();
+    }
+
+    static class SpeakerMismatchException extends IllegalArgumentException {
+        SpeakerMismatchException() {
+            super("話者と発言の組み合わせが正しくありません。");
         }
     }
 

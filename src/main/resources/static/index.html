@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project 千人将 | ダッシュボード</title>
 
-    <link rel="stylesheet" href="/style.css?v=20261020-6">
+    <link rel="stylesheet" href="/style.css?v=20261025-1">
 </head>
 
 <body>
@@ -332,7 +332,7 @@
                     </div>
                     <div class="talk-subtitles" aria-live="polite">
                         <p class="talk-sub"><span class="talk-sub-who talk-sub-you">あなた</span><span id="talk-sub-user"></span></p>
-                        <p class="talk-sub"><span class="talk-sub-who talk-sub-ai">AI将軍</span><span id="talk-sub-ai"></span></p>
+                        <p class="talk-sub"><span id="talk-sub-ai-who" class="talk-sub-who talk-sub-ai">AI将軍</span><span id="talk-sub-ai"></span></p>
                     </div>
                 </div>
                 <section class="talk-side" aria-labelledby="talk-log-title">
@@ -435,6 +435,22 @@
                     </div>
                     <p id="voice-interim" class="voice-interim" hidden></p>
                     <p id="voice-status" class="voice-status" role="status" aria-live="polite">声で入力すると、聞き取り後に2秒の取り消し時間を置いてから将軍へ送ります。ブラウザによっては音声が認識サービスへ送られます。</p>
+                    <!-- ハル・ガクの声。選んだ声はこの端末のブラウザ内にだけ保存し、サーバーには送らない。 -->
+                    <details id="speaker-voice-settings" class="speaker-voice-settings">
+                        <summary>ハル・ガクの声を選ぶ</summary>
+                        <p class="speaker-voice-help">この端末で使える日本語の声から選びます。選ぶまではブラウザの標準の声で読みます。選んだ声はこの端末のブラウザ内にだけ保存し、サーバーには送りません。「（ネット経由）」の声は、読み上げる文章が外部の読み上げサービスへ送られます。</p>
+                        <div class="speaker-voice-row" data-speaker="ハル">
+                            <label for="speaker-voice-haru">ハル</label>
+                            <select id="speaker-voice-haru"></select>
+                            <button id="speaker-voice-haru-test" class="secondary-button" type="button">試聴</button>
+                        </div>
+                        <div class="speaker-voice-row" data-speaker="ガク">
+                            <label for="speaker-voice-gaku">ガク</label>
+                            <select id="speaker-voice-gaku"></select>
+                            <button id="speaker-voice-gaku-test" class="secondary-button" type="button">試聴</button>
+                        </div>
+                        <p id="speaker-voice-note" class="speaker-voice-note" role="status"></p>
+                    </details>
                 </div>
             </div>
 
@@ -708,8 +724,8 @@
         </section>
     </main>
 
-        <script src="/app.js?v=20261020-6"></script>
-        <script src="/talk-visual.js?v=20261024-1"></script>
+        <script src="/app.js?v=20261025-1"></script>
+        <script src="/talk-visual.js?v=20261025-1"></script>
 </body>
 
 </html>

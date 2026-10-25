@@ -33,23 +33,44 @@ public class AIService {
     static final List<String> GENERAL_ACTIONS =
             List.of("", "startWriting", "createPosts", "runResearch", "runQuality", "runMarketing");
 
+    // 相談（タスク案の整理以外）の返答では、上の11項目に話者の5項目を足す。ハルとガクは別のAIではなく、
+    // AI将軍の1回の返答の中の話者。タスク案の整理は AI将軍のままなので、上の11項目の形を使う。
+    static final List<String> SPEAKER_FIELDS = List.of(
+            "speaker", "speakerReason", "haruText", "gakuText", "clarifyQuestion");
+    static final List<String> CONSULT_ANSWER_FIELDS = java.util.stream.Stream
+            .concat(GENERAL_ANSWER_FIELDS.stream(), SPEAKER_FIELDS.stream()).toList();
+    static final List<String> SPEAKERS = List.of("ハル", "ガク", "両方", "確認");
+
+    // タスク案の整理の返答の形（11項目）。
     static ResponseTextConfig generalAnswerFormat() {
+        return answerFormat("general_answer", GENERAL_ANSWER_FIELDS);
+    }
+
+    // 相談の返答の形（16項目）。speaker は4つの値だけ。
+    static ResponseTextConfig consultAnswerFormat() {
+        return answerFormat("general_consult_answer", CONSULT_ANSWER_FIELDS);
+    }
+
+    private static ResponseTextConfig answerFormat(String name, List<String> fields) {
         Map<String, Object> properties = new LinkedHashMap<>();
-        for (String field : GENERAL_ANSWER_FIELDS) {
+        for (String field : fields) {
             properties.put(field, Map.of("type", "string"));
         }
         properties.put("priority", Map.of("type", "string", "enum", GENERAL_PRIORITIES));
         properties.put("action", Map.of("type", "string", "enum", GENERAL_ACTIONS));
+        if (fields.contains("speaker")) {
+            properties.put("speaker", Map.of("type", "string", "enum", SPEAKERS));
+        }
 
         ResponseFormatTextJsonSchemaConfig.Schema schema = ResponseFormatTextJsonSchemaConfig.Schema.builder()
                 .putAdditionalProperty("type", JsonValue.from("object"))
                 .putAdditionalProperty("properties", JsonValue.from(properties))
-                .putAdditionalProperty("required", JsonValue.from(GENERAL_ANSWER_FIELDS))
+                .putAdditionalProperty("required", JsonValue.from(fields))
                 .putAdditionalProperty("additionalProperties", JsonValue.from(false))
                 .build();
         return ResponseTextConfig.builder()
                 .format(ResponseFormatTextJsonSchemaConfig.builder()
-                        .name("general_answer")
+                        .name(name)
                         .schema(schema)
                         .strict(true)
                         .build())
@@ -162,13 +183,7 @@ public class AIService {
             ・最新情報を参照できない場合は、現在拡大中だと断定せず、調査すべき仮説として示してください。
             ・有望な案でも、最初は低コストの小規模検証を提案してください。
 
-            ===== 判断の視点（ハル・ガク） =====
-            利用者の希望により、漫画『トリリオンゲーム』のハル（事業）とガク（技術）の役割を、判断の視点としてだけ使います。台詞のまねや作品の引用はしないでください。
-            summaryは、今回の質問の種類に合わせて次の視点で書いてください。ほかの欄の書き方は変えません。
-            ・経営・事業だけの質問（お金、価格、販売、市場、時間の使い方など）：ハル寄りに、勝ち筋と、いま決めることを示す。技術の話は入れない。
-            ・IT・情報系だけの質問（実装、設計、不具合、データ、インフラ、セキュリティなど）：ガク寄りに、実現できるか、技術的なリスク、進める順番を示す。事業の話は入れない。
-            ・事業と技術の両方を含む質問では、summaryを『結論：…』『事業の視点（ハル寄り）：…』『技術の視点（ガク寄り）：…』の順に各1文、計3文で書いてください。技術の文には、実現方法・技術的リスク・確認の順番のいずれかを具体的に含めてください。
-            ・どれに当たるか迷ったら、質問の主な論点1つで決める。
+            """ + (propose ? PROPOSE_SPEAKER_RULES : CONSULT_SPEAKER_RULES) + """
 
             ===== 回答方針 =====
             ・最初に結論を示し、不要な前置きや入力内容の繰り返しを避けてください。
@@ -215,10 +230,46 @@ public class AIService {
               "action": "startWriting、createPosts、runResearch、runQuality、runMarketing、または空文字",
               "actionLabel": "実行内容を利用者向けに1文で。操作がなければ空文字",
               "actionTheme": "startWritingとrunResearchのときだけ記事のテーマ。それ以外は空文字",
-              "actionAudience": "startWritingとrunResearchのときだけ想定読者。それ以外は空文字"
+              "actionAudience": "startWritingとrunResearchのときだけ想定読者。それ以外は空文字\"""" + (propose ? "" : """
+            ,
+              "speaker": "ハル、ガク、両方、確認のいずれか",
+              "speakerReason": "その話者にした理由を短く（指名があった、相談の目的が何か）",
+              "haruText": "ハルの発言。ハルが話さないときは空文字",
+              "gakuText": "ガクの発言。ガクが話さないときは空文字",
+              "clarifyQuestion": "確認のときだけ、目的を確かめる短い質問を1つ。それ以外は空文字\"""") + """
+
             }
             """;
     }
+
+    // 相談のときの話者の決まり。ハルとガクは別々のAIではなく、AI将軍の1回の返答の中の話者。
+    static final String CONSULT_SPEAKER_RULES = """
+            ===== 話者（ハル・ガク） =====
+            利用者の希望により、漫画『トリリオンゲーム』のハル（事業）とガク（技術）の役割を、判断の視点と話者名としてだけ使います。台詞や口調のまね、作品の引用はしないでください。
+            あなたはAI将軍として、この相談に1回だけ答えます。ハルとガクは別々のAIではなく、この返答の中の話者です。
+            話者（speaker）の決め方：
+            ・利用者が「ハルに」「ガクに」「両方に」などと話者をはっきり指名した場合は、それを最優先してください。両方を求められたらspeakerを「両方」にしてください。
+            ・指名がない場合は、単語だけで決めず、相談の目的で決めてください。経営・戦略・アイデアの判断（お金、価格、販売、市場、優先順位、時間の使い方など）はハル。技術・情報・実現性の判断（実装、設計、不具合、データ、調べ方や確かめ方、インフラ、セキュリティなど）はガク。
+            ・目的に経営と技術の両方の判断がはっきり含まれる場合は「両方」にしてください。ハル、ガクの順で話します。
+            ・どちらの判断を求めているか目的から決められない場合は、推測で答えず「確認」にし、目的を確かめる短い質問を1つだけclarifyQuestionに書いてください。
+            各項目の書き方：
+            ・ハル：haruTextにハルの発言を書き、gakuTextとclarifyQuestionは空文字にしてください。
+            ・ガク：gakuTextにガクの発言を書き、haruTextとclarifyQuestionは空文字にしてください。
+            ・両方：haruTextとgakuTextの両方を書き、clarifyQuestionは空文字にしてください。haruTextは勝ち筋といま決めること、gakuTextは実現方法・技術的なリスク・確かめる順番を中心にしてください。
+            ・確認：clarifyQuestionに質問を1つだけ書き、haruTextとgakuTextは空文字にしてください。確認のときは操作を提案しないので、action、actionLabel、actionTheme、actionAudienceもすべて空文字にしてください。
+            ・speakerReasonには、その話者にした理由（指名があった、相談の目的が何か）を短く書いてください。
+            ・summaryには、発言の結論を1文で書いてください。
+            ・haruTextとgakuTextは、それぞれ原則3文以内にしてください。読み上げるので、記号や箇条書きは使わないでください。
+            ・このプロンプトのほかの箇所で「summaryで伝えてください」とある内容は、話者の発言（haruTextまたはgakuText）にも書いてください。
+            ・操作の提案（action）は、どの話者のときもAI将軍としての提案です。実行は利用者が画面で承認してから行われます。
+            """;
+
+    // タスク案の整理のときは、話者を分けずにAI将軍として答える。
+    static final String PROPOSE_SPEAKER_RULES = """
+            ===== 話者 =====
+            タスク案の整理は、AI将軍として答えてください。ハル・ガクの話者は使いません。
+            """;
+
     public TaskProposal parseTaskProposal(String jsonText) {
 
         if (jsonText == null || jsonText.isBlank()) {
@@ -589,15 +640,25 @@ public class AIService {
     public record WriterAiResponse(String text, String errorCode) {}
 
     // AI将軍への依頼の中身。送る前に形を確かめられるよう、組み立てだけを分けておく。
+    // 引数1つはタスク案の整理の形（11項目）。相談では consult を true にして話者つきの形（16項目）にする。
     static ResponseCreateParams generalParams(String prompt) {
+        return generalParams(prompt, false);
+    }
+
+    static ResponseCreateParams generalParams(String prompt, boolean consult) {
         return ResponseCreateParams.builder()
             .input(prompt)
             .model(ChatModel.GPT_5_2)
-            .text(generalAnswerFormat())
+            .text(consult ? consultAnswerFormat() : generalAnswerFormat())
             .build();
     }
 
     public String askGeneral(String prompt) {
+        return askGeneral(prompt, false);
+    }
+
+    // 相談でもタスク案の整理でも、呼び出しは1回だけ。完了していない返答は、どちらの形でも受け取らない。
+    public String askGeneral(String prompt, boolean consult) {
 
     if (client == null) {
         System.out.println("OpenAI APIを利用できません。");
@@ -606,7 +667,7 @@ public class AIService {
 
     try {
 
-        Response response = client.responses().create(generalParams(prompt));
+        Response response = client.responses().create(generalParams(prompt, consult));
 
         // 途中で終わった返答（出力の上限に達したなど）や状態の分からない返答は、JSONとして読めても使わない。
         if (!response.status().map(ResponseStatus.COMPLETED::equals).orElse(false)) {
