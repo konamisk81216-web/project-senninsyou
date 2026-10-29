@@ -1381,13 +1381,30 @@ function endVoiceSession(message) {
     voiceSessionActive = false;
     clearTimeout(silenceTimer);
     voiceSessionButton.textContent = "💬 音声会話を開始";
-    updateMicIndicator();
-    if (voiceListening) {
-        voiceCanceled = true;
-        voiceRecognition?.stop();
+    // 送信前の待ち時間に終了したら、その発言は送らない。
+    // すでに送った発言（返答待ち）はサーバーで処理が進んでいるので、取り消したとは書かない。
+    const pendingSend = Boolean(sendCountdownTimer);
+    stopSendCountdown();
+    showInterim("");
+    if (pendingSend) commandInput.value = "";
+    // 聞き取りはこの会話から切り離して止める。終了後に遅れて届いた通知（結果・終了）は、どれも送信に使わない。
+    const recognition = voiceRecognition;
+    voiceRecognition = null;
+    voiceRecognized = false;
+    if (recognition) {
+        try {
+            recognition.abort();
+        } catch (error) {
+            // すでに終わっている聞き取りは止める必要がない。
+        }
     }
+    voiceListening = false;
+    voiceInputButton.textContent = "🎙️ 声で入力";
+    updateMicIndicator();
     cancelSpeech();
-    setVoiceState("ended", message ?? "会話を終了しました。マイクは停止しています。");
+    const notes = (pendingSend ? "聞き取った発言は送信していません。" : "")
+        + (commandInFlight ? "送信済みの発言は取り消していません。返答が届くと画面に表示されます。" : "");
+    setVoiceState("ended", (message ?? "会話を終了しました。マイクは停止しています。") + notes);
     setTimeout(() => {
         if (!voiceSessionActive) setVoiceState("idle");
     }, 2500);
