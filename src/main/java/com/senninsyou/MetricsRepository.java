@@ -149,11 +149,12 @@ public class MetricsRepository {
     public Map<String, String> getSummary(Connection connection) {
         Map<String, String> summary = emptySummary();
 
+        // 作成本数と平均作成時間は、AIが書いた下書きだけで数える。本人の修正版（is_edited）は入れない（database/012）。
         String sql = """
                 SELECT
-                    (SELECT COUNT(*) FROM writer_jobs WHERE status = '完了') AS article_count,
+                    (SELECT COUNT(*) FROM writer_jobs WHERE status = '完了' AND is_edited = FALSE) AS article_count,
                     (SELECT COALESCE(ROUND(AVG(EXTRACT(EPOCH FROM (updated_at - created_at)))), 0)
-                       FROM writer_jobs WHERE status = '完了') AS avg_seconds,
+                       FROM writer_jobs WHERE status = '完了' AND is_edited = FALSE) AS avg_seconds,
                     (SELECT COUNT(*) FROM post_drafts WHERE status = '承認済み') AS approved_posts
                 """;
 

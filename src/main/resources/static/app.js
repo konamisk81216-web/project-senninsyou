@@ -3526,6 +3526,66 @@ document.getElementById("writer-copy").addEventListener("click", async () => {
     }
 });
 
+// 画面で直した下書きを、元のAIの下書きとは別の1件としてサーバーに残す（AIは呼ばない）。
+// 会話から承認した品質管理AI・営業AIも「直近の下書き」を使うので、この直した版が対象になる。
+const writerSaveEditedLabel = "直した下書きを保存";
+
+function collectEditedDraft() {
+    const value = id => document.getElementById(id).value.trim();
+    return {
+        theme: value("writer-theme"),
+        audience: value("writer-audience"),
+        price: value("writer-price"),
+        sourceNotes: value("writer-source-notes"),
+        interviewNotes: buildInterviewNotes(),
+        title: value("writer-output-title"),
+        freeSection: value("writer-output-free"),
+        paidSection: value("writer-output-paid"),
+        salesDescription: value("writer-output-sales"),
+        snsPost: value("writer-output-sns"),
+        reviewNotes: value("writer-output-review")
+    };
+}
+
+document.getElementById("writer-save-edited").addEventListener("click", async () => {
+    const button = document.getElementById("writer-save-edited");
+    const status = document.getElementById("writer-status");
+    const payload = collectEditedDraft();
+    const required = {
+        theme: "記事のテーマ", audience: "想定読者", sourceNotes: "伝えたい内容",
+        title: "タイトル", freeSection: "無料公開部分", paidSection: "有料部分", salesDescription: "販売ページの説明"
+    };
+    const missing = Object.entries(required).filter(([field]) => !payload[field]).map(([, label]) => label);
+    if (missing.length > 0) {
+        status.textContent = `${missing.join("・")}を入力してから保存してください。`;
+        return;
+    }
+    button.disabled = true;
+    button.textContent = "保存中...";
+    try {
+        const response = await fetch("/api/ai/writer/jobs/edited", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) throw new Error(await response.text());
+        const result = await response.json();
+        if (result.errorCode) throw new Error(result.errorCode);
+        saveWriterDraft();
+        // 保存しているあいだに直した部分は、送った内容に入っていない。保存済みと見せない。
+        const changedWhileSaving = JSON.stringify(collectEditedDraft()) !== JSON.stringify(payload);
+        status.textContent = changedWhileSaving
+            ? `送った時点の下書きを保存しました（下書き番号 ${result.id}）。保存中に直した部分はまだ保存していません。もう一度「${writerSaveEditedLabel}」を押してください。`
+            : `直した下書きを保存しました（下書き番号 ${result.id}）。品質管理AIと営業AIはこの版を対象にします。元のAIの下書きはそのまま残っています。`;
+    } catch (error) {
+        status.textContent = "直した下書きを保存できませんでした。もう一度試してください。";
+        console.error(error);
+    } finally {
+        button.disabled = false;
+        button.textContent = writerSaveEditedLabel;
+    }
+});
+
 document.getElementById("writer-quality-check").addEventListener("click", async () => {
     const button = document.getElementById("writer-quality-check");
     const status = document.getElementById("writer-status");

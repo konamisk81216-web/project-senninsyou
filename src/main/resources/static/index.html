@@ -198,7 +198,7 @@
                     <button id="writer-generate" type="button">記事の下書きを作る</button>
                     <p id="writer-status" role="status" aria-live="polite"></p>
                     <div id="writer-result" class="writer-result" hidden>
-                        <p class="writer-result-note">AIの下書きです。事実・権利・表現を確認し、必要な箇所を直接修正してください。</p>
+                        <p class="writer-result-note">AIの下書きです。事実・権利・表現を確認し、必要な箇所を直接修正してください。直したら「直した下書きを保存」を押すと、品質管理AIと営業AIがその版を使います。</p>
                         <label>タイトル<input id="writer-output-title" maxlength="300"></label>
                         <label>無料公開部分<textarea id="writer-output-free" rows="10"></textarea></label>
                         <label>有料部分<textarea id="writer-output-paid" rows="14"></textarea></label>
@@ -208,6 +208,7 @@
                         <div class="writer-actions">
                             <button id="writer-quality-check" type="button">販売前の品質をチェック</button>
                             <button id="writer-copy" type="button" class="secondary-button">全文をコピー</button>
+                            <button id="writer-save-edited" type="button" class="secondary-button">直した下書きを保存</button>
                         </div>
                         <section id="writer-quality-result" class="writer-quality-result" hidden aria-labelledby="writer-quality-title">
                             <div class="writer-quality-heading">

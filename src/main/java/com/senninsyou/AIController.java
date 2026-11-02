@@ -365,6 +365,31 @@ public class AIController {
         return writerJobRepository.findJob(id);
     }
 
+    // 本人が画面で直した下書きを、完了した下書きとして新しく1件残す。AIは呼ばない。
+    // 元の下書き（保存済みの記事）は書き換えない。品質管理AI・営業AIが対象にする「直近の下書き」は、この版になる。
+    @PostMapping("/writer/jobs/edited")
+    public Map<String, String> saveEditedWriterJob(@RequestBody EditedWriterRequest request) {
+        Map<String, String> draft = new LinkedHashMap<>();
+        draft.put("theme", cleanWriterInput(request.theme(), "テーマ", 200, true));
+        draft.put("audience", cleanWriterInput(request.audience(), "想定読者", 300, true));
+        String price = cleanWriterInput(request.price(), "想定価格", 100, false);
+        draft.put("price", price.isBlank() ? "未定" : price);
+        draft.put("sourceNotes", cleanWriterInput(request.sourceNotes(), "伝えたい内容", 4000, true));
+        draft.put("interviewNotes", cleanWriterInput(request.interviewNotes(), "取材メモ", 6000, false));
+        draft.put("title", cleanWriterInput(request.title(), "タイトル", 300, true));
+        draft.put("freeSection", cleanWriterInput(request.freeSection(), "無料公開部分", 20000, true));
+        draft.put("paidSection", cleanWriterInput(request.paidSection(), "有料部分", 50000, true));
+        draft.put("salesDescription", cleanWriterInput(request.salesDescription(), "販売ページの説明", 10000, true));
+        draft.put("snsPost", cleanWriterInput(request.snsPost(), "SNS投稿案", 10000, false));
+        draft.put("reviewNotes", cleanWriterInput(request.reviewNotes(), "公開前の確認事項", 10000, false));
+
+        long id = writerJobRepository.saveEditedDraft(draft);
+        if (id < 0) {
+            return writerError("WAI-DB");
+        }
+        return Map.of("id", String.valueOf(id), "status", "完了");
+    }
+
     // ブラウザを閉じても執筆が続くよう、依頼を受け付けた後は裏で実行する。
     private void runWriterJob(
             long id,
@@ -564,6 +589,10 @@ public class AIController {
             String title, String freeSection, String paidSection) {}
     public record WriterRequest(
             String theme, String audience, String sourceNotes, String price, String interviewNotes) {}
+    public record EditedWriterRequest(
+            String theme, String audience, String price, String sourceNotes, String interviewNotes,
+            String title, String freeSection, String paidSection, String salesDescription,
+            String snsPost, String reviewNotes) {}
     public record WriterQualityRequest(
             String theme, String audience, String price,
             String title, String freeSection, String paidSection, String salesDescription) {}
