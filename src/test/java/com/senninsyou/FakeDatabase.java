@@ -83,6 +83,7 @@ final class FakeDatabase {
                 PreparedStatement.class.getClassLoader(), new Class<?>[] {PreparedStatement.class},
                 (proxy, method, args) -> switch (method.getName()) {
                     case "executeQuery" -> resultSet(rows, defaultNumber);
+                    case "setLong", "setInt", "setString" -> null;   // 条件の値は見ない（登録した行をそのまま返す）
                     case "close" -> null;
                     default -> throw new UnsupportedOperationException(method.getName());
                 });
@@ -102,7 +103,14 @@ final class FakeDatabase {
                         return null;
                     }
                     Object value = rows.get(index[0]).get((String) args[0]);
+                    // 値に SQLException を登録した列は、読んだときに失敗する（列が読めない場合の試験用）。
+                    if (value instanceof SQLException failure) {
+                        throw failure;
+                    }
                     return switch (method.getName()) {
+                        // getObject(列名, 型)：登録のない列は null（SQLのNULL）。
+                        case "getObject" -> value instanceof Number number && args.length > 1 && args[1] == Integer.class
+                                ? Integer.valueOf(number.intValue()) : value;
                         case "getString" -> value == null ? "" : value.toString();
                         case "getTimestamp" -> value instanceof Timestamp timestamp ? timestamp : null;
                         case "getBigDecimal" -> value == null ? BigDecimal.valueOf(defaultNumber) : new BigDecimal(value.toString());

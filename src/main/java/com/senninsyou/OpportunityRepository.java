@@ -71,14 +71,22 @@ public class OpportunityRepository {
     }
 
     public List<Opportunity> getAll() throws SQLException {
+        try (Connection connection = getConnection()) {
+            return getAll(connection);
+        }
+    }
+
+    // 件数と合計は同じ1つのSQLで数える（同じ時点のデータ）。合計は0で埋めない（記録0件ならSQLではNULL）。
+    List<Opportunity> getAll(Connection connection) throws SQLException {
         String sql = """
                 SELECT
                     o.*,
                     t.task_name AS linked_task_name,
                     t.status AS linked_task_status,
-                    COALESCE(SUM(r.revenue), 0) AS actual_revenue,
-                    COALESCE(SUM(r.expense), 0) AS actual_expense,
-                    COALESCE(SUM(r.profit), 0) AS actual_profit
+                    COUNT(r.id) AS revenue_record_count,
+                    SUM(r.revenue) AS actual_revenue,
+                    SUM(r.expense) AS actual_expense,
+                    SUM(r.profit) AS actual_profit
                 FROM opportunities o
                 LEFT JOIN tasks t ON t.id = o.task_id
                 LEFT JOIN revenue_records r ON r.task_id = o.task_id
@@ -95,8 +103,7 @@ public class OpportunityRepository {
                 """;
         List<Opportunity> opportunities = new ArrayList<>();
 
-        try (Connection connection = getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql);
+        try (PreparedStatement statement = connection.prepareStatement(sql);
              ResultSet result = statement.executeQuery()) {
             while (result.next()) {
                 opportunities.add(mapOpportunity(result));
@@ -170,22 +177,28 @@ public class OpportunityRepository {
     }
 
     private Opportunity getById(long id) throws SQLException {
+        try (Connection connection = getConnection()) {
+            return getById(connection, id);
+        }
+    }
+
+    Opportunity getById(Connection connection, long id) throws SQLException {
         String sql = """
                 SELECT
                     o.*,
                     t.task_name AS linked_task_name,
                     t.status AS linked_task_status,
-                    COALESCE(SUM(r.revenue), 0) AS actual_revenue,
-                    COALESCE(SUM(r.expense), 0) AS actual_expense,
-                    COALESCE(SUM(r.profit), 0) AS actual_profit
+                    COUNT(r.id) AS revenue_record_count,
+                    SUM(r.revenue) AS actual_revenue,
+                    SUM(r.expense) AS actual_expense,
+                    SUM(r.profit) AS actual_profit
                 FROM opportunities o
                 LEFT JOIN tasks t ON t.id = o.task_id
                 LEFT JOIN revenue_records r ON r.task_id = o.task_id
                 WHERE o.id = ?
                 GROUP BY o.id, t.task_name, t.status
                 """;
-        try (Connection connection = getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setLong(1, id);
             try (ResultSet result = statement.executeQuery()) {
                 return result.next() ? mapOpportunity(result) : null;
@@ -218,9 +231,14 @@ public class OpportunityRepository {
         BigDecimal expectedRevenue = result.getBigDecimal("expected_revenue");
         int estimatedMinutes = result.getInt("estimated_minutes");
         String riskLevel = result.getString("risk_level");
-        BigDecimal actualRevenue = getBigDecimalOrZero(result, "actual_revenue");
-        BigDecimal actualExpense = getBigDecimalOrZero(result, "actual_expense");
-        BigDecimal actualProfit = getBigDecimalOrZero(result, "actual_profit");
+        // 記録0件（タスク未登録を含む）は「未記録」。0円に置き換えず null のまま返す。
+        // 列が読めないなどの失敗も0にせず、そのまま呼び出し元へ失敗として返す。
+        int recordCount = result.getInt("revenue_record_count");
+        boolean recorded = recordCount > 0;
+        BigDecimal actualRevenue = recorded ? result.getBigDecimal("actual_revenue") : null;
+        BigDecimal actualExpense = recorded ? result.getBigDecimal("actual_expense") : null;
+        BigDecimal actualProfit = recorded ? result.getBigDecimal("actual_profit") : null;
+        BigDecimal revenueVariance = actualRevenue == null ? null : actualRevenue.subtract(expectedRevenue);
         BigDecimal hourlyRevenue = estimatedMinutes == 0 ? null
                 : expectedRevenue.multiply(BigDecimal.valueOf(60))
                         .divide(BigDecimal.valueOf(estimatedMinutes), 0, RoundingMode.HALF_UP);
@@ -237,22 +255,14 @@ public class OpportunityRepository {
                 result.getObject("task_id", Integer.class),
                 getOptionalString(result, "linked_task_name"),
                 getOptionalString(result, "linked_task_status"),
+                recordCount,
                 actualRevenue,
                 actualExpense,
                 actualProfit,
-                actualRevenue.subtract(expectedRevenue),
+                revenueVariance,
                 hourlyRevenue,
                 comparisonScore(hourlyRevenue, riskLevel),
                 result.getObject("created_at", java.time.OffsetDateTime.class));
-    }
-
-    private BigDecimal getBigDecimalOrZero(ResultSet result, String column) throws SQLException {
-        try {
-            BigDecimal value = result.getBigDecimal(column);
-            return value == null ? BigDecimal.ZERO : value;
-        } catch (SQLException e) {
-            return BigDecimal.ZERO;
-        }
     }
 
     private String getOptionalString(ResultSet result, String column) throws SQLException {

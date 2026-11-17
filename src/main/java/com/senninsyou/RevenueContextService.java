@@ -7,6 +7,7 @@ import java.util.List;
 public class RevenueContextService {
 
     private static final int RECENT_RECORD_LIMIT = 5;
+    private static final String UNRECORDED = "未記録（収益記録0件。0円の実績ではありません）";
 
     private final RevenueRepository repository;
     private final OpportunityRepository opportunityRepository;
@@ -35,17 +36,20 @@ public class RevenueContextService {
             List<Opportunity> opportunities = opportunityRepository.getAll();
 
             StringBuilder context = new StringBuilder();
+            // 収益記録が0件のときは、金額・作業時間を0として書かず「未記録」と書く。
+            // 記録があれば、合計が0円でもその金額（正しい実績）を書く。
+            boolean recorded = summary.isRevenueRecorded();
             context.append("累計売上: ")
-                    .append(summary.getTotalRevenue().toPlainString())
-                    .append("円\n");
+                    .append(recorded ? summary.getTotalRevenue().toPlainString() + "円" : UNRECORDED)
+                    .append("\n");
             context.append("累計の案件の直接経費: ")
-                    .append(summary.getTotalExpense().toPlainString())
-                    .append("円\n");
+                    .append(recorded ? summary.getTotalExpense().toPlainString() + "円" : UNRECORDED)
+                    .append("\n");
             context.append("累計の案件利益（売上−案件の直接経費。月々の費用は差引前）: ")
-                    .append(summary.getTotalProfit().toPlainString())
-                    .append("円\n");
+                    .append(recorded ? summary.getTotalProfit().toPlainString() + "円" : UNRECORDED)
+                    .append("\n");
             context.append("総作業時間: ")
-                    .append(formatWorkTime(summary.getTotalWorkMinutes()))
+                    .append(recorded ? formatWorkTime(summary.getTotalWorkMinutes()) : UNRECORDED)
                     .append("\n");
             context.append("収益記録数: ")
                     .append(summary.getRecordCount())
@@ -124,19 +128,29 @@ public class RevenueContextService {
             return;
         }
 
-        linkedOpportunities.forEach(opportunity -> context.append("- ")
-                .append(opportunity.title())
-                .append(" | タスク状態 ")
-                .append(opportunity.linkedTaskStatus())
-                .append(" | 想定収益 ")
-                .append(opportunity.expectedRevenue().toPlainString())
-                .append("円 | 実売上 ")
-                .append(opportunity.actualRevenue().toPlainString())
-                .append("円 | 実利益 ")
-                .append(opportunity.actualProfit().toPlainString())
-                .append("円 | 想定との差 ")
-                .append(opportunity.revenueVariance().toPlainString())
-                .append("円\n"));
+        linkedOpportunities.forEach(opportunity -> {
+            context.append("- ")
+                    .append(opportunity.title())
+                    .append(" | タスク状態 ")
+                    .append(opportunity.linkedTaskStatus())
+                    .append(" | 想定収益 ")
+                    .append(opportunity.expectedRevenue().toPlainString())
+                    .append("円 | ");
+            // 関連タスクの収益記録が0件なら、実売上・実利益を0円と書かず、想定との差も出さない。
+            if (opportunity.revenueRecordCount() == 0) {
+                context.append("実績 未記録（収益記録0件。0円の実績ではありません） | 想定との差 算出不可\n");
+                return;
+            }
+            context.append("収益記録 ")
+                    .append(opportunity.revenueRecordCount())
+                    .append("件 | 実売上 ")
+                    .append(formatMoneyOrUnavailable(opportunity.actualRevenue()))
+                    .append(" | 実利益 ")
+                    .append(formatMoneyOrUnavailable(opportunity.actualProfit()))
+                    .append(" | 想定との差 ")
+                    .append(formatMoneyOrUnavailable(opportunity.revenueVariance()))
+                    .append("\n");
+        });
     }
 
     private String formatMoneyOrUnavailable(BigDecimal value) {

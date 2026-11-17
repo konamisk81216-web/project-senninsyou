@@ -374,15 +374,25 @@ function renderOpportunities(opportunities) {
             const traceTitle = document.createElement("h5");
             traceTitle.textContent = "🔗 タスク・実績トレーサビリティ";
             const taskState = document.createElement("p");
-            taskState.textContent = `関連タスク：${opportunity.linkedTaskName}（${opportunity.linkedTaskStatus}）`;
+            // 収益記録の件数で、実績の出し方を決める（件数を0件に置き換えない）。
+            // ・正しい件数が0：実売上・実利益は「未記録」、想定との差は「算出不可」（0円にしない）。
+            // ・正しい件数が1以上：実績を出す。合計が0円でも0円（正しい実績）を出す。
+            // ・件数が欠けている・null・不正な値：「取得できません」。0件とは出さず、想定との差も「算出不可」。
+            const recordCount = opportunity.revenueRecordCount;
+            const countKnown = Number.isInteger(recordCount) && recordCount >= 0;
+            const recorded = countKnown && recordCount > 0;
+            const countText = countKnown ? `${recordCount}件` : "取得できません";
+            taskState.textContent = `関連タスク：${opportunity.linkedTaskName}（${opportunity.linkedTaskStatus}）／収益記録 ${countText}`;
+            const recordedYen = value => (value == null ? "取得できません" : formatYen(value));
+            const actualText = value => (!countKnown ? "取得できません" : recorded ? recordedYen(value) : "未記録");
 
             const traceMetrics = document.createElement("div");
             traceMetrics.className = "opportunity-trace-metrics";
             [
                 ["想定収益", formatYen(opportunity.expectedRevenue)],
-                ["実売上", formatYen(opportunity.actualRevenue)],
-                ["実利益", formatYen(opportunity.actualProfit)],
-                ["想定との差", formatSignedYen(opportunity.revenueVariance)]
+                ["実売上", actualText(opportunity.actualRevenue)],
+                ["実利益", actualText(opportunity.actualProfit)],
+                ["想定との差", recorded && opportunity.revenueVariance != null ? formatSignedYen(opportunity.revenueVariance) : "算出不可"]
             ].forEach(([label, value]) => {
                 const metric = document.createElement("div");
                 const labelElement = document.createElement("span");
