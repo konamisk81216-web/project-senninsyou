@@ -431,6 +431,21 @@ function renderOpportunities(opportunities) {
             actions.appendChild(taskButton);
         }
 
+        // L-1：全部の機会に出す（任務がない機会でも、サーバーが「任務未登録」として根拠を返す）。結果はこのカードの中だけに出す。
+        // 結果欄は「タスク・実績トレーサビリティ」（opportunity-trace）とは別の欄なので、そのクラスは使わない。
+        // 待機状態と返答は機会IDごとに持ち、一覧を描き直したら今のカードへ反映する（data-opportunity-id で探す）。
+        const nextMoveOutput = document.createElement("div");
+        nextMoveOutput.className = "opportunity-next-move";
+        nextMoveOutput.dataset.opportunityId = String(opportunity.id);
+        nextMoveOutput.hidden = true;
+        const nextMoveButton = document.createElement("button");
+        nextMoveButton.type = "button";
+        nextMoveButton.className = "next-move-button";
+        nextMoveButton.dataset.opportunityId = String(opportunity.id);
+        nextMoveButton.textContent = "🧭 将軍に次の一手を聞く";
+        nextMoveButton.addEventListener("click", () => askNextMove(opportunity.id));
+        actions.appendChild(nextMoveButton);
+
         const deleteButton = document.createElement("button");
         deleteButton.type = "button";
         deleteButton.className = "delete-button";
@@ -448,8 +463,131 @@ function renderOpportunities(opportunities) {
         });
         actions.appendChild(deleteButton);
         card.appendChild(actions);
+        card.appendChild(nextMoveOutput);
         list.appendChild(card);
+        showNextMoveState(opportunity.id);
     });
+}
+
+// L-1：選んだ収益機会の根拠から、AI将軍が次の一手を提案する。提案だけで、AI社員は実行しない（承認カードも作らない）。
+// ・同じ機会への送信は、返答が届くまで1回だけ（連打しても送らない）。自動で送り直さない。
+// ・根拠（金額・件数・未記録の区別）は、サーバーが確定した文字をそのまま出す。AIの文から数字は拾わない。
+// ・提案は、サーバーが status "OK" で返したときだけ出す。失敗のときは案内だけを出す。
+// ・AIの文やメモは、すべて文字として出す（タグとしては扱わない）。
+// ・待機状態と返答は、カードの要素ではなく機会IDごとに持つ。返答待ちの間に一覧を描き直しても、
+//   返答は描き直したあとの今のカードに出す（古いカードには書かない）。描き直しで送り直すことはしない。
+const NEXT_MOVE_NOTICE = "提案だけです。AI社員は実行していません。";
+const NEXT_MOVE_WAITING = { message: "AI将軍が根拠を確かめています…", notice: NEXT_MOVE_NOTICE };
+const nextMoveStates = new Map();   // 機会ID（文字）→ { pending: 返答待ちか, view: 結果欄に出す内容 }
+
+function nextMoveElements(id) {
+    const list = document.getElementById("opportunity-list");
+    const key = CSS.escape(String(id));
+    return {
+        button: list.querySelector(`.next-move-button[data-opportunity-id="${key}"]`),
+        output: list.querySelector(`.opportunity-next-move[data-opportunity-id="${key}"]`)
+    };
+}
+
+// 機会IDの状態を、今の一覧にあるそのカードへ反映する（カードがなければ何もしない）。
+function showNextMoveState(id) {
+    const state = nextMoveStates.get(String(id));
+    const { button, output } = nextMoveElements(id);
+    if (!button || !output) return;
+    button.disabled = state?.pending === true;
+    if (state?.view) {
+        renderNextMove(output, state.view);
+    } else {
+        output.replaceChildren();
+        output.hidden = true;
+    }
+}
+
+async function askNextMove(id) {
+    const key = String(id);
+    if (nextMoveStates.get(key)?.pending) return;
+    nextMoveStates.set(key, { pending: true, view: NEXT_MOVE_WAITING });
+    showNextMoveState(id);
+    let view;
+    try {
+        view = await requestNextMove(id);
+    } finally {
+        nextMoveStates.set(key, { pending: false, view: view ?? { message: "提案を受け取れませんでした。", notice: NEXT_MOVE_NOTICE } });
+        showNextMoveState(id);
+    }
+}
+
+// 1回だけ送り、結果欄に出す内容を返す。失敗のときは、サーバーの案内（と完了記録の注意書き）だけで、根拠と提案は入れない。
+async function requestNextMove(id) {
+    let result = null;
+    let httpStatus = 0;
+    try {
+        const response = await fetch(`/api/opportunities/${id}/next-move`, { method: "POST" });
+        httpStatus = response.status;
+        try { result = await response.json(); } catch (error) { result = null; }
+        if (result && response.ok && result.status === "OK") {
+            return result;
+        }
+    } catch (error) {
+        console.error(error);
+        return { message: "通信に失敗しました。提案は表示していません。", notice: NEXT_MOVE_NOTICE };
+    }
+    return {
+        message: typeof result?.message === "string" && result.message
+            ? result.message : `提案を受け取れませんでした（${httpStatus}）。`,
+        recordNote: typeof result?.recordNote === "string" ? result.recordNote : null,
+        notice: NEXT_MOVE_NOTICE
+    };
+}
+
+function renderNextMove(output, result) {
+    output.replaceChildren();
+    output.hidden = false;
+    const title = document.createElement("h5");
+    title.textContent = "🧭 将軍の次の一手";
+    const notice = document.createElement("p");
+    notice.className = "next-move-notice";
+    notice.textContent = result.notice || NEXT_MOVE_NOTICE;
+    const message = document.createElement("p");
+    message.className = "next-move-message";
+    message.textContent = result.message ?? "";
+    output.append(title, notice, message);
+
+    if (result.status === "OK" && Array.isArray(result.facts) && result.proposal) {
+        const facts = document.createElement("div");
+        facts.className = "opportunity-trace-metrics next-move-facts";
+        result.facts.forEach(fact => {
+            const metric = document.createElement("div");
+            const label = document.createElement("span");
+            const value = document.createElement("strong");
+            label.textContent = String(fact.label ?? "");
+            value.textContent = String(fact.value ?? "");
+            metric.append(label, value);
+            facts.appendChild(metric);
+        });
+        const move = document.createElement("p");
+        move.className = "next-move-proposal";
+        move.textContent = `次の一手：${result.proposal.nextMove}`;
+        output.append(facts, move);
+        (result.proposal.reasons ?? []).forEach(reason => {
+            const line = document.createElement("p");
+            line.className = "next-move-reason";
+            line.textContent = `根拠：${reason.text}（${(reason.evidenceIds ?? []).join("、")}）`;
+            output.appendChild(line);
+        });
+        if (result.proposal.missingInfo) {
+            const missing = document.createElement("p");
+            missing.className = "next-move-missing";
+            missing.textContent = `足りない情報：${result.proposal.missingInfo}`;
+            output.appendChild(missing);
+        }
+    }
+    if (result.recordNote) {
+        const note = document.createElement("p");
+        note.className = "next-move-record-note";
+        note.textContent = result.recordNote;
+        output.appendChild(note);
+    }
 }
 
 async function updateOpportunityStatus(id, status) {

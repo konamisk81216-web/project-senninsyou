@@ -73,6 +73,47 @@ public class AiActivityRepository {
         }
     }
 
+    // 完了記録の保存結果。1行だけ更新できたときだけ SAVED。
+    enum FinishResult {
+        SAVED,      // 1行を更新した
+        NOT_SAVED,  // 更新0件（記録の番号がない・開始に失敗していた など）。成功扱いにしない
+        UNKNOWN     // 接続・更新の途中で失敗し、保存されたか分からない
+    }
+
+    // finish と同じ更新をして、結果を返す（L-1用）。finish は今までどおり何も返さない。
+    // これも例外は投げない（記録の失敗で本来の処理を止めない）。呼び直しもしない。
+    FinishResult finishReporting(long id, String status, String detail) {
+        if (id < 0) {
+            return FinishResult.NOT_SAVED;
+        }
+        try (Connection connection = DriverManager.getConnection(jdbcUrl, user, password)) {
+            return finishReporting(connection, id, status, detail);
+        } catch (Exception e) {
+            System.out.println("稼働記録の完了に失敗しました。");
+            return FinishResult.UNKNOWN;
+        }
+    }
+
+    FinishResult finishReporting(Connection connection, long id, String status, String detail) {
+        if (id < 0) {
+            return FinishResult.NOT_SAVED;
+        }
+        String sql = """
+                UPDATE ai_activities
+                SET status = ?, detail = ?, finished_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, status);
+            statement.setString(2, detail == null ? "" : detail);
+            statement.setLong(3, id);
+            return statement.executeUpdate() == 1 ? FinishResult.SAVED : FinishResult.NOT_SAVED;
+        } catch (Exception e) {
+            System.out.println("稼働記録の完了に失敗しました。");
+            return FinishResult.UNKNOWN;
+        }
+    }
+
     public List<Map<String, String>> recentActivities() {
         try (Connection connection = DriverManager.getConnection(jdbcUrl, user, password)) {
             return recentActivities(connection);

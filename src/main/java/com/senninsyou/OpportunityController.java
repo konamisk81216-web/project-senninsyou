@@ -25,6 +25,22 @@ public class OpportunityController {
     private static final Set<String> STATUSES =
             Set.of("未評価", "調査中", "有望", "保留", "却下");
     private final OpportunityRepository repository = new OpportunityRepository();
+    // L-1。コントローラーは1つなので、同じ機会の同時呼び出しの防止は、このアプリのプロセスの中で効く。
+    private final NextMoveService nextMoveService = NextMoveService.createDefault();
+
+    // 選んだ収益機会1件の根拠から、AI将軍が次の一手を提案する。提案だけで、AI社員は実行しない。
+    @PostMapping("/{id}/next-move")
+    public ResponseEntity<NextMoveService.Result> proposeNextMove(@PathVariable long id) {
+        NextMoveService.Result result = nextMoveService.propose(id);
+        int status = switch (result.status()) {
+            case OK -> 200;
+            case NOT_FOUND -> 404;
+            case BUSY -> 409;
+            case AI_FAILED, INVALID_ANSWER -> 502;
+            case READ_FAILED, AI_UNAVAILABLE, RECORD_START_FAILED -> 503;
+        };
+        return ResponseEntity.status(status).body(result);
+    }
 
     @GetMapping
     public ResponseEntity<?> getAll() {
