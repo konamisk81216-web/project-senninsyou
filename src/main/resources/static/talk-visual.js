@@ -5,6 +5,10 @@
 // ・会話の状態（聞き取り中・考え中・読み上げ中など）は app.js の currentVoiceState を読むだけ。書き換えない。
 // ・字幕は、app.js がデモ表示の字幕（#demo-user-line・#demo-ai-line）に書いた文字と話者を写すだけ。
 // ・AI社員の状態と実行ログは、司令本部の巡回（5秒ごと）で取れたデータを renderTalkPanels で受け取って描くだけ。
+// ・承認待ちの操作は、app.js がデモ表示の承認欄に出した内容を写すだけ。「実行する」「やめる」はその欄のボタンを押し、
+//   ダッシュボードの承認カードと同じ処理になる（ここで新しい操作や送信は作らない）。
+// ・「音声会話を開始」「もう一度聞く」は既存のボタンを押すだけ。文字の入力欄は、文をダッシュボードの入力欄に入れて既存の「将軍と話す」を押すだけ。
+// ・ハル・ガクの欄は、読み上げている発言の話者を示すだけ（ハル・ガクはAI将軍の返答の中の視点で、別のAIではない）。
 // ・「声に反応させる」は、見た目のためだけに別のマイク入力を開く。音は端末の中で音量の数値にするだけで、
 //   録音・保存・送信はしない。音声認識（ブラウザによっては音声が認識サービスへ送られる）とは別の仕組みで、
 //   この入力の音量は、聞き取り・送信・承認・報告のどの判断にも使わない。
@@ -188,6 +192,120 @@
     new MutationObserver(syncStatus).observe(voiceStatus, { childList: true, characterData: true, subtree: true });
     syncStatus();
 
+    // 「もう一度聞く」も既存のボタンを押すのと同じ。出ている・押せるかは既存のボタンに合わせる。
+    const readButton = $("voice-read-button");
+    const talkReplay = $("talk-replay");
+    talkReplay.addEventListener("click", () => readButton.click());
+    const syncReplay = () => {
+        talkReplay.hidden = readButton.hidden;
+        talkReplay.disabled = readButton.disabled;
+    };
+    new MutationObserver(syncReplay).observe(readButton, { attributes: true, attributeFilter: ["hidden", "disabled"] });
+    syncReplay();
+
+    // 文字の入力：入力した文をダッシュボードの既存の入力欄に入れ、既存の「将軍と話す」ボタンを押す。
+    // 送信の処理（1発言につき1回・返答待ちの間は送らない）は app.js のまま。この画面に別の送信処理は作らない。
+    const commandInput = $("command-input");
+    const commandButton = $("command-button");
+    const showDashboard = () => document.querySelector('.nav-button[data-page="command"]').click();
+    const talkCommand = $("talk-command"), composerNote = $("talk-composer-note");
+    // 送った文は、返答が届くまでこの欄に残す。返答が届いたら、欄が送ったときのままなら空にする。
+    // 送信に失敗したら欄はそのまま（原文を直して、もう一度送れる）。待っている間に書き足した・書き換えた文は、成功でも失敗でも上書きしない。
+    let composerSent = null;   // この欄から送り、返答を待っている文（それ以外の送信では null）
+    $("talk-composer").addEventListener("submit", event => {
+        event.preventDefault();
+        const text = talkCommand.value.trim();
+        if (!text) {
+            composerNote.textContent = "相談や指示を入力してください。";
+            talkCommand.focus();
+            return;
+        }
+        // 返答待ちの間は、ダッシュボードの入力欄を書き換えず、入力した文もこの欄に残す。
+        if ((typeof commandInFlight !== "undefined" && commandInFlight) || commandButton.disabled) {
+            composerNote.textContent = "AI将軍の返答を待っています。返答のあとに送ってください。";
+            return;
+        }
+        commandInput.value = text;
+        commandButton.click();
+        // 既存の送信処理は、送り始めるとすぐ返答待ち（commandInFlight）になる。返答待ちでなければ送っていない。
+        if (!commandInFlight) {
+            composerNote.textContent = "送信を始められませんでした。入力した文はそのままです。";
+            return;
+        }
+        composerSent = text;
+        composerNote.textContent = "送信しました。AI将軍の返答を待っています。";
+    });
+    // 送信が終わると、既存の送信処理（app.js の sendCommand）が結果（成功・失敗）を知らせる。その結果に合わせて欄と案内を整える。
+    // 入力欄が空かどうかからは判断しない（返答待ちの間に、ダッシュボードの入力欄が書き換えられることがあるため）。
+    window.addEventListener("senninsyou:command-result", event => {
+        if (composerSent === null) return;
+        const sent = composerSent;
+        composerSent = null;
+        const current = talkCommand.value.trim();
+        if (event.detail?.ok === true) {
+            if (current === sent) talkCommand.value = "";
+            composerNote.textContent = "";
+            return;
+        }
+        if (current === "") {
+            talkCommand.value = sent;
+            composerNote.textContent = "送信できませんでした。送れなかった文を入力欄に戻しました。直して、もう一度送れます。";
+        } else if (current === sent) {
+            composerNote.textContent = "送信できませんでした。入力欄の文を直して、もう一度送れます。";
+        } else {
+            composerNote.textContent = `送信できませんでした。入力中の文はそのままです。送れなかった文：「${sent}」`;
+        }
+    });
+
+    // ===== 承認が必要な操作（既存の承認カードの写し） =====
+    // app.js は承認カードを出すとき、デモ表示の承認欄（#demo-approval）にも同じ操作を出す。その欄の表示を写し、
+    // 「実行する」「やめる」はその欄のボタンを押す（＝ダッシュボードの承認カードの同じボタンを押す）。ここでは操作を作らない。
+    const demoApproval = $("demo-approval"), demoApprovalText = $("demo-approval-text");
+    const demoApprove = $("demo-approve"), demoDecline = $("demo-decline");
+    const talkApproval = $("talk-approval"), talkApprovalText = $("talk-approval-text"), talkApprovalButtons = $("talk-approval-buttons");
+    const talkApprovalTitle = $("talk-approval-title");
+    const talkApprove = $("talk-approve"), talkDecline = $("talk-decline");
+    const talkApprovalTarget = $("talk-approval-target"), talkApprovalTheme = $("talk-approval-theme"), talkApprovalAudience = $("talk-approval-audience");
+    const NO_APPROVAL_TEXT = "現在、承認待ちの操作はありません。";
+    const headApproval = $("talk-head-approval");
+    headApproval.addEventListener("click", () => {
+        talkApproval.scrollIntoView({ block: "center", behavior: reduced ? "auto" : "smooth" });
+        if (!talkApprove.disabled) talkApprove.focus({ preventScroll: true });
+    });
+    talkApprove.addEventListener("click", () => { if (!demoApproval.hidden && !demoApprove.disabled) demoApprove.click(); });
+    talkDecline.addEventListener("click", () => { if (!demoApproval.hidden && !demoDecline.disabled) demoDecline.click(); });
+    // 承認カードを開く：ダッシュボードへ移り、いちばん新しい承認カードを見える位置に出す。
+    $("talk-approval-open").addEventListener("click", () => {
+        showDashboard();
+        const cards = document.querySelectorAll("#ai-response .action-approval");
+        cards[cards.length - 1]?.scrollIntoView({ block: "center", behavior: reduced ? "auto" : "smooth" });
+    });
+    const syncApproval = () => {
+        const shown = !demoApproval.hidden;
+        const approved = shown && demoApproval.classList.contains("is-approved");
+        talkApproval.dataset.pending = String(shown && !approved);
+        talkApproval.dataset.approved = String(approved);
+        talkApprovalText.textContent = shown ? demoApprovalText.textContent : NO_APPROVAL_TEXT;
+        // 執筆の承認の対象（テーマ・想定読者）。承認カードと同じ値で、実行もこの値で行われる。文字として出す。
+        const hasTarget = shown && Boolean(demoApproval.dataset.theme || demoApproval.dataset.audience);
+        talkApprovalTarget.hidden = !hasTarget;
+        talkApprovalTheme.textContent = hasTarget ? (demoApproval.dataset.theme || "（記載なし）") : "";
+        talkApprovalAudience.textContent = hasTarget ? (demoApproval.dataset.audience || "（記載なし）") : "";
+        talkApprovalButtons.hidden = !shown;
+        // 見出しも実際の状態に合わせる（承認待ち・承認した直後の実行中・待ちなし）。
+        talkApprovalTitle.textContent = approved ? "承認しました（実行中）" : shown ? "あなたの承認が必要です" : "承認が必要な操作";
+        talkApprove.disabled = demoApprove.disabled;
+        talkDecline.disabled = demoDecline.disabled;
+        // 承認待ちの間は、上部にも金色の案内を出す（押すと承認欄へ移る）。
+        headApproval.hidden = !(shown && !approved);
+    };
+    new MutationObserver(syncApproval).observe(demoApproval, { attributes: true, attributeFilter: ["hidden", "class", "data-theme", "data-audience"] });
+    new MutationObserver(syncApproval).observe(demoApprovalText, { childList: true, characterData: true, subtree: true });
+    for (const button of [demoApprove, demoDecline]) {
+        new MutationObserver(syncApproval).observe(button, { attributes: true, attributeFilter: ["disabled"] });
+    }
+    syncApproval();
+
     // ===== 字幕（デモ表示の字幕を写す。話者は「あなた」と、AI側は読み上げている発言の話者） =====
     // AI側の話者名は、app.js が字幕に付けた話者（ハル・ガク・AI将軍（確認））を写す。話者がない文は「AI将軍」。
     const userLine = $("demo-user-line"), aiLine = $("demo-ai-line");
@@ -219,10 +337,24 @@
         });
         return span;
     }
+    // 記録の取得の結果。未取得（まだ一度も届いていない）・取得できない・取得済みを分けて出す。記録がないことは各欄に出す。
+    const fetchState = $("talk-fetch-state");
+    const pad = n => String(n).padStart(2, "0");
+    function showFetchState(agents, activities) {
+        const failed = [agents, activities].filter(value => value === null).length;
+        const now = new Date();
+        fetchState.textContent = failed === 2 ? UNAVAILABLE_TEXT
+            : failed === 1 ? "一部取得できません"
+            : `取得済み（${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}）`;
+        fetchState.dataset.fetch = failed === 0 ? "ok" : "failed";
+    }
     window.renderTalkPanels = (agents, activities) => {
         const agentBox = $("talk-agents"), logBox = $("talk-log");
+        showFetchState(agents, activities);
         if (agents === null) {
             agentBox.textContent = UNAVAILABLE_TEXT;
+        } else if (agents.length === 0) {
+            agentBox.textContent = "AI社員の記録がありません。";
         } else {
             agentBox.replaceChildren(...agents.map(agent => {
                 const row = document.createElement("div");
@@ -377,7 +509,19 @@
         if (now - lastTextAt > 200) {
             lastTextAt = now;
             const state = typeof currentVoiceState === "string" ? currentVoiceState : "idle";
-            $("talk-state").textContent = (typeof VOICE_STATE_LABELS === "object" && VOICE_STATE_LABELS[state]) || "待機中";
+            const stateLabel = (typeof VOICE_STATE_LABELS === "object" && VOICE_STATE_LABELS[state]) || "待機中";
+            $("talk-state").textContent = stateLabel;
+            // 上部の会話の状態と、印の色（読み上げ中は話者の色。エラーは赤）。点滅はさせない。
+            $("talk-head-state").textContent = stateLabel;
+            panel.dataset.mode = state === "error" ? "error" : mode;
+            panel.dataset.speaker = mode === "speaking" ? aiSpeaker() : "";
+            // ハル・ガクの視点：読み上げている発言の話者だけ「読み上げ中」にする。
+            for (const [speaker, id] of [["ハル", "talk-haru-state"], ["ガク", "talk-gaku-state"]]) {
+                const speaking = mode === "speaking" && aiSpeaker() === speaker;
+                const label = $(id);
+                label.textContent = speaking ? "読み上げ中" : "待機";
+                label.parentElement.classList.toggle("is-speaking", speaking);
+            }
             $("talk-source").textContent = `反応の元：${SOURCE_TEXT[source]}`;
             $("talk-diag").textContent = source !== "mic" ? (audio.stream ? "見た目用のマイク：オン（いまは演出で動いています）" : "見た目用のマイク：オフ")
                 : level.calibrating ? "周囲の音を測っています（0.8秒）"

@@ -6,16 +6,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project 千人将 | ダッシュボード</title>
 
-    <link rel="stylesheet" href="/style.css?v=20261025-1">
+    <link rel="stylesheet" href="/style.css?v=20261116-2">
 </head>
 
 <body>
 
     <aside>
-        <div class="brand-copy">
-            <h1>千人将</h1>
-            <p>ONE-PERSON AI OS</p>
-        </div>
+        <!-- 左上のロゴ：押すとホーム（最初に開く画面＝ダッシュボード）へ戻る。新しいタブで開く操作では / を開く。 -->
+        <a class="brand-home" href="/" aria-label="千人将のホームへ戻る" title="ホームに戻る">
+            <span class="brand-mark" aria-hidden="true"><span class="brand-mark-top"></span><span class="brand-mark-cross"></span><span class="brand-mark-stem"></span><span class="brand-mark-joint"></span></span>
+            <div class="brand-copy">
+                <h1>千人将</h1>
+                <p>ONE-PERSON AI OS</p>
+            </div>
+        </a>
 
         <nav aria-label="主要メニュー">
             <button class="nav-button active" type="button" data-page="command" aria-current="page">
@@ -315,45 +319,108 @@
             </div>
         </section>
 
-        <!-- 会話画面。表示は talk-visual.js が受け持つ。会話の処理（聞き取り・送信・承認・報告）は今までどおり app.js。 -->
-        <section class="page-panel talk-panel" data-page-panel="talk" hidden>
+        <!-- 会話画面（ブラック×シャンパン）。表示は talk-visual.js が受け持つ。会話の処理（聞き取り・送信・承認・報告）は今までどおり app.js。 -->
+        <!-- 並び：音声会話と文字の入力を上に置き、その下に左：オーブとハル・ガク、右：直前の会話（字幕）と承認、最後にAI社員と実行ログ。スマートフォンでは上から1列に並べる。 -->
+        <section class="page-panel talk-panel" data-page-panel="talk" data-mode="idle" hidden>
+            <div class="talk-heading">
+                <p class="talk-heading-title">AI将軍と話す</p>
+                <button id="talk-head-approval" class="talk-action talk-soft" type="button" hidden>承認内容を確認</button>
+            </div>
+            <!-- 音声会話：既存の「音声会話を開始」を押すのと同じ。状態は app.js の状態を読むだけ。 -->
+            <section class="talk-session" aria-label="音声会話の操作">
+                <div class="talk-session-copy">
+                    <strong>音声会話</strong>
+                    <p class="talk-session-state"><span class="talk-dot" aria-hidden="true"></span><span id="talk-head-state">待機中</span></p>
+                </div>
+                <button id="talk-session-toggle" class="talk-action talk-primary" type="button">💬 音声会話を開始</button>
+            </section>
+            <p id="talk-voice-status" class="talk-note talk-voice-status" role="status"></p>
+            <!-- 文字の入力：入力した文をダッシュボードの既存の入力欄に入れ、既存の「将軍と話す」を押す（送信の処理は作らない）。 -->
+            <form id="talk-composer" class="talk-composer" aria-label="文字で相談・指示する">
+                <label class="talk-sr" for="talk-command">AI将軍への相談・指示</label>
+                <input id="talk-command" type="text" placeholder="相談や指示を入力…" autocomplete="off">
+                <button id="talk-send" class="talk-action talk-soft" type="submit">送信</button>
+            </form>
+            <p id="talk-composer-note" class="talk-note talk-composer-note" role="status"></p>
             <div class="talk-layout">
-                <section class="talk-side" aria-labelledby="talk-agents-title">
-                    <h3 id="talk-agents-title">AI社員の状態</h3>
-                    <div id="talk-agents" class="talk-agents">読み込み中...</div>
-                </section>
-                <div class="talk-stage">
+                <section class="talk-stage" aria-label="AI将軍とハル・ガク">
                     <canvas id="talk-orb" class="talk-orb" aria-hidden="true"></canvas>
                     <div class="talk-state-area">
+                        <p class="talk-chief">AI将軍</p>
                         <p id="talk-state" class="talk-state">待機中</p>
                         <div class="talk-meter" aria-hidden="true"><span id="talk-meter"></span></div>
                         <p id="talk-source" class="talk-source">反応の元：なし</p>
                         <p id="talk-diag" class="talk-source">見た目用のマイク：オフ</p>
                         <p id="talk-work" class="talk-work" hidden></p>
                     </div>
-                    <div class="talk-subtitles" aria-live="polite">
-                        <p class="talk-sub"><span class="talk-sub-who talk-sub-you">あなた</span><span id="talk-sub-user"></span></p>
-                        <p class="talk-sub"><span id="talk-sub-ai-who" class="talk-sub-who talk-sub-ai">AI将軍</span><span id="talk-sub-ai"></span></p>
+                    <!-- ハル・ガクは別々のAIではなく、AI将軍の返答の中の判断の視点。読み上げ中の話者を示すだけ。 -->
+                    <div class="talk-personas" aria-label="判断の視点">
+                        <div class="talk-persona" data-speaker="ハル">
+                            <b><em>HARU</em>ハル</b>
+                            <small>事業の視点</small>
+                            <span id="talk-haru-state" class="talk-persona-state">待機</span>
+                        </div>
+                        <div class="talk-persona" data-speaker="ガク">
+                            <b><em>GAKU</em>ガク</b>
+                            <small>技術の視点</small>
+                            <span id="talk-gaku-state" class="talk-persona-state">待機</span>
+                        </div>
                     </div>
-                </div>
-                <section class="talk-side" aria-labelledby="talk-log-title">
-                    <h3 id="talk-log-title">直近の実行ログ</h3>
-                    <div id="talk-log" class="talk-log">読み込み中...</div>
+                    <p class="talk-persona-note">どちらもAI将軍の返答の中の視点です。別のAIではありません。</p>
+                    <div class="talk-visual-controls">
+                        <button id="talk-mic-toggle" class="talk-action talk-quiet" type="button" aria-pressed="false">🎚 声に反応させる</button>
+                        <label class="talk-sensitivity">感度
+                            <select id="talk-sensitivity">
+                                <option value="low" selected>低め</option>
+                                <option value="std">標準</option>
+                                <option value="high">高め</option>
+                            </select>
+                        </label>
+                    </div>
+                    <p id="talk-notice" class="talk-note">「声に反応させる」は見た目のためだけのマイクです。声の大きさを端末の中で数値にするだけで、録音・保存・送信はしません。音声認識や送信には使いません。音声会話の聞き取りは「音声会話を開始」で、今までどおり動きます。</p>
                 </section>
+                <div class="talk-deck">
+                    <section class="talk-messages" aria-labelledby="talk-messages-title">
+                        <h3 id="talk-messages-title" class="talk-section-label">直前の会話</h3>
+                        <div class="talk-subtitles" aria-live="polite">
+                            <p class="talk-sub talk-sub-user-row"><span class="talk-sub-who talk-sub-you">あなた</span><span id="talk-sub-user"></span></p>
+                            <p class="talk-sub talk-sub-ai-row"><span id="talk-sub-ai-who" class="talk-sub-who talk-sub-ai">AI将軍</span><span id="talk-sub-ai"></span></p>
+                        </div>
+                        <button id="talk-replay" class="talk-text-action" type="button" hidden>🔊 返答をもう一度聞く</button>
+                    </section>
+                    <!-- 承認待ちの操作。ダッシュボードの承認カードと同じ処理（実行・やめる）を呼ぶ。ここでは操作を作らない。表示は実際の承認の状態に合わせる。 -->
+                    <section id="talk-approval" class="talk-approval" aria-labelledby="talk-approval-title" data-pending="false">
+                        <p id="talk-approval-title" class="talk-approval-title">承認が必要な操作</p>
+                        <p id="talk-approval-text" class="talk-approval-text">現在、承認待ちの操作はありません。</p>
+                        <!-- 執筆の承認の対象。承認カードと同じ値（実行に使う値）を出す。 -->
+                        <dl id="talk-approval-target" class="talk-approval-target" hidden>
+                            <dt>テーマ</dt><dd id="talk-approval-theme"></dd>
+                            <dt>想定読者</dt><dd id="talk-approval-audience"></dd>
+                        </dl>
+                        <div id="talk-approval-buttons" class="talk-approval-buttons" hidden>
+                            <button id="talk-approve" class="talk-action talk-primary" type="button">実行する</button>
+                            <button id="talk-decline" class="talk-action talk-quiet" type="button">やめる</button>
+                            <button id="talk-approval-open" class="talk-action talk-quiet" type="button">承認カードを開く</button>
+                        </div>
+                    </section>
+                </div>
             </div>
-            <div class="talk-controls">
-                <button id="talk-session-toggle" class="secondary-button" type="button">💬 音声会話を開始</button>
-                <button id="talk-mic-toggle" class="secondary-button" type="button" aria-pressed="false">🎚 声に反応させる</button>
-                <label class="talk-sensitivity">感度
-                    <select id="talk-sensitivity">
-                        <option value="low" selected>低め</option>
-                        <option value="std">標準</option>
-                        <option value="high">高め</option>
-                    </select>
-                </label>
-            </div>
-            <p id="talk-voice-status" class="talk-note" role="status"></p>
-            <p id="talk-notice" class="talk-note">「声に反応させる」は見た目のためだけのマイクです。声の大きさを端末の中で数値にするだけで、録音・保存・送信はしません。音声認識や送信には使いません。音声会話の聞き取りは「音声会話を開始」で、今までどおり動きます。</p>
+            <details class="talk-context" open>
+                <summary>AI社員・実行ログ</summary>
+                <div class="talk-context-content">
+                    <section class="talk-side" aria-labelledby="talk-agents-title">
+                        <h3 id="talk-agents-title">AI社員の状態</h3>
+                        <p class="talk-caption">司令本部の記録から表示</p>
+                        <div id="talk-agents" class="talk-agents">読み込み中...</div>
+                    </section>
+                    <section class="talk-side" aria-labelledby="talk-log-title">
+                        <h3 id="talk-log-title">直近の実行ログ</h3>
+                        <p class="talk-caption">時刻・担当・処理・結果（時刻は記録のまま）</p>
+                        <div id="talk-log" class="talk-log">読み込み中...</div>
+                        <p class="talk-fetch"><span>記録の取得</span><strong id="talk-fetch-state">未取得</strong></p>
+                    </section>
+                </div>
+            </details>
         </section>
 
         <section class="page-panel hud-panel" data-page-panel="command">
@@ -725,8 +792,8 @@
         </section>
     </main>
 
-        <script src="/app.js?v=20261118-1"></script>
-        <script src="/talk-visual.js?v=20261025-1"></script>
+        <script src="/app.js?v=20261118-2"></script>
+        <script src="/talk-visual.js?v=20261116-3"></script>
 </body>
 
 </html>

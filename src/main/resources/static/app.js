@@ -842,6 +842,8 @@ async function sendCommand(mode = "discuss", options = {}) {
     const commandButton = document.getElementById("command-button");
     const proposalButton = document.getElementById("propose-task-button");
     const status = document.getElementById("command-status");
+    // 送信の結果（成功・失敗）。終わったときに知らせる（会話画面の入力欄が使う）。
+    let sendSucceeded = false;
     commandInFlight = true;
     commandButton.disabled = true;
     proposalButton.disabled = true;
@@ -935,6 +937,7 @@ async function sendCommand(mode = "discuss", options = {}) {
         }
 
         if (mode !== "propose") input.value = "";
+        sendSucceeded = true;
 
     } catch (error) {
         setVoiceState("error", "AI将軍の返答を取得できませんでした。もう一度試してください。");
@@ -950,6 +953,8 @@ async function sendCommand(mode = "discuss", options = {}) {
         document.getElementById("ai-response").classList.remove("is-thinking");
         // 読み上げが始まる場合は、その中で回答中へ切り替える。
         if (voiceOrb.dataset.voiceState === "thinking") setVoiceState("idle");
+        // 送った発言と結果を知らせる。知らせるだけで、送り直しなどはしない。
+        window.dispatchEvent(new CustomEvent("senninsyou:command-result", { detail: { ok: sendSucceeded, command, mode } }));
     }
 }
 
@@ -1093,7 +1098,9 @@ function renderActionApproval(container, data) {
     actions.append(run, cancel);
     card.append(heading, title, detail, actions, status);
     container.appendChild(card);
-    showDemoApproval(ACTION_DESCRIPTIONS[action], run, cancel);
+    // 執筆は、承認の対象（テーマ・想定読者）も渡す。会話画面の承認欄が表示する。実行するのはこの data の値。
+    showDemoApproval(ACTION_DESCRIPTIONS[action], run, cancel,
+        action === "startWriting" ? { theme: data.actionTheme ?? "", audience: data.actionAudience ?? "" } : null);
 }
 
 async function runWritingAction(data) {
@@ -2011,6 +2018,14 @@ function showPage(page) {
     window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+// 左上のロゴ：押すとホーム（最初に開く画面＝ダッシュボード）へ戻る。ページを読み込み直さないので、音声会話などは続く。
+// Ctrl・Shift などを押しながらのクリックや中ボタンは、ブラウザの普段の動き（/ を新しいタブなどで開く）に任せる。
+document.querySelector(".brand-home")?.addEventListener("click", event => {
+    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    showPage("command");
+});
+
 const noteStageNames = ["企画", "制作", "公開", "販売", "実績"];
 const noteNextActions = {
     "企画": "誰に何を売るかを決め、需要・競合・価格の仮説を確認する。",
@@ -2442,7 +2457,11 @@ function renderDemo(agents, activities) {
 }
 
 // デモ表示の中で承認できるようにする。実行は通常画面の承認カードと同じ処理を使う。
-function showDemoApproval(label, runButton, cancelButton) {
+// target は承認の対象（執筆のテーマ・想定読者）。デモ表示の承認欄には出さず、data 属性に置く（会話画面の承認欄が表示する）。
+function showDemoApproval(label, runButton, cancelButton, target = null) {
+    const box = document.getElementById("demo-approval");
+    box.dataset.theme = target?.theme ?? "";
+    box.dataset.audience = target?.audience ?? "";
     const approve = document.getElementById("demo-approve");
     const decline = document.getElementById("demo-decline");
     document.getElementById("demo-approval-text").textContent = label;
