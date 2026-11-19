@@ -466,6 +466,31 @@ L-1「選んだ収益機会の根拠から、将軍が次の一手を提案す�
 - L-1 の根拠の読み取りは、1本の接続で読み取り専用・REPEATABLE READ の1つのトランザクション（模擬試験だけで確認。本物のPostgreSQLでの動きは未確認）
 - L-1 の実行記録（ai_activities）の開始と完了は別々の書き込みで、1つのトランザクションにはまとめていない
 - 範囲・方法・検証の進め方は未決定。本番DBへの書き込みを伴う検証は、別に承認を得てから行う
+- その後（2026-11-20）：L-1 の根拠の読み取りを、ローカルの試験専用の PostgreSQL で確かめた。すぐ下の記録を参照。ACID全体の整理は未着手のまま
+
+L-1 の根拠の読み取り：本物の PostgreSQL での検証と、作業時間合計の型の修正（2026-11-20、未コミット・未push・main未反映・本番未反映）：
+- 作業ブランチ：検証用は work/nextmove-pg-verify（作業フォルダ C:\Development\senninsyou-nextmove-pg）、修正用は work/nextmove-sum-fix（作業フォルダ C:\Development\senninsyou-nextmove-fix）。どちらも main e4ec935 から作成。検証用の試験3ファイルを修正用へ引き継いだ。検証用の作業フォルダはそのまま残している
+- 試験用のDB（ローカル。本番・Neonにはつながない）：
+  - PostgreSQL 17.12（EDB の zip 版。postgresql-17.12-2-windows-x64-binaries.zip、386,262,342バイト、SHA-256 520c8c6f19abb3b31fa83ec5e486e2f769eedd7593d94e60a7cda8a5bfb4df91。get.enterprisedb.com の公開値と一致、署名は EnterpriseDB Corporation で有効。記録：C:\Development\pg-download\PROVENANCE.txt）
+  - 127.0.0.1:55432 だけで待ち受け、DBは senninsyou_nextmove_it。Windowsのサービスには登録せず、試験のときだけ起動し、終わったら停止
+  - 接続先の守り（PostgresItConfig）：接続先は環境変数 SENNINSYOU_PG_IT_URL・_USER・_PASSWORD だけから読み、127.0.0.1 のこの試験専用DB以外は接続前に拒否する。DATABASE_URL などの本番の設定には切り替えない。接続後もサーバー側でDB名と接続先を確かめる。パスワードはメッセージに出さない
+  - 実DBの試験 NextMovePostgresIT は、名前で指定したときだけ流れる（mvn -Dtest=NextMovePostgresIT test）。指定したのに設定がないときは、スキップせず失敗にする（確認済み：設定なし・localhost 指定とも1件エラーで失敗、11/20 00:02）
+- 見つかった不具合（検証用ブランチ、修正前の読み取りで実DBの試験8件中6件が不合格。失敗1・エラー5、11/20 00:03）：作業時間合計 SUM(work_minutes) は PostgreSQL では bigint になるが、Integer で読んでいたため、収益記録が1件以上ある任務では読み取りが毎回失敗していた（pgjdbc の「int8 から Integer への変換はサポートされていません」）。偽のDBは合計を Integer で返していたので、模擬試験では見つからなかった
+- 修正（範囲は、この型の読み取りと関係する試験だけ。ダッシュボード・実行ログ・ほかの読み取りは変えていない）：
+  - NextMoveEvidenceReader：作業時間合計を Long で読み、Math.toIntExact で Integer に変える。収益記録0件のときの未記録（null）はそのまま。Integer の範囲を超えたら切り捨てずに取得失敗にし、呼び出し元は今までどおりAIを呼ばない
+  - 偽のDB（NextMoveFakeDatabase）：件数と作業時間合計を本物と同じ Long で返し、要求された型で値を返す（integer は Long でも読めるが、Long を Integer では読めず例外。合わない型を黙って変えない）
+  - 実DBの試験に境界の2件を追加：Integer の上限ちょうど（2,147,483,647分）は正しい値で読める。上限＋1（2,147,483,648分）は取得失敗で、トランザクションは残らず、L-1 の処理ではAIの呼び出し0回・AIの設定の確認0回・実行記録の開始0回、接続は閉じる
+- 最終の修正版での結果（3つとも同じファイルで実行。実行後も5ファイルの SHA-256 が一致）：
+  - mvn clean compile：成功（11/20 00:35）
+  - 通常のJavaの試験（mvn clean test、DBなし）：148件合格、失敗0・エラー0・スキップ0（11/20 00:36）。既存144件と PostgresItConfigTest 4件。NextMovePostgresIT は含まれない
+  - 実DBの試験（NextMovePostgresIT）：10件合格、失敗0・エラー0・スキップ0（11/20 00:36、PostgreSQL 17.12）。内訳：もう1本の接続が途中で確定しても同じ時点のデータを読む 2件、分離レベルを READ COMMITTED に弱めた比較版で混ざりを検出する 2件、未記録と0円の区別 1件、失敗したときの取り消し・トランザクションが残らないこと・AIと実行記録が0回 2件、AIを呼ぶ前に接続を閉じる 1件、作業時間の境界 2件
+- 修正前との比較（修正前の読み取りに一時的に戻して実行し、そのあと修正版に戻して SHA-256 の一致を確認）：
+  - 修正前の読み取りと直した偽のDB：NextMoveServiceTest 24件中17件が不合格（失敗16・エラー1、11/20 00:33）。直した偽のDBで、この不具合を見つけられる
+  - 修正前の読み取りでの実DBの試験：10件中8件が不合格（失敗2・エラー6、11/20 00:34）。上限＋1の試験は、範囲の超過ではなく型の変換のエラーで失敗
+- 試験のあと、ローカルのDBは停止（待ち受けの55432は閉じ、postgres のプロセス0、サービス0）。git diff --check は問題なし
+- 記録（リポジトリの外）：修正は C:\Development\tmp-shots\nextmove-fix-logs（final-mvn-clean-compile.log、final-mvn-clean-test-normal.log、final-it.log、final-it-report.xml、final-hashes.txt、regression-old-reader-new-fake.log、regression-it-old-reader.log）、検証は C:\Development\tmp-shots\nextmove-pg-logs（it-run1.log、it-without-settings.log、it-rejected-localhost.log）
+- Codexのレビュー（2026-11-20、本人の報告）：コード・ログ・ハッシュを照合。追加の修正の指摘なし。**試験の独立再実行は未実施**
+- **未確認**：試験の独立再実行、本番スキーマとの一致（試験の tasks 表は簡略版。database/001〜003 の表はリポジトリのDDLから作成）、永続性・障害復旧、ACID全体、本番DB（Neon）での動き、CI（未push）。この不具合が本番で起きていたかは**推測**（本番確認の機会6は任務未登録で、合計を読む処理を通っていない）
 
 ### 1-3. JARVIS型の作業分解
 

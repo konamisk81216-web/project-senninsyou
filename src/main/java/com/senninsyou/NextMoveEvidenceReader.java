@@ -138,8 +138,9 @@ final class NextMoveEvidenceReader {
                 totalRevenue = recorded ? required(result.getBigDecimal("total_revenue"), "売上合計") : null;
                 totalExpense = recorded ? required(result.getBigDecimal("total_expense"), "直接経費合計") : null;
                 totalProfit = recorded ? required(result.getBigDecimal("total_profit"), "案件利益合計") : null;
+                // SUM(work_minutes) は PostgreSQL では bigint なので Long で読み、Integer に収まるときだけ変換する。
                 totalWorkMinutes = recorded
-                        ? required(result.getObject("total_work_minutes", Integer.class), "作業時間合計") : null;
+                        ? toInteger(required(result.getObject("total_work_minutes", Long.class), "作業時間合計"), "作業時間合計") : null;
             }
         }
 
@@ -169,6 +170,15 @@ final class NextMoveEvidenceReader {
         }
         return new NextMoveEvidence.RevenuePart(
                 count, totalRevenue, totalExpense, totalProfit, totalWorkMinutes, List.copyOf(recent));
+    }
+
+    // Integer の範囲を超えたら、切り捨てたり丸めたりせず、取得失敗にする（呼び出し元は AI を呼ばない）。
+    private static Integer toInteger(Long value, String name) throws SQLException {
+        try {
+            return Math.toIntExact(value);
+        } catch (ArithmeticException e) {
+            throw new SQLException(name + "がIntegerの範囲を超えています。", e);
+        }
     }
 
     private static <T> T required(T value, String name) throws SQLException {

@@ -122,13 +122,14 @@ final class NextMoveFakeDatabase {
             case "revenueTotal" -> {
                 List<RevenueRow> matched = revenues.stream().filter(r -> r.taskId() == key).toList();
                 Map<String, Object> row = new HashMap<>();
-                row.put("record_count", matched.size());
+                // 本物の PostgreSQL と同じ型で返す：COUNT(*) と SUM(integer) は bigint（Java では Long）。
+                row.put("record_count", (long) matched.size());
                 // 本物のSQLと同じく、0件なら合計は NULL。
                 row.put("total_revenue", matched.isEmpty() ? null : BigDecimal.valueOf(matched.stream().mapToInt(RevenueRow::revenue).sum()));
                 row.put("total_expense", matched.isEmpty() ? null : BigDecimal.valueOf(matched.stream().mapToInt(RevenueRow::expense).sum()));
                 row.put("total_profit", matched.isEmpty() ? null
                         : BigDecimal.valueOf(matched.stream().mapToInt(r -> r.revenue() - r.expense()).sum()));
-                row.put("total_work_minutes", matched.isEmpty() ? null : matched.stream().mapToInt(RevenueRow::workMinutes).sum());
+                row.put("total_work_minutes", matched.isEmpty() ? null : matched.stream().mapToLong(RevenueRow::workMinutes).sum());
                 rows.add(row);
             }
             default -> {
@@ -175,9 +176,24 @@ final class NextMoveFakeDatabase {
                         case "getInt" -> value == null ? 0 : ((Number) value).intValue();
                         case "getBigDecimal" -> (BigDecimal) value;
                         case "getDate" -> (Date) value;
-                        case "getObject" -> value == null ? null : ((Number) value).intValue();
+                        case "getObject" -> typed(value, (Class<?>) args[1]);
                         default -> throw new UnsupportedOperationException(method.getName());
                     };
                 });
+    }
+
+    // getObject(列, 型)：要求された型で返す。本物のドライバ（pgjdbc）と同じく、integer は Long でも読めるが、
+    // bigint（Long）を Integer では読めない（例外）。合わない型を黙って変換しない。
+    private static Object typed(Object value, Class<?> type) throws SQLException {
+        if (value == null) {
+            return null;
+        }
+        if (type.isInstance(value)) {
+            return value;
+        }
+        if (type == Long.class && value instanceof Integer integer) {
+            return integer.longValue();
+        }
+        throw new SQLException(value.getClass().getSimpleName() + " から " + type.getSimpleName() + " への変換はサポートされていません（偽DB）。");
     }
 }
