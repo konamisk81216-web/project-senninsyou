@@ -14,7 +14,9 @@
     const check = (name, ok, detail = "") => results.push({ 試験: name, 判定: ok ? "合格" : "不合格", 詳細: typeof detail === "string" ? detail : JSON.stringify(detail) });
     const $ = id => document.getElementById(id);
     const text = id => $(id).textContent;
-    const panel = document.querySelector('[data-page-panel="talk"]');
+    // 会話の欄はダッシュボードに統合した（以前の「会話」画面）。showPage("talk") はダッシュボードの会話の欄へ案内する。
+    const panel = document.getElementById("talk-panel");
+    const details = document.getElementById("dash-details");
 
     // 読み上げの偽物（音は出さない）。
     const spoken = [];
@@ -92,11 +94,13 @@
         // B1：画面の構成。上部・左・中央・右・下部の要素があり、IDの重複がない。
         const ids = [...document.querySelectorAll("[id]")].map(element => element.id);
         const duplicated = ids.filter((id, index) => ids.indexOf(id) !== index);
-        const parts = ["talk-head-state", "talk-agents", "talk-orb", "talk-haru-state", "talk-gaku-state", "talk-log", "talk-sub-user", "talk-sub-ai",
-            "talk-session-toggle", "talk-command", "talk-send", "talk-replay", "talk-approval", "talk-head-approval", "talk-fetch-state"];
-        const missing = parts.filter(id => !panel.contains($(id)));
-        check("B1 画面の構成：上部の状態・AI社員・球体・ハル・ガク・ログ・字幕・開始ボタン・文字入力・承認欄が会話画面にある。IDの重複なし",
-            duplicated.length === 0 && missing.length === 0, { duplicated, missing });
+        // 会話の部品は会話の欄に、AI社員・ログ・記録の取得は下部の詳細にある（どちらもダッシュボード）。
+        const parts = ["talk-head-state", "talk-orb", "talk-haru-state", "talk-gaku-state", "talk-sub-user", "talk-sub-ai",
+            "talk-session-toggle", "talk-command", "talk-send", "talk-replay", "talk-approval", "talk-head-approval"];
+        const detailParts = ["talk-agents", "talk-log", "talk-fetch-state"];
+        const missing = [...parts.filter(id => !panel.contains($(id))), ...detailParts.filter(id => !details.contains($(id)))];
+        check("B1 画面の構成：上部の状態・球体・ハル・ガク・字幕・開始ボタン・文字入力・承認欄が会話の欄に、AI社員・ログ・記録の取得が下部の詳細にあり、どちらもダッシュボード。IDの重複なし",
+            duplicated.length === 0 && missing.length === 0 && panel.dataset.pagePanel === "command" && details.dataset.pagePanel === "command", { duplicated, missing });
 
         await loadCommandCenter();
         showPage("talk");
@@ -152,8 +156,12 @@
         const empty = [text("talk-agents"), text("talk-log")];
         agents = keepAgents; activities = keep;
         await loadCommandCenter();
-        const panelText = panel.textContent;
-        check("B4 記録の取得：取得済み（時刻）・一部取得できません・取得できません・記録なしを分けて出す。会話画面に金額・進捗率は出さない",
+        // 会話の欄（オーブ・状態・字幕・承認）と下部の詳細（AI社員・ログ）の表示に、金額・進捗率を出さない。
+        // 会話の全文（AI将軍の返答の原文）とクイックコマンドの固定の文言は、記録の表示ではないので対象から外す。
+        const shownRecords = panel.cloneNode(true);
+        shownRecords.querySelectorAll("#talk-history, .quick-commands").forEach(element => element.remove());
+        const panelText = shownRecords.textContent + details.textContent;
+        check("B4 記録の取得：取得済み（時刻）・一部取得できません・取得できません・記録なしを分けて出す。会話の欄と詳細に金額・進捗率は出さない",
             /^取得済み（\d\d:\d\d:\d\d）$/.test(ok[0]) && ok[1] === 2 && ok[2] === 1
             && JSON.stringify(partial) === JSON.stringify(["一部取得できません", "取得できません"])
             && JSON.stringify(failed) === JSON.stringify(["取得できません", "取得できません", "取得できません", "failed"])
@@ -167,7 +175,7 @@
         await loadCommandCenter();
         setDemoSubtitle(XSS, XSS, "");
         await wait(300);
-        const injected = panel.querySelectorAll("img").length;
+        const injected = panel.querySelectorAll("img").length + details.querySelectorAll("img").length + document.getElementById("dash-attention").querySelectorAll("img").length;
         check("B5 会話文・社員名・ログに含まれるタグは文字として出し、要素として作らない",
             injected === 0 && window.__bridgeXss === 0 && text("talk-sub-ai") === XSS && $("talk-agents").textContent.includes(XSS), { injected, xss: window.__bridgeXss });
         agents = keepAgents; activities = keep;
@@ -186,7 +194,7 @@
         await wait(1200);
         check("B7 提案が届くと承認欄に操作の説明と「実行する」「やめる」を出し、上部にも承認待ちの案内を出す。送信は1回、承認前は品質管理AIを実行しない。承認カードを会話画面に複製しない",
             commandPosts() === 1 && pendingView.pending === "true" && pendingView.text === description && pendingView.buttons && pendingView.head && pendingView.title === "あなたの承認が必要です" && $("talk-approval-target").hidden && qualityPosts() === 0
-            && document.querySelectorAll("#ai-response .action-approval").length === 1 && panel.querySelectorAll(".action-approval").length === 0,
+            && document.querySelectorAll("#ai-response .action-approval").length === 1 && document.querySelectorAll(".action-approval").length === 1,
             { commandPosts: commandPosts(), pendingView, qualityPosts: qualityPosts() });
 
         // B8：会話画面の「実行する」は、既存の承認カードの処理を1回だけ呼ぶ（連打しても1回）。
@@ -212,14 +220,15 @@
             && qualityPosts() === 1 && text("talk-approval-text") === "現在、承認待ちの操作はありません。",
             { commandPosts: commandPosts(), cardsBefore, cardsWithNew, after: document.querySelectorAll("#ai-response .action-approval").length, qualityPosts: qualityPosts() });
 
-        // B10：「承認カードを開く」はダッシュボードへ移り、承認カードを見える位置に出す（実行はしない）。
+        // B10：「承認カードを開く」は会話の全文を開き、承認カードを見える位置に出す（実行はしない）。
         await ask();
+        $("talk-history").open = false;
         $("talk-approval-open").click();
         await wait(600);
         const cards = document.querySelectorAll("#ai-response .action-approval");
         const lastCard = cards[cards.length - 1].getBoundingClientRect();
-        check("B10 「承認カードを開く」：ダッシュボードへ移り、いちばん新しい承認カードが画面内に見える。実行はしない",
-            panel.hidden && !document.querySelector('[data-page-panel="command"]').hidden && lastCard.top < innerHeight && lastCard.bottom > 0 && qualityPosts() === 1,
+        check("B10 「承認カードを開く」：会話の全文を開き、いちばん新しい承認カードが画面内に見える。実行はしない",
+            !panel.hidden && $("talk-history").open && !document.querySelector('[data-page-panel="command"]').hidden && lastCard.top < innerHeight && lastCard.bottom > 0 && lastCard.height > 0 && qualityPosts() === 1,
             { top: lastCard.top, bottom: lastCard.bottom, innerHeight, qualityPosts: qualityPosts() });
         cards[cards.length - 1].querySelector(".secondary-button").click();   // 片付け（やめる）
         await wait(100);
@@ -320,7 +329,8 @@
             { edited, cleared });
         await wait(300);
 
-        // B19：返答待ちの間にダッシュボードへ移り、その入力欄を空にしてから 503 になった場合。
+        // B19：返答待ちの間にほかの画面へ移り、既存の入力欄（画面には出していない）を空にしてから 503 になった場合。
+        // （会話はダッシュボードに統合したので、「離れる」はほかの画面へ移ることで再現する）
         // 結果は既存の送信処理が知らせる成功・失敗で判断する（ダッシュボードの入力欄が空でも、失敗は失敗）。会話画面の原文は残る。
         showPage("talk");
         await wait(200);
@@ -334,7 +344,7 @@
         $("talk-command").value = dashText;
         $("talk-composer").requestSubmit();
         await wait(30);
-        showPage("command");
+        showPage("tasks");
         $("command-input").value = "";
         $("command-input").dispatchEvent(new Event("input", { bubbles: true }));
         const duringWait = { inFlight: typeof commandInFlight !== "undefined" && commandInFlight, dashboard: $("command-input").value };
@@ -346,7 +356,7 @@
             results: results19, dashboard: $("command-input").value };
         commandFails = null;
         $("talk-command").value = "";
-        check("B19 返答待ちにダッシュボードへ移り、その入力欄を空にしてから503：送信処理の知らせ（失敗）で判断し、会話画面に原文が残る。送信は1回",
+        check("B19 返答待ちにほかの画面へ移り、既存の入力欄を空にしてから503：送信処理の知らせ（失敗）で判断し、会話の欄に原文が残る。送信は1回",
             duringWait.inFlight && duringWait.dashboard === ""
             && dashFailed.posts === 1 && dashFailed.input === dashText && dashFailed.note === "送信できませんでした。入力欄の文を直して、もう一度送れます。"
             && dashFailed.alerts === 1 && dashFailed.results.length === 1 && dashFailed.results[0].ok === false && dashFailed.results[0].command === dashText,
@@ -413,7 +423,8 @@
         if (typeof writerJobTimer !== "undefined") clearInterval(writerJobTimer);   // 片付け（偽の執筆の進み具合の確認を止める）
 
         // B16：左上のロゴは、押すとホーム（ダッシュボード）へ戻る。ページは読み込み直さない（会話の状態などはそのまま）。
-        showPage("talk");
+        // 会話の欄はダッシュボードの一部なので、ほかの画面から戻ると会話の欄も出る。
+        showPage("tasks");
         await wait(200);
         window.__bridgeNoReload = "kept";
         const logo = document.querySelector(".brand-home");
@@ -422,8 +433,8 @@
         const home = { href: logo.getAttribute("href"), label: logo.getAttribute("aria-label"), talkHidden: panel.hidden,
             commandShown: !document.querySelector('[data-page-panel="command"]').hidden, current: document.querySelector(".nav-button[aria-current=\"page\"]")?.dataset.page,
             title: text("page-title"), kept: window.__bridgeNoReload };
-        check("B16 左上のロゴ：押すとホーム（ダッシュボード）へ戻る。読み込み直さない。リンク先は /",
-            home.href === "/" && home.label === "千人将のホームへ戻る" && home.talkHidden && home.commandShown && home.current === "command" && home.title === "ダッシュボード" && home.kept === "kept", home);
+        check("B16 左上のロゴ：ほかの画面から押すとホーム（ダッシュボード）へ戻り、会話の欄も出る。読み込み直さない。リンク先は /",
+            home.href === "/" && home.label === "千人将のホームへ戻る" && !home.talkHidden && home.commandShown && home.current === "command" && home.title === "ダッシュボード" && home.kept === "kept", home);
         showPage("talk");
         await wait(300);
 

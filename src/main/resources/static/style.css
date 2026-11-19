@@ -1732,10 +1732,11 @@ body.demo-open { overflow: hidden; }
 .talk-composer input::placeholder { color: var(--tk-muted); }
 .talk-composer-note { margin: 8px 0 0; color: var(--tk-mint-soft-ink); overflow-wrap: anywhere; }
 
-/* 中段：左にオーブ、右に直前の会話と承認 */
-.talk-layout { display: grid; grid-template-columns: minmax(240px, 0.9fr) minmax(0, 1.35fr); grid-template-areas: "stage deck"; gap: 18px 28px; margin-top: 22px; align-items: start; }
+/* 会話の欄（ダッシュボードに統合）：PCは左にオーブ、中央に会話と入力、右に承認と次の行動。会話を読める広さを優先する */
+.talk-layout { display: grid; grid-template-columns: minmax(210px, 0.72fr) minmax(0, 1.6fr) minmax(250px, 0.88fr); grid-template-areas: "stage convo side"; gap: 18px 26px; align-items: start; }
 .talk-panel .talk-stage { grid-area: stage; min-width: 0; text-align: center; }
-.talk-deck { grid-area: deck; min-width: 0; display: grid; gap: 18px; }
+.talk-convo { grid-area: convo; min-width: 0; display: grid; gap: 0; align-content: start; }
+.talk-side-col { grid-area: side; min-width: 0; display: grid; gap: 18px; align-content: start; position: sticky; top: 16px; }
 .talk-orb { display: block; width: 100%; height: 250px; }
 .talk-state-area { display: grid; gap: 3px; justify-items: center; padding: 2px 0 6px; }
 .talk-chief { margin: 0; color: var(--tk-text); font-size: 17px; letter-spacing: 0.08em; font-weight: 600; }
@@ -1825,15 +1826,95 @@ body.demo-open { overflow: hidden; }
 .talk-tag[data-status="完了"] { --c: #75f39d; }
 .talk-tag[data-status="取得できません"] { --c: #6f6f7b; border-style: dotted; }
 
+/* ===== ダッシュボードに統合した会話の欄（ブラック×シャンパン・ミント・角丸11pxのまま。新しい色は足さない） ===== */
+.talk-panel h2.talk-heading-title { margin: 0; font-size: 14px; }
+.talk-panel .talk-session { padding: 0 0 14px; }
+.talk-panel .mic-indicator { margin: 2px 0 0; font-size: 12px; }
+.talk-panel .voice-interim { margin-top: 10px; background: var(--tk-surface); border-left-color: var(--tk-champagne); border-radius: var(--tk-radius); font-size: 15px; overflow-wrap: anywhere; }
+.talk-voice-live { display: flex; flex-wrap: wrap; gap: 8px; }
+.talk-voice-live:has(> :not([hidden])) { margin-top: 10px; }
+.talk-panel .talk-voice-live .talk-action { min-height: 40px; padding: 8px 14px; font-size: 14px; }
+.talk-panel .quick-commands { gap: 8px; margin-top: 10px; }
+.talk-panel .quick-command { min-height: 36px; padding: 6px 12px; font-size: 13px; border-radius: var(--tk-radius); background: var(--tk-surface); }
+.talk-panel .talk-messages { margin-top: 18px; }
+.talk-panel .command-status { margin: 0 0 8px; font-size: 14px; color: var(--tk-champagne); }
+#talk-sub-ai.is-clamped { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; line-clamp: 6; overflow: hidden; }
+.talk-panel .conversation-actions { margin-top: 10px; }
+.talk-panel .conversation-actions:not(:has(> :not([hidden]))) { display: none; }
+.talk-panel .conversation-actions button { border-radius: var(--tk-radius); min-height: 40px; }
+.talk-history { margin-top: 14px; border-top: 1px solid var(--tk-border); padding-top: 10px; }
+.talk-history > summary { color: var(--tk-muted); font-size: 14px; font-weight: 600; cursor: pointer; min-height: 32px; }
+.talk-history #ai-response { margin-top: 8px; max-height: min(70vh, 720px); overflow: auto; overflow-wrap: anywhere; padding-right: 4px; }
+.talk-next { display: grid; gap: 4px; }
+.talk-next-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.talk-next-head .talk-section-label { margin: 0; }
+.talk-panel .talk-next .hud-tasks { gap: 6px; }
+.talk-panel .talk-next .hud-task { background: var(--tk-surface); border-radius: 0 var(--tk-radius) var(--tk-radius) 0; overflow-wrap: anywhere; }
+.talk-log-row.is-new { border-left: 2px solid var(--tk-green); padding-left: 8px; }
+
+/* 上：いま確認すること（1行の短い表示。会話の操作を下へ押し出さない） */
+.talk-panel.dash-attention { padding: 12px 18px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
+.dash-attention-title { margin: 0; color: var(--tk-champagne); font-size: 13px; font-weight: 600; letter-spacing: 0.06em; }
+.dash-attention-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.dash-attention-list li { min-width: 0; max-width: 100%; }
+.talk-panel .dash-chip { display: inline-block; max-width: 100%; min-height: 32px; padding: 5px 12px; border: 1px solid var(--tk-border); border-radius: var(--tk-radius); background: var(--tk-surface);
+    color: var(--tk-text); font-size: 13px; line-height: 1.5; text-align: left; overflow-wrap: anywhere; cursor: default; }
+.talk-panel button.dash-chip { cursor: pointer; }
+.talk-panel button.dash-chip:hover { border-color: var(--tk-mint-line); }
+.talk-panel .dash-chip.is-alert { background: var(--tk-approval-bg); border-color: var(--tk-champagne); color: var(--tk-champagne); font-weight: 600; }
+.talk-panel .dash-chip.is-failed { border-color: var(--tk-red); color: var(--tk-red); }
+.talk-panel .dash-chip.is-check { border-style: dashed; border-color: #e0bd49; color: #e9d38a; }
+
+/* 中：前回からの変化と収支・活動（数字は1か所だけ。コンパクトに並べる） */
+.talk-panel h2.dash-zone-title { margin: 0 0 12px; color: var(--tk-champagne); font-size: 15px; letter-spacing: 0.04em; }
+.dash-summary .report-panel { margin: 0 0 14px; border-radius: var(--tk-radius); }
+.report-key p { font-weight: 600; }
+.report-details { margin-top: 6px; color: #e4e4e8; font-size: 14px; }
+.report-details summary { cursor: pointer; color: var(--tk-champagne); min-height: 28px; }
+.dash-summary .hud-numbers { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+.dash-summary .hud-number { border-radius: var(--tk-radius); padding: 10px 12px; background: var(--tk-surface); border-color: var(--tk-border); min-width: 0; }
+.dash-summary .hud-number span { font-size: 11px; line-height: 1.45; overflow-wrap: anywhere; }
+.dash-summary .hud-number strong { font-size: 18px; overflow-wrap: anywhere; }
+.dash-note { margin: 10px 0 0; color: var(--tk-muted); font-size: 12px; line-height: 1.6; }
+.dash-summary .battle-summary { margin-top: 12px; gap: 10px; }
+.dash-summary .battle-summary div { border-radius: var(--tk-radius); padding: 8px 12px; background: var(--tk-surface); border-color: var(--tk-border); display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.dash-summary .battle-summary span { margin: 0; font-size: 12px; }
+.dash-summary .battle-summary strong { font-size: 18px; }
+.dash-summary-links { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 10px; }
+
+/* 下：詳細（AI社員・実行ログは1つだけ。音声の設定は折りたたむ） */
+.dash-details .talk-context:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.voice-settings-content { display: grid; gap: 10px; }
+.voice-settings-content .voice-controls { margin-top: 0; }
+.voice-settings-content .voice-controls button { border-radius: var(--tk-radius); margin: 0; }
+.voice-settings-content .talk-visual-controls { justify-content: flex-start; margin-top: 0; }
+.talk-panel .dash-demo-open { margin: 16px 0 0; border-radius: var(--tk-radius); }
+
+@media (max-width: 1279px) {
+    .talk-layout { grid-template-columns: minmax(0, 1.5fr) minmax(250px, 1fr); grid-template-areas: "convo side" "stage side"; }
+    .dash-summary .hud-numbers { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 @media (max-width: 1000px) {
-    .talk-layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "deck" "stage"; }
+    /* 1列：音声会話・文字の入力・返答 → 承認と次の行動 → オーブの順（操作と承認を先に） */
+    .talk-layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "convo" "side" "stage"; }
+    .talk-side-col { position: static; }
     .talk-orb { height: 220px; }
 }
 @media (max-width: 700px) {
     .talk-panel { padding: 16px 14px 18px; }
+    /* いま確認することは1行にまとめ、入りきらない分は欄の中で横に送る（画面は横にはみ出さない）。全文は承認欄・報告・タスクにある */
+    .talk-panel.dash-attention { padding: 10px 14px; flex-wrap: nowrap; flex-direction: column; align-items: stretch; gap: 6px; }
+    .dash-attention-list { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; padding-bottom: 2px; }
+    .dash-attention-list li { flex: 0 0 auto; max-width: 78%; }
+    .talk-panel .dash-chip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; width: 100%; }
+    /* クイックコマンドは2列にして、返答と承認を押し下げない */
+    .talk-panel .quick-commands { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .talk-panel .quick-command { width: auto; min-height: 40px; padding: 6px 8px; overflow-wrap: anywhere; }
     .talk-context-content { grid-template-columns: minmax(0, 1fr); }
     .talk-orb { height: 200px; }
     .talk-sub { font-size: 16px; }
+    .dash-summary .hud-numbers { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .dash-summary .battle-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 480px) {
     .talk-panel .talk-session .talk-action { flex: 1 1 100%; margin-left: 0; }

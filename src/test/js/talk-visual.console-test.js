@@ -120,11 +120,13 @@
     });
 
     try {
+        // 会話の欄はダッシュボードに統合した。showPage("talk") はダッシュボードの会話の欄へ案内する。
+        // 「会話の欄を離れる」は、ほかの画面（タスク管理）へ移ることで再現する。
         await loadCommandCenter();
         showPage("talk");
         await wait(400);
         const canvas = document.getElementById("talk-orb");
-        check("V1 「会話」画面が開き、発光体を描き始める", T().running && canvas.width > 0 && canvas.height > 0 && !document.querySelector('[data-page-panel="talk"]').hidden,
+        check("V1 ダッシュボードの会話の欄が開き、発光体を描き始める", T().running && canvas.width > 0 && canvas.height > 0 && !document.getElementById("talk-panel").hidden,
             { running: T().running, size: [canvas.width, canvas.height] });
 
         // V2：会話の状態を読むだけで表示を切り替える（マイクはオフ）。
@@ -171,7 +173,7 @@
         const approvalCards = document.querySelectorAll("#ai-response .action-approval").length;
         check("V5 偽のAI返答：送信は1回、返答中は会話画面も「思考中」、字幕にAI将軍の返答、承認カードは今までどおりダッシュボード側に1つ",
             commandPosts === 1 && sawThinking && text("talk-sub-ai") === "偽の返答です。品質管理AIで採点できます。" && approvalCards === 1
-            && document.querySelectorAll('[data-page-panel="talk"] .action-approval').length === 0,
+            && document.querySelectorAll(".action-approval").length === 1,
             { commandPosts, sawThinking, ai: text("talk-sub-ai"), approvalCards });
         setVoiceState("idle");
         await wait(300);
@@ -212,9 +214,9 @@
         check("V8 読み上げ中はマイクがオンでも演出", text("talk-source") === "反応の元：演出（実測ではない）" && T().view.source === "show", text("talk-source"));
         setVoiceState("idle");
 
-        // V9：会話画面を離れると、見た目用のマイクを止める。
+        // V9：会話の欄を離れる（ほかの画面へ移る）と、見た目用のマイクを止める。
         const tracksBefore = T().micTracks;
-        showPage("command");
+        showPage("tasks");
         await wait(300);
         check("V9 会話画面を離れると見た目用のマイクを止め、描くのも止める", !T().micActive && !T().running && tracksBefore.includes("live"),
             { tracksBefore, micActive: T().micActive, running: T().running });
@@ -272,7 +274,7 @@
         let late0 = T().lateStreamsStopped;
         micButton.click();
         await wait(100);
-        showPage("command");
+        showPage("tasks");
         await wait(50);
         const leftWhilePending = { pending: T().micPending, active: T().micActive };
         await wait(1100);   // 許可が遅れて返る

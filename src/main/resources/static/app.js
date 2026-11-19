@@ -27,8 +27,6 @@ async function loadTasks() {
 
         taskList.innerHTML = "";
 
-        renderHeadquartersTasks(tasks);
-
         tasks.forEach(task => {
             const taskCard = document.createElement("div");
             taskCard.className = `task-card priority-${priorityClass(task.priority)}`;
@@ -184,38 +182,6 @@ function priorityClass(priority) {
     if (priority === "高") return "high";
     if (priority === "低") return "low";
     return "medium";
-}
-
-function renderHeadquartersTasks(tasks) {
-    const container = document.getElementById("hq-priority-tasks");
-    container.replaceChildren();
-
-    const priorityOrder = { "高": 0, "中": 1, "低": 2 };
-    const activeTasks = tasks
-        .filter(task => task.status !== "完了")
-        .sort((left, right) =>
-            (priorityOrder[left.priority] ?? 9) - (priorityOrder[right.priority] ?? 9))
-        .slice(0, 3);
-
-    if (activeTasks.length === 0) {
-        container.textContent = "現在、着手すべきタスクはありません。";
-        return;
-    }
-
-    activeTasks.forEach((task, index) => {
-        const item = document.createElement("article");
-        item.className = `hq-task-item priority-${priorityClass(task.priority)}`;
-        const rank = document.createElement("strong");
-        rank.textContent = index === 0 ? "最優先" : `${index + 1}番手`;
-        const content = document.createElement("div");
-        const title = document.createElement("h4");
-        title.textContent = task.taskName;
-        const detail = document.createElement("p");
-        detail.textContent = `${task.status}・${task.assignedAgent ?? "担当未設定"}`;
-        content.append(title, detail);
-        item.append(rank, content);
-        container.appendChild(item);
-    });
 }
 
 function getNextStatus(currentStatus) {
@@ -1989,7 +1955,6 @@ const pagePanels = document.querySelectorAll("[data-page-panel]");
 
 const pageTitles = {
     command: "ダッシュボード",
-    talk: "会話",
     tasks: "タスク管理",
     note: "note販売",
     opportunities: "機会発見レーダー",
@@ -1999,6 +1964,9 @@ const pageTitles = {
 };
 
 function showPage(page) {
+    // 会話はダッシュボードに統合した。以前の「会話」画面への移動は、ダッシュボードの会話の欄へ案内する。
+    const toTalk = page === "talk";
+    if (toTalk) page = "command";
     navButtons.forEach(button => {
         const active = button.dataset.page === page;
         button.classList.toggle("active", active);
@@ -2015,7 +1983,11 @@ function showPage(page) {
 
     pageTitle.textContent = pageTitles[page] ?? "ダッシュボード";
     if (page === "note") loadNoteWorkflow();
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (toTalk) {
+        document.getElementById("talk-panel").scrollIntoView({ block: "start", behavior: "smooth" });
+    } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    }
 }
 
 // 左上のロゴ：押すとホーム（最初に開く画面＝ダッシュボード）へ戻る。ページを読み込み直さないので、音声会話などは続く。
@@ -2526,7 +2498,7 @@ const MONEY_FIELDS = [
         value: money => money.totalRevenue,
         recorded: money => money.revenueRecorded,
         targets: [["hud-revenue", formatYenSuffix], ["demo-revenue", formatYenSuffix],
-                  ["hq-total-revenue", formatYen], ["total-revenue", formatYen]]
+                  ["total-revenue", formatYen]]
     },
     {
         // 案件利益＝売上−案件の直接経費。月々の費用は差し引かない（二重計上を防ぐため）。
@@ -2534,14 +2506,14 @@ const MONEY_FIELDS = [
         value: money => money.totalProfit,
         recorded: money => money.revenueRecorded,
         targets: [["hud-profit", formatYenSuffix], ["demo-profit", formatYenSuffix],
-                  ["hq-total-profit", formatYen], ["total-profit", formatYen]]
+                  ["total-profit", formatYen]]
     },
     {
         name: "作業時間",
         value: money => money.totalWorkMinutes,
         recorded: money => money.revenueRecorded,
         targets: [["hud-work-time", formatMinutes], ["demo-work", formatMinutes],
-                  ["hq-total-work-time", formatWorkTime], ["total-work-time", formatWorkTime]]
+                  ["total-work-time", formatWorkTime]]
     },
     {
         // 月々の費用は手入力した記録の合計。OpenAIやAzureの実請求額ではない。
@@ -2628,10 +2600,10 @@ function renderCommandCenter(data) {
     if (activities !== null) announceCompletions(activities);
     renderHudLog(activities);
     renderDemo(agents, activities);
-    // 会話画面（talk-visual.js）にも同じデータを渡す。表示だけで、ここでの失敗はほかの表示・報告に影響させない。
+    // 会話の欄と「いま確認すること」（talk-visual.js）にも同じデータを渡す。表示だけで、ここでの失敗はほかの表示・報告に影響させない。
     if (typeof window.renderTalkPanels === "function") {
         try {
-            window.renderTalkPanels(agents, activities);
+            window.renderTalkPanels(agents, activities, data);
         } catch (error) {
             console.error(error);
         }
@@ -2938,17 +2910,31 @@ function renderReportPanel(report) {
         panel.hidden = true;
         return;
     }
+    // 要点（未完了・最優先・確認待ち・直近のエラー、取れなかったときはその1行）を先に出し、残りは「詳細」に入れる。
+    // 文は reportLines のまま（読み上げる文と同じ）。分けて並べるだけで、項目は増やしも減らしもしない。
     const body = document.getElementById("report-body");
     body.replaceChildren();
-    reportLines(report).forEach(line => {
+    const KEY_PREFIXES = ["前回からの変化：", "未完了のタスク：", "最優先：", "確認待ち：", "直近のエラー："];
+    const lines = reportLines(report);
+    const keyLines = lines.filter(line => KEY_PREFIXES.some(prefix => line.startsWith(prefix)));
+    const detailLines = lines.filter(line => !keyLines.includes(line));
+    const paragraph = (line, className) => {
         const row = document.createElement("p");
+        if (className) row.className = className;
         row.textContent = line;
-        body.appendChild(row);
-    });
-    const footer = document.createElement("p");
-    footer.className = "report-footer";
-    footer.textContent = `前回の確認：${report.lastReportedAt ?? UNAVAILABLE}`;
-    body.appendChild(footer);
+        return row;
+    };
+    const key = document.createElement("div");
+    key.className = "report-key";
+    keyLines.forEach(line => key.appendChild(paragraph(line)));
+    const details = document.createElement("details");
+    details.className = "report-details";
+    const summary = document.createElement("summary");
+    summary.textContent = "詳細";
+    details.appendChild(summary);
+    detailLines.forEach(line => details.appendChild(paragraph(line)));
+    details.appendChild(paragraph(`前回の確認：${report.lastReportedAt ?? UNAVAILABLE}`, "report-footer"));
+    body.append(key, details);
     panel.hidden = false;
 }
 
@@ -3886,10 +3872,12 @@ document.querySelectorAll("[data-open-page]").forEach(button => {
     button.addEventListener("click", () => showPage(button.dataset.openPage));
 });
 
+// クイックコマンドは、画面に出ている文字の入力欄（会話の欄）に文を入れるだけ。送るのは本人が送信を押したとき。
+const talkCommandInput = document.getElementById("talk-command");
 document.querySelectorAll(".quick-command").forEach(button => {
     button.addEventListener("click", () => {
-        commandInput.value = button.dataset.command;
-        commandInput.focus();
+        talkCommandInput.value = button.dataset.command;
+        talkCommandInput.focus();
     });
 });
 
@@ -3975,8 +3963,8 @@ revenueDate.valueAsDate = new Date();
 commandButton.addEventListener("click", () => sendCommand());
 document.getElementById("propose-task-button").addEventListener("click", () => sendCommand("propose"));
 document.getElementById("continue-conversation-button").addEventListener("click", () => {
-    commandInput.scrollIntoView({ behavior: "smooth", block: "center" });
-    commandInput.focus({ preventScroll: true });
+    talkCommandInput.scrollIntoView({ behavior: "smooth", block: "center" });
+    talkCommandInput.focus({ preventScroll: true });
 });
 
 commandInput.addEventListener("keydown", event => {

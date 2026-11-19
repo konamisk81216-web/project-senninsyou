@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project 千人将 | ダッシュボード</title>
 
-    <link rel="stylesheet" href="/style.css?v=20261116-2">
+    <link rel="stylesheet" href="/style.css?v=20261119-1">
 </head>
 
 <body>
@@ -24,9 +24,6 @@
         <nav aria-label="主要メニュー">
             <button class="nav-button active" type="button" data-page="command" aria-current="page">
                 <span>🏯</span> ダッシュボード
-            </button>
-            <button class="nav-button" type="button" data-page="talk">
-                <span>🌀</span> 会話
             </button>
             <button class="nav-button" type="button" data-page="tasks">
                 <span>⚔️</span> タスク管理
@@ -319,29 +316,27 @@
             </div>
         </section>
 
-        <!-- 会話画面（ブラック×シャンパン）。表示は talk-visual.js が受け持つ。会話の処理（聞き取り・送信・承認・報告）は今までどおり app.js。 -->
-        <!-- 並び：音声会話と文字の入力を上に置き、その下に左：オーブとハル・ガク、右：直前の会話（字幕）と承認、最後にAI社員と実行ログ。スマートフォンでは上から1列に並べる。 -->
-        <section class="page-panel talk-panel" data-page-panel="talk" data-mode="idle" hidden>
+        <!-- ダッシュボード（会話をここへ統合）。上から「いま確認すること」→「AI将軍との会話」→「前回からの変化と収支・活動」→「詳細」。
+             会話の表示は talk-visual.js、会話の処理（聞き取り・送信・承認・報告）は今までどおり app.js。部品は1つずつで、複製しない。 -->
+
+        <!-- 1. いま確認すること：既存のデータから短く出すだけ（承認待ち・前回からの変化・取得失敗・最優先タスク）。 -->
+        <section id="dash-attention" class="page-panel talk-panel dash-zone dash-attention" data-page-panel="command" aria-label="いま確認すること">
+            <p class="dash-attention-title">いま確認すること</p>
+            <ul class="dash-attention-list">
+                <li id="attn-approval" hidden><button id="attn-approval-button" class="dash-chip is-alert" type="button">承認待ち：<span id="attn-approval-text"></span></button></li>
+                <li id="attn-report" hidden><button id="attn-report-button" class="dash-chip" type="button">前回からの変化があります</button></li>
+                <li id="attn-fetch" hidden><span id="attn-fetch-text" class="dash-chip is-failed"></span></li>
+                <li id="attn-agents" hidden><span id="attn-agents-text" class="dash-chip is-check"></span></li>
+                <li><button id="attn-task-button" class="dash-chip" type="button" data-open-page="tasks">最優先：<span id="attn-task-text">未取得</span></button></li>
+            </ul>
+        </section>
+
+        <!-- 2. AI将軍との会話（主役）。PCは左：オーブ、中央：会話と入力、右：承認と次の行動。スマートフォンは会話・承認をオーブより先に置く。 -->
+        <section id="talk-panel" class="page-panel talk-panel" data-page-panel="command" data-mode="idle" aria-labelledby="talk-heading-title">
             <div class="talk-heading">
-                <p class="talk-heading-title">AI将軍と話す</p>
+                <h2 id="talk-heading-title" class="talk-heading-title">AI将軍との会話</h2>
                 <button id="talk-head-approval" class="talk-action talk-soft" type="button" hidden>承認内容を確認</button>
             </div>
-            <!-- 音声会話：既存の「音声会話を開始」を押すのと同じ。状態は app.js の状態を読むだけ。 -->
-            <section class="talk-session" aria-label="音声会話の操作">
-                <div class="talk-session-copy">
-                    <strong>音声会話</strong>
-                    <p class="talk-session-state"><span class="talk-dot" aria-hidden="true"></span><span id="talk-head-state">待機中</span></p>
-                </div>
-                <button id="talk-session-toggle" class="talk-action talk-primary" type="button">💬 音声会話を開始</button>
-            </section>
-            <p id="talk-voice-status" class="talk-note talk-voice-status" role="status"></p>
-            <!-- 文字の入力：入力した文をダッシュボードの既存の入力欄に入れ、既存の「将軍と話す」を押す（送信の処理は作らない）。 -->
-            <form id="talk-composer" class="talk-composer" aria-label="文字で相談・指示する">
-                <label class="talk-sr" for="talk-command">AI将軍への相談・指示</label>
-                <input id="talk-command" type="text" placeholder="相談や指示を入力…" autocomplete="off">
-                <button id="talk-send" class="talk-action talk-soft" type="submit">送信</button>
-            </form>
-            <p id="talk-composer-note" class="talk-note talk-composer-note" role="status"></p>
             <div class="talk-layout">
                 <section class="talk-stage" aria-label="AI将軍とハル・ガク">
                     <canvas id="talk-orb" class="talk-orb" aria-hidden="true"></canvas>
@@ -367,27 +362,74 @@
                         </div>
                     </div>
                     <p class="talk-persona-note">どちらもAI将軍の返答の中の視点です。別のAIではありません。</p>
-                    <div class="talk-visual-controls">
-                        <button id="talk-mic-toggle" class="talk-action talk-quiet" type="button" aria-pressed="false">🎚 声に反応させる</button>
-                        <label class="talk-sensitivity">感度
-                            <select id="talk-sensitivity">
-                                <option value="low" selected>低め</option>
-                                <option value="std">標準</option>
-                                <option value="high">高め</option>
-                            </select>
-                        </label>
-                    </div>
-                    <p id="talk-notice" class="talk-note">「声に反応させる」は見た目のためだけのマイクです。声の大きさを端末の中で数値にするだけで、録音・保存・送信はしません。音声認識や送信には使いません。音声会話の聞き取りは「音声会話を開始」で、今までどおり動きます。</p>
                 </section>
-                <div class="talk-deck">
+
+                <div class="talk-convo">
+                    <!-- 音声会話：既存の「音声会話を開始」を押すのと同じ。状態は app.js の状態を読むだけ。 -->
+                    <section class="talk-session" aria-label="音声会話の操作">
+                        <div class="talk-session-copy">
+                            <strong>音声会話</strong>
+                            <p class="talk-session-state"><span class="talk-dot" aria-hidden="true"></span><span id="talk-head-state">待機中</span></p>
+                            <p id="mic-indicator" class="mic-indicator" hidden>🔴 マイク使用中</p>
+                        </div>
+                        <button id="talk-session-toggle" class="talk-action talk-primary" type="button">💬 音声会話を開始</button>
+                    </section>
+                    <p id="talk-voice-status" class="talk-note talk-voice-status" role="status"></p>
+                    <p id="voice-interim" class="voice-interim" hidden></p>
+                    <div class="talk-voice-live">
+                        <button id="voice-cancel-send" class="talk-action talk-quiet" type="button" hidden>✕ 送信を取り消す</button>
+                        <button id="voice-stop-button" class="talk-action talk-quiet" type="button" hidden>■ 読み上げ停止</button>
+                    </div>
+                    <!-- 文字の入力：入力した文を既存の入力欄に入れ、既存の「将軍と話す」を押す（送信の処理は作らない）。 -->
+                    <form id="talk-composer" class="talk-composer" aria-label="文字で相談・指示する">
+                        <label class="talk-sr" for="talk-command">AI将軍への相談・指示</label>
+                        <input id="talk-command" type="text" placeholder="相談や指示を入力…" autocomplete="off">
+                        <button id="talk-send" class="talk-action talk-soft" type="submit">送信</button>
+                    </form>
+                    <p id="talk-composer-note" class="talk-note talk-composer-note" role="status"></p>
+                    <div class="quick-commands" aria-label="AI将軍クイックコマンド">
+                        <button class="quick-command urgent" type="button"
+                                data-command="現在の状況から、今日着手すべき最優先タスクを1つ決めて。">
+                            🔥 優先順位を相談
+                        </button>
+                        <button class="quick-command revenue" type="button"
+                                data-command="収益実績と機会を分析して、収益を増やす次の一手を提案して。">
+                            💰 収益改善を考える
+                        </button>
+                        <button class="quick-command market" type="button"
+                                data-command="新しい事業案、拡大中と考えられる市場、低コストで検証できる収益機会を提案して。根拠が不足する場合は調査仮説として示して。">
+                            🚀 新しい市場を探す
+                        </button>
+                        <button class="quick-command analysis" type="button"
+                                data-command="タスク別の収益実績を分析して、継続・改善・停止候補を判断して。">
+                            📊 実績を分析する
+                        </button>
+                    </div>
                     <section class="talk-messages" aria-labelledby="talk-messages-title">
                         <h3 id="talk-messages-title" class="talk-section-label">直前の会話</h3>
+                        <p id="command-status" class="command-status" role="status" aria-live="polite" hidden></p>
                         <div class="talk-subtitles" aria-live="polite">
                             <p class="talk-sub talk-sub-user-row"><span class="talk-sub-who talk-sub-you">あなた</span><span id="talk-sub-user"></span></p>
-                            <p class="talk-sub talk-sub-ai-row"><span id="talk-sub-ai-who" class="talk-sub-who talk-sub-ai">AI将軍</span><span id="talk-sub-ai"></span></p>
+                            <p class="talk-sub talk-sub-ai-row"><span id="talk-sub-ai-who" class="talk-sub-who talk-sub-ai">AI将軍</span><span id="talk-sub-ai" class="is-clamped"></span></p>
                         </div>
+                        <!-- 長い返答は、文はそのままで表示だけを短くしている。押すと全文を出す。 -->
+                        <button id="talk-sub-more" class="talk-text-action" type="button" aria-expanded="false" hidden>全文を表示</button>
                         <button id="talk-replay" class="talk-text-action" type="button" hidden>🔊 返答をもう一度聞く</button>
                     </section>
+                    <div class="conversation-actions">
+                        <button id="continue-conversation-button" class="secondary-button" type="button" hidden>続きを相談する ↑</button>
+                        <button id="propose-task-button" type="button" hidden>話した内容からタスク案をまとめる</button>
+                    </div>
+                    <!-- 会話の全文（AI将軍の返答の原文と承認カード）。開くと全文を読める。 -->
+                    <details id="talk-history" class="talk-history">
+                        <summary>これまでの会話（全文）</summary>
+                        <div id="ai-response" aria-live="polite">
+                            <p>会話がここに表示されます。</p>
+                        </div>
+                    </details>
+                </div>
+
+                <div class="talk-side-col">
                     <!-- 承認待ちの操作。ダッシュボードの承認カードと同じ処理（実行・やめる）を呼ぶ。ここでは操作を作らない。表示は実際の承認の状態に合わせる。 -->
                     <section id="talk-approval" class="talk-approval" aria-labelledby="talk-approval-title" data-pending="false">
                         <p id="talk-approval-title" class="talk-approval-title">承認が必要な操作</p>
@@ -403,8 +445,54 @@
                             <button id="talk-approval-open" class="talk-action talk-quiet" type="button">承認カードを開く</button>
                         </div>
                     </section>
+                    <!-- 次の行動：最優先タスクとタスク一覧への導線。 -->
+                    <section class="talk-next" aria-labelledby="talk-next-title">
+                        <div class="talk-next-head">
+                            <h3 id="talk-next-title" class="talk-section-label">今日の優先タスク</h3>
+                            <button class="talk-text-action" type="button" data-open-page="tasks">タスク一覧 →</button>
+                        </div>
+                        <div id="hud-tasks" class="hud-tasks"></div>
+                    </section>
                 </div>
             </div>
+        </section>
+
+        <!-- 3. 前回からの変化と収支・活動。報告は要点と詳細に分ける。数字は1か所だけ（未記録・0・取得できないを区別）。 -->
+        <section id="dash-summary" class="page-panel talk-panel dash-zone dash-summary" data-page-panel="command" aria-labelledby="dash-summary-title">
+            <h2 id="dash-summary-title" class="dash-zone-title">前回からの変化と収支・活動</h2>
+            <div id="report-panel" class="report-panel" hidden>
+                <div class="report-head">
+                    <h3>📋 前回からの変化</h3>
+                    <div class="report-head-buttons">
+                        <button id="report-speak" type="button" class="secondary-button">🔊 報告を聞く</button>
+                        <button id="report-seen" type="button" class="secondary-button">確認した</button>
+                    </div>
+                </div>
+                <div id="report-body" class="report-body"></div>
+            </div>
+            <div class="hud-numbers">
+                <div class="hud-number"><span>売上</span><strong id="hud-revenue">--</strong></div>
+                <div class="hud-number" title="売上から案件の直接経費だけを引いた金額です。月々の費用は差し引いていません。"><span>案件利益（月々の費用は差引前）</span><strong id="hud-profit">--</strong></div>
+                <div class="hud-number" title="OpenAIやAzureの実請求額を自動取得した数字ではなく、手入力した費用記録の合計です。案件利益からは差し引いていません。"><span>月々の費用（手入力・OpenAIやAzureの実請求額ではない）</span><strong id="hud-ai-cost">--</strong></div>
+                <div class="hud-number"><span>作業時間</span><strong id="hud-work-time">--</strong></div>
+                <div class="hud-number" title="AIが作り終えた記事の下書きの数です。公開した数ではありません。"><span>作成済みの下書き</span><strong id="hud-articles">--</strong></div>
+                <div class="hud-number"><span>承認した投稿</span><strong id="hud-posts">--</strong></div>
+            </div>
+            <p class="dash-note">案件利益は「売上−案件の直接経費」で、月々の費用は差し引いていません。月々の費用は手入力した記録の合計で、OpenAIやAzureの実請求額ではありません。記録がない数字は「未記録」、取れなかった数字は「取得できません」と表示します。</p>
+            <div class="battle-summary" aria-label="タスクの件数">
+                <div><span>総タスク</span><strong id="total-tasks">--</strong></div>
+                <div><span>進行中</span><strong id="in-progress-tasks">--</strong></div>
+                <div><span>未着手</span><strong id="not-started-tasks">--</strong></div>
+                <div><span>完了</span><strong id="completed-tasks">--</strong></div>
+            </div>
+            <div class="dash-summary-links">
+                <button class="text-button" type="button" data-open-page="revenue">収益・実績の詳細 →</button>
+                <button class="text-button" type="button" data-open-page="tasks">タスク一覧 →</button>
+            </div>
+        </section>
+
+        <!-- 4. 下部の詳細。AI社員の状態と実行ログは1つだけ出す。普段使わない音声の設定は折りたたむ。 -->
+        <section id="dash-details" class="page-panel talk-panel dash-zone dash-details" data-page-panel="command" aria-label="詳細">
             <details class="talk-context" open>
                 <summary>AI社員・実行ログ</summary>
                 <div class="talk-context-content">
@@ -421,88 +509,25 @@
                     </section>
                 </div>
             </details>
-        </section>
-
-        <section class="page-panel hud-panel" data-page-panel="command">
-            <div class="hud-top">
-                <div class="hud-orb-area">
-                    <div id="hud-orb" class="hud-orb" data-voice-state="idle" aria-hidden="true">
-                        <span class="hud-orb-ring"></span>
-                        <span class="hud-orb-core"></span>
-                    </div>
-                    <p id="hud-orb-label" class="hud-orb-label">待機中</p>
-                </div>
-                <div class="hud-numbers">
-                    <div class="hud-number"><span>売上</span><strong id="hud-revenue">--</strong></div>
-                    <div class="hud-number" title="売上から案件の直接経費だけを引いた金額です。月々の費用は差し引いていません。"><span>案件利益（月々の費用は差引前）</span><strong id="hud-profit">--</strong></div>
-                    <div class="hud-number" title="OpenAIやAzureの実請求額を自動取得した数字ではなく、手入力した費用記録の合計です。案件利益からは差し引いていません。"><span>月々の費用（手入力・OpenAIやAzureの実請求額ではない）</span><strong id="hud-ai-cost">--</strong></div>
-                    <div class="hud-number"><span>作業時間</span><strong id="hud-work-time">--</strong></div>
-                    <div class="hud-number" title="AIが作り終えた記事の下書きの数です。公開した数ではありません。"><span>作成済みの下書き</span><strong id="hud-articles">--</strong></div>
-                    <div class="hud-number"><span>承認した投稿</span><strong id="hud-posts">--</strong></div>
-                </div>
-            </div>
-
-            <div id="report-panel" class="report-panel" hidden>
-                <div class="report-head">
-                    <h3>📋 前回からの変化</h3>
-                    <div class="report-head-buttons">
-                        <button id="report-speak" type="button" class="secondary-button">🔊 報告を聞く</button>
-                        <button id="report-seen" type="button" class="secondary-button">確認した</button>
-                    </div>
-                </div>
-                <div id="report-body" class="report-body"></div>
-            </div>
-
-            <div class="hud-grid">
-                <div class="hud-block">
-                    <h3>今日の優先タスク</h3>
-                    <div id="hud-tasks" class="hud-tasks"></div>
-                </div>
-                <div class="hud-block">
-                    <h3>AI社員の状態</h3>
-                    <div id="hud-agents" class="hud-agents"></div>
-                </div>
-                <div class="hud-block hud-block-wide">
-                    <h3>実行ログ</h3>
-                    <div id="hud-log" class="hud-log"></div>
-                    <button id="demo-open" type="button" class="secondary-button">🎬 デモ表示にする</button>
-                </div>
-            </div>
-        </section>
-
-        <section class="page-panel" data-page-panel="command">
-            <h2>👑 AI将軍</h2>
-            <p>まず相談しましょう。タスクは話し合ってから登録できます。</p>
-
-            <div class="command-controls">
-                <input
-                    id="command-input"
-                    type="text"
-                    placeholder="相談したいことを入力..."
-                    autocomplete="off"
-                >
-                <button id="command-button" type="button">将軍と話す</button>
-            </div>
-            <div class="voice-panel">
-                <div class="voice-orb-area">
-                    <div id="voice-orb" class="voice-orb" data-voice-state="idle" aria-hidden="true">
-                        <span class="voice-orb-core"></span>
-                    </div>
-                    <span id="voice-state-label" class="voice-state-label">待機中</span>
-                    <canvas id="voice-wave" class="voice-wave" width="180" height="32" hidden></canvas>
-                    <p id="mic-indicator" class="mic-indicator" hidden>🔴 マイク使用中</p>
-                </div>
-                <div class="voice-panel-body">
+            <details id="voice-settings" class="talk-context">
+                <summary>音声の詳細設定</summary>
+                <div class="voice-settings-content">
                     <div class="voice-controls">
-                        <button id="voice-session-toggle" class="secondary-button" type="button">💬 音声会話を開始</button>
+                        <button id="voice-input-button" class="secondary-button" type="button">🎙️ 声で入力（1回だけ）</button>
                         <button id="hands-free-toggle" class="secondary-button" type="button">👏 拍手で起動する</button>
-                        <button id="voice-input-button" class="secondary-button" type="button">🎙️ 声で入力</button>
-                        <button id="voice-cancel-send" class="secondary-button" type="button" hidden>✕ 送信を取り消す</button>
-                        <button id="voice-read-button" class="secondary-button" type="button" hidden>🔊 もう一度聞く</button>
-                        <button id="voice-stop-button" class="secondary-button" type="button" hidden>■ 読み上げ停止</button>
                     </div>
-                    <p id="voice-interim" class="voice-interim" hidden></p>
-                    <p id="voice-status" class="voice-status" role="status" aria-live="polite">声で入力すると、聞き取り後に2秒の取り消し時間を置いてから将軍へ送ります。ブラウザによっては音声が認識サービスへ送られます。</p>
+                    <canvas id="voice-wave" class="voice-wave" width="180" height="32" hidden></canvas>
+                    <div class="talk-visual-controls">
+                        <button id="talk-mic-toggle" class="talk-action talk-quiet" type="button" aria-pressed="false">🎚 声に反応させる</button>
+                        <label class="talk-sensitivity">感度
+                            <select id="talk-sensitivity">
+                                <option value="low" selected>低め</option>
+                                <option value="std">標準</option>
+                                <option value="high">高め</option>
+                            </select>
+                        </label>
+                    </div>
+                    <p id="talk-notice" class="talk-note">「声に反応させる」は見た目のためだけのマイクです。声の大きさを端末の中で数値にするだけで、録音・保存・送信はしません。音声認識や送信には使いません。音声会話の聞き取りは「音声会話を開始」で、今までどおり動きます。</p>
                     <!-- ハル・ガクの声。選んだ声はこの端末のブラウザ内にだけ保存し、サーバーには送らない。 -->
                     <details id="speaker-voice-settings" class="speaker-voice-settings">
                         <summary>ハル・ガクの声を選ぶ</summary>
@@ -520,71 +545,32 @@
                         <p id="speaker-voice-note" class="speaker-voice-note" role="status"></p>
                     </details>
                 </div>
-            </div>
+            </details>
+            <button id="demo-open" type="button" class="secondary-button dash-demo-open">🎬 デモ表示にする</button>
 
-            <div class="quick-commands" aria-label="AI将軍クイックコマンド">
-                <button class="quick-command urgent" type="button"
-                        data-command="現在の状況から、今日着手すべき最優先タスクを1つ決めて。">
-                    🔥 優先順位を相談
-                </button>
-                <button class="quick-command revenue" type="button"
-                        data-command="収益実績と機会を分析して、収益を増やす次の一手を提案して。">
-                    💰 収益改善を考える
-                </button>
-                <button class="quick-command market" type="button"
-                        data-command="新しい事業案、拡大中と考えられる市場、低コストで検証できる収益機会を提案して。根拠が不足する場合は調査仮説として示して。">
-                    🚀 新しい市場を探す
-                </button>
-                <button class="quick-command analysis" type="button"
-                        data-command="タスク別の収益実績を分析して、継続・改善・停止候補を判断して。">
-                    📊 実績を分析する
-                </button>
-            </div>
-
-            <p id="command-status" class="command-status" role="status" aria-live="polite" hidden></p>
-            <div id="ai-response" aria-live="polite">
-                <p>会話がここに表示されます。</p>
-            </div>
-            <div class="conversation-actions">
-                <button id="continue-conversation-button" class="secondary-button" type="button" hidden>続きを相談する ↑</button>
-                <button id="propose-task-button" type="button" hidden>話した内容からタスク案をまとめる</button>
-            </div>
-            
-        </section>
-
-        <section class="page-panel" data-page-panel="command">
-            <h2>📈 経営速報</h2>
-            <div class="command-dashboard">
-                <div class="command-dashboard-card">
-                    <div class="dashboard-card-heading">
-                        <h3>売上速報</h3>
-                        <button class="text-button" type="button" data-open-page="revenue">詳細を見る →</button>
-                    </div>
-                    <div class="hq-revenue-summary">
-                        <div><span>累計売上</span><strong id="hq-total-revenue">--</strong></div>
-                        <div title="売上から案件の直接経費だけを引いた金額です。月々の費用は差し引いていません。"><span>累計の案件利益（月々の費用は差引前）</span><strong id="hq-total-profit">--</strong></div>
-                        <div><span>作業時間</span><strong id="hq-total-work-time">--</strong></div>
-                    </div>
+            <!-- 既存の処理が使う部品。画面には出さない（会話の欄が同じ操作を写して使う）。ここで新しい操作は作らない。
+                 ・入力欄と「将軍と話す」：会話の欄の文字の入力が、ここに文を入れて押す。
+                 ・「音声会話を開始」「もう一度聞く」：会話の欄のボタンが押す。案内（voice-status）は会話の欄に写す。
+                 ・状態の印（hud-orb・voice-orb）と、AI社員・実行ログの旧表示（hud-agents・hud-log）：既存の処理が書き込む。表示は上の1つだけ。 -->
+            <div class="dash-legacy" hidden>
+                <div class="command-controls">
+                    <input id="command-input" type="text" placeholder="相談したいことを入力..." autocomplete="off" tabindex="-1">
+                    <button id="command-button" type="button" tabindex="-1">将軍と話す</button>
                 </div>
-
-                <div class="command-dashboard-card priority-command-card">
-                    <div class="dashboard-card-heading">
-                        <h3>最優先タスク</h3>
-                        <button class="text-button" type="button" data-open-page="tasks">タスク一覧 →</button>
-                    </div>
-                    <div id="hq-priority-tasks">タスクを読み込み中...</div>
+                <button id="voice-session-toggle" class="secondary-button" type="button" tabindex="-1">💬 音声会話を開始</button>
+                <button id="voice-read-button" class="secondary-button" type="button" tabindex="-1" hidden>🔊 もう一度聞く</button>
+                <p id="voice-status" class="voice-status">声で入力すると、聞き取り後に2秒の取り消し時間を置いてから将軍へ送ります。ブラウザによっては音声が認識サービスへ送られます。</p>
+                <div id="hud-orb" class="hud-orb" data-voice-state="idle" aria-hidden="true">
+                    <span class="hud-orb-ring"></span>
+                    <span class="hud-orb-core"></span>
                 </div>
-            </div>
-        </section>
-
-        <section class="page-panel" data-page-panel="command">
-            <h2>📍 タスク状況</h2>
-
-            <div class="battle-summary">
-                <div><span>総タスク</span><strong id="total-tasks">--</strong></div>
-                <div><span>進行中</span><strong id="in-progress-tasks">--</strong></div>
-                <div><span>未着手</span><strong id="not-started-tasks">--</strong></div>
-                <div><span>完了</span><strong id="completed-tasks">--</strong></div>
+                <p id="hud-orb-label" class="hud-orb-label">待機中</p>
+                <div id="voice-orb" class="voice-orb" data-voice-state="idle" aria-hidden="true">
+                    <span class="voice-orb-core"></span>
+                </div>
+                <span id="voice-state-label" class="voice-state-label">待機中</span>
+                <div id="hud-agents" class="hud-agents"></div>
+                <div id="hud-log" class="hud-log"></div>
             </div>
         </section>
 
@@ -792,8 +778,8 @@
         </section>
     </main>
 
-        <script src="/app.js?v=20261118-2"></script>
-        <script src="/talk-visual.js?v=20261116-3"></script>
+        <script src="/app.js?v=20261119-1"></script>
+        <script src="/talk-visual.js?v=20261119-1"></script>
 </body>
 
 </html>

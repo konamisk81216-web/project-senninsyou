@@ -1,7 +1,7 @@
-// 会話画面（サイドメニューの「会話」）。中央の発光体・字幕・AI社員の状態・直近の実行ログを1画面にまとめる。
-// 見た目と反応は、本人が実マイクで確かめて採用した試作（4版目、感度「低め」）をそのまま使う。
+// ダッシュボードの会話の欄（以前のサイドメニューの「会話」画面を統合したもの）。発光体・字幕・承認・AI社員の状態・直近の実行ログと、
+// 上部の「いま確認すること」を表示する。見た目と反応は、本人が実マイクで確かめて採用した試作（4版目、感度「低め」）をそのまま使う。
 //
-// この画面は表示だけを受け持つ。音声認識・送信・承認・報告の判断には関わらない。
+// この欄は表示だけを受け持つ。音声認識・送信・承認・報告の判断には関わらない。
 // ・会話の状態（聞き取り中・考え中・読み上げ中など）は app.js の currentVoiceState を読むだけ。書き換えない。
 // ・字幕は、app.js がデモ表示の字幕（#demo-user-line・#demo-ai-line）に書いた文字と話者を写すだけ。
 // ・AI社員の状態と実行ログは、司令本部の巡回（5秒ごと）で取れたデータを renderTalkPanels で受け取って描くだけ。
@@ -14,7 +14,8 @@
 //   この入力の音量は、聞き取り・送信・承認・報告のどの判断にも使わない。
 // ・AIの読み上げ中と考え中の動きは演出（実測ではない）。ブラウザの読み上げ音は分析に回せないため。
 (() => {
-    const panel = document.querySelector('[data-page-panel="talk"]');
+    // 会話の欄はダッシュボードの中にある。ダッシュボードが隠れている（ほかの画面を開いている）間は、描くのも見た目用のマイクも止める。
+    const panel = document.getElementById("talk-panel");
     if (!panel) return;
     const $ = id => document.getElementById(id);
     const canvas = $("talk-orb");
@@ -207,7 +208,6 @@
     // 送信の処理（1発言につき1回・返答待ちの間は送らない）は app.js のまま。この画面に別の送信処理は作らない。
     const commandInput = $("command-input");
     const commandButton = $("command-button");
-    const showDashboard = () => document.querySelector('.nav-button[data-page="command"]').click();
     const talkCommand = $("talk-command"), composerNote = $("talk-composer-note");
     // 送った文は、返答が届くまでこの欄に残す。返答が届いたら、欄が送ったときのままなら空にする。
     // 送信に失敗したら欄はそのまま（原文を直して、もう一度送れる）。待っている間に書き足した・書き換えた文は、成功でも失敗でも上書きしない。
@@ -268,15 +268,20 @@
     const talkApprovalTarget = $("talk-approval-target"), talkApprovalTheme = $("talk-approval-theme"), talkApprovalAudience = $("talk-approval-audience");
     const NO_APPROVAL_TEXT = "現在、承認待ちの操作はありません。";
     const headApproval = $("talk-head-approval");
-    headApproval.addEventListener("click", () => {
+    const attnApproval = $("attn-approval"), attnApprovalText = $("attn-approval-text");
+    // 承認欄へ移る（上部の「承認内容を確認」と「いま確認すること」の承認待ちから）。
+    const goToApproval = () => {
         talkApproval.scrollIntoView({ block: "center", behavior: reduced ? "auto" : "smooth" });
         if (!talkApprove.disabled) talkApprove.focus({ preventScroll: true });
-    });
+    };
+    headApproval.addEventListener("click", goToApproval);
+    $("attn-approval-button").addEventListener("click", goToApproval);
     talkApprove.addEventListener("click", () => { if (!demoApproval.hidden && !demoApprove.disabled) demoApprove.click(); });
     talkDecline.addEventListener("click", () => { if (!demoApproval.hidden && !demoDecline.disabled) demoDecline.click(); });
-    // 承認カードを開く：ダッシュボードへ移り、いちばん新しい承認カードを見える位置に出す。
+    // 承認カードを開く：会話の全文を開き、いちばん新しい承認カードを見える位置に出す（実行はしない）。
+    const history = $("talk-history");
     $("talk-approval-open").addEventListener("click", () => {
-        showDashboard();
+        history.open = true;
         const cards = document.querySelectorAll("#ai-response .action-approval");
         cards[cards.length - 1]?.scrollIntoView({ block: "center", behavior: reduced ? "auto" : "smooth" });
     });
@@ -296,8 +301,10 @@
         talkApprovalTitle.textContent = approved ? "承認しました（実行中）" : shown ? "あなたの承認が必要です" : "承認が必要な操作";
         talkApprove.disabled = demoApprove.disabled;
         talkDecline.disabled = demoDecline.disabled;
-        // 承認待ちの間は、上部にも金色の案内を出す（押すと承認欄へ移る）。
+        // 承認待ちの間は、上部にも金色の案内を出す（押すと承認欄へ移る）。「いま確認すること」にも内容を短く出す。
         headApproval.hidden = !(shown && !approved);
+        attnApproval.hidden = !(shown && !approved);
+        attnApprovalText.textContent = shown && !approved ? demoApprovalText.textContent : "";
     };
     new MutationObserver(syncApproval).observe(demoApproval, { attributes: true, attributeFilter: ["hidden", "class", "data-theme", "data-audience"] });
     new MutationObserver(syncApproval).observe(demoApprovalText, { childList: true, characterData: true, subtree: true });
@@ -311,12 +318,29 @@
     const userLine = $("demo-user-line"), aiLine = $("demo-ai-line");
     const subUser = $("talk-sub-user"), subAi = $("talk-sub-ai"), subAiWho = $("talk-sub-ai-who");
     const aiSpeaker = () => aiLine.dataset.speaker || "";
+    // 長い返答は、文はそのまま（原文を保つ）で、表示だけを数行に短くする。「全文を表示」で全部を出す。
+    // 承認欄やタスクを遠くへ押し流さないため。新しい返答が来たら、また短い表示に戻す。
+    const subMore = $("talk-sub-more");
+    const syncSubMore = () => {
+        const clamped = subAi.classList.contains("is-clamped");
+        subMore.hidden = clamped ? subAi.scrollHeight <= subAi.clientHeight + 1 : false;
+        subMore.textContent = clamped ? "全文を表示" : "短く表示";
+        subMore.setAttribute("aria-expanded", String(!clamped));
+    };
+    subMore.addEventListener("click", () => {
+        subAi.classList.toggle("is-clamped");
+        syncSubMore();
+    });
     const syncSubtitles = () => {
+        const changed = subAi.textContent !== aiLine.textContent;
         subUser.textContent = userLine.textContent;
         subAi.textContent = aiLine.textContent;
         subAiWho.textContent = aiSpeaker() || "AI将軍";
         subAi.parentElement.dataset.speaker = aiSpeaker();
+        if (changed) subAi.classList.add("is-clamped");
+        syncSubMore();
     };
+    window.addEventListener("resize", syncSubMore);
     for (const line of [userLine, aiLine]) {
         new MutationObserver(syncSubtitles).observe(line, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ["data-speaker"] });
     }
@@ -348,8 +372,35 @@
             : `取得済み（${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}）`;
         fetchState.dataset.fetch = failed === 0 ? "ok" : "failed";
     }
-    window.renderTalkPanels = (agents, activities) => {
+    // 「いま確認すること」：巡回で取れたデータから短く出すだけ。取れなかった項目は「取得できません」と出し、0やなしに見せない。
+    const attnFetch = $("attn-fetch"), attnFetchText = $("attn-fetch-text");
+    const attnAgents = $("attn-agents"), attnAgentsText = $("attn-agents-text");
+    const attnTaskText = $("attn-task-text");
+    const FETCH_PARTS = [["agents", "AI社員の状態"], ["activities", "実行ログ"], ["money", "収支"], ["numbers", "下書き・投稿の数"], ["priorityTasks", "優先タスク"]];
+    const CHECK_STATUSES = ["確認待ち", "長時間実行中"];
+    function renderAttention(data) {
+        const failed = FETCH_PARTS.filter(([key]) => data[key] == null).map(([, label]) => label);
+        attnFetch.hidden = failed.length === 0;
+        attnFetchText.textContent = failed.length === 0 ? "" : `取得できません：${failed.join("・")}`;
+        const agents = data.agents ?? null;
+        const toCheck = agents === null ? [] : agents.filter(agent => CHECK_STATUSES.includes(agent.status));
+        attnAgents.hidden = toCheck.length === 0;
+        attnAgentsText.textContent = toCheck.length === 0 ? "" : `要確認：${toCheck.map(agent => `${agent.agent}（${agent.status}）`).join("、")}`;
+        const tasks = data.priorityTasks ?? null;
+        attnTaskText.textContent = tasks === null ? UNAVAILABLE_TEXT
+            : tasks.length === 0 ? "なし（未完了のタスクはありません）"
+            : `${tasks[0].taskName}（優先度 ${tasks[0].priority}）`;
+    }
+    // 前回からの変化（報告）が出ている間は、上部に案内を出す。押すと報告へ移る。確認済みにはしない（「確認した」は本人が押す）。
+    const reportPanel = $("report-panel"), attnReport = $("attn-report");
+    const syncReport = () => { attnReport.hidden = reportPanel.hidden; };
+    new MutationObserver(syncReport).observe(reportPanel, { attributes: true, attributeFilter: ["hidden"] });
+    syncReport();
+    $("attn-report-button").addEventListener("click", () => reportPanel.scrollIntoView({ block: "center", behavior: reduced ? "auto" : "smooth" }));
+
+    window.renderTalkPanels = (agents, activities, data = { agents, activities }) => {
         const agentBox = $("talk-agents"), logBox = $("talk-log");
+        try { renderAttention(data); } catch (error) { console.error(error); }
         showFetchState(agents, activities);
         if (agents === null) {
             agentBox.textContent = UNAVAILABLE_TEXT;
@@ -377,6 +428,8 @@
             logBox.replaceChildren(...activities.slice(0, 8).map(activity => {
                 const row = document.createElement("div");
                 row.className = "talk-log-row";
+                // 新しく終わって報告した記録は、ダッシュボードの旧表示と同じく強調する（app.js の値を読むだけ）。
+                if (typeof highlightedActivityIds !== "undefined" && highlightedActivityIds.has(activity.id)) row.classList.add("is-new");
                 const time = document.createElement("time");
                 time.textContent = activity.startedAt ? activity.startedAt.slice(11, 16) : "";
                 const body = document.createElement("span");
@@ -620,19 +673,20 @@
         requestAnimationFrame(frame);
     }
 
-    // 画面が見えている間だけ描く。会話画面を離れたら見た目用のマイクも止める。
+    // 画面が見えている間だけ描く。ダッシュボード（会話の欄）を離れたら見た目用のマイクも止める。
     function onVisibility() {
         const visible = !panel.hidden && !document.hidden;
         if (visible && !running) {
             running = true;
             resize();
+            syncSubMore();
             last = performance.now();
             requestAnimationFrame(frame);
         } else if (!visible && running) {
             running = false;
         }
         // 使用中のマイクも、許可待ちの要求も止める（許可待ちの要求は無効になり、あとで入力が返っても使わない）。
-        if (!visible && (audio.stream || micPending)) stopVisualMic(panel.hidden ? "会話画面を離れたため、見た目用のマイクを止めました。" : "画面を離れたため、見た目用のマイクを止めました。");
+        if (!visible && (audio.stream || micPending)) stopVisualMic(panel.hidden ? "ダッシュボードを離れたため、見た目用のマイクを止めました。" : "画面を離れたため、見た目用のマイクを止めました。");
     }
     new MutationObserver(onVisibility).observe(panel, { attributes: true, attributeFilter: ["hidden"] });
     document.addEventListener("visibilitychange", onVisibility);
