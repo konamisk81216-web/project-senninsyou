@@ -4,7 +4,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-// 実PostgreSQLの試験（NextMovePostgresIT）の接続先。試験専用で、本番のjarには入らない。
+// 実PostgreSQLの試験（NextMovePostgresIT・ConversationPostgresIT）の接続先。試験専用で、本番のjarには入らない。
 // ・接続先は 127.0.0.1 の専用テストDB（senninsyou_nextmove_it）だけ。ほかのホスト・DB名・追加のパラメータは拒否する。
 // ・本番用の接続設定（DATABASE_URL など）は読まない。足りないときは、ほかの設定で代わりにせず、失敗として返す。
 final class PostgresItConfig {

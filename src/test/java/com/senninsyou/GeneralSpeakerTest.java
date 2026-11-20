@@ -246,6 +246,7 @@ class GeneralSpeakerTest {
         });
         set(created, "conversationRepository", new ConversationRepository("", "", "") {
             @Override public void add(String role, String message) { conversations.add(role + "：" + message); }
+            @Override public ExchangeSave addExchange(String userMessage, String aiMessage) { conversations.add("利用者：" + userMessage); conversations.add("AI将軍：" + aiMessage); return ExchangeSave.SAVED; }
         });
         set(created, "writerJobRepository", new WriterJobRepository("", "", "") {
             @Override public Map<String, String> findLatestJob() { return Map.of(); }

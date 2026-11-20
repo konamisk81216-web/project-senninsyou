@@ -122,13 +122,14 @@ public class AIController {
             return "AI将軍から有効な返答を受け取れませんでした。";
         }
 
+        ObjectNode result;
         try {
             int start = response.indexOf('{');
             int end = response.lastIndexOf('}');
             if (start < 0 || end <= start) {
                 throw new IllegalArgumentException("JSONを見つけられませんでした。");
             }
-            ObjectNode result = (ObjectNode) new ObjectMapper()
+            result = (ObjectNode) new ObjectMapper()
                     .readTree(response.substring(start, end + 1));
             // 相談の返答は、話者と発言・操作の組み合わせを確かめる。外れていたら補正せず失敗にする（作り直しの呼び出しもしない）。
             if (!propose) {
@@ -138,13 +139,6 @@ public class AIController {
                 result.put("assignedAgent", "");
             }
             applyAllowedAction(result);
-            if (!propose) {
-                conversationRepository.add("利用者", command);
-            }
-            // AI側は「AI将軍」として1件。相談では、実際に話した内容を話者つきで残す（要約だけにしない）。
-            conversationRepository.add("AI将軍", propose ? result.path("summary").asText("") : spokenText(result));
-            activityRepository.finish(activityId, "完了", "");
-            return result.toString();
         } catch (SpeakerMismatchException e) {
             // 状態は今までどおり「失敗」。理由は詳細欄で見分ける。
             activityRepository.finish(activityId, "失敗", "話者と発言の組み合わせが正しくありませんでした");
@@ -152,6 +146,26 @@ public class AIController {
         } catch (Exception e) {
             activityRepository.finish(activityId, "失敗", "返答の形式が正しくありませんでした");
             throw new IllegalStateException("AI将軍の返答形式が正しくありません。", e);
+        }
+
+        // 返答の検証が終わってから保存する（保存は返答形式の判定の外。保存の失敗を返答形式のエラーにしない）。
+        saveConversation(command, result, propose);
+        activityRepository.finish(activityId, "完了", "");
+        return result.toString();
+    }
+
+    // 会話記録の保存。失敗しても返答はそのまま返す。AIの呼び直しも、保存のやり直しもしない。
+    // ・相談：利用者の発言と、AI将軍として実際に話した内容（話者つき）を、1つのトランザクションで2件まとめて保存する
+    // ・タスク案の整理：今までどおり、AI将軍の要約1件だけ
+    private void saveConversation(String command, ObjectNode result, boolean propose) {
+        try {
+            if (propose) {
+                conversationRepository.add("AI将軍", result.path("summary").asText(""));
+            } else {
+                conversationRepository.addExchange(command, spokenText(result));
+            }
+        } catch (RuntimeException e) {
+            System.out.println("会話の保存に失敗しました。");
         }
     }
 
