@@ -31,6 +31,7 @@ public class AIController {
     private final TaskRepository repository;
     private final WriterJobRepository writerJobRepository;
     private final AuthorFactRepository authorFactRepository;
+    private final WritingRuleRepository writingRuleRepository;
     private final AiActivityRepository activityRepository;
     private final PostDraftRepository postDraftRepository;
     private final ConversationRepository conversationRepository;
@@ -77,6 +78,7 @@ public class AIController {
         repository = new TaskRepository(jdbcUrl, user, password);
         writerJobRepository = new WriterJobRepository(jdbcUrl, user, password);
         authorFactRepository = new AuthorFactRepository(jdbcUrl, user, password);
+        writingRuleRepository = new WritingRuleRepository(jdbcUrl, user, password);
         activityRepository = new AiActivityRepository(jdbcUrl, user, password);
         postDraftRepository = new PostDraftRepository(jdbcUrl, user, password);
         conversationRepository = new ConversationRepository(jdbcUrl, user, password);
@@ -484,10 +486,13 @@ public class AIController {
             String price,
             String interviewNotes) {
 
+        // 書き方の決まり（note記事と共通）を足す。読めなくても下書きは止めない。
         AIService.WriterAiResponse writerResponse = aiService.askWriter(
-                aiService.buildWriterPrompt(
-                        theme, audience, sourceNotes, price, interviewNotes,
-                        authorFactRepository.buildKnownFactsText()));
+                AIService.withWritingRules(
+                        aiService.buildWriterPrompt(
+                                theme, audience, sourceNotes, price, interviewNotes,
+                                authorFactRepository.buildKnownFactsText()),
+                        writingRuleRepository.activeRulesTextOrEmpty("note記事")));
         if (writerResponse.errorCode() != null) {
             return writerError(writerResponse.errorCode());
         }

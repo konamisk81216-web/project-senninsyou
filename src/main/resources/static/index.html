@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project 千人将 | ダッシュボード</title>
 
-    <link rel="stylesheet" href="/style.css?v=20261121-1">
+    <link rel="stylesheet" href="/style.css?v=20261124-1">
 </head>
 
 <body>
@@ -777,10 +777,39 @@
             <div id="task-list">
                 タスクを読み込み中...
             </div>
+
+            <!-- 書き方の決まり：本人のダメ出しやAIの指摘を、次の下書きで守る決まりとして残す。消さずに、使わないものは無効にする。 -->
+            <section class="writing-rules" aria-labelledby="writing-rules-title">
+                <h3 id="writing-rules-title">✍ 書き方の決まり</h3>
+                <p class="writing-rules-note">ダメ出しやAIの指摘を、次の下書きで守る決まりとして残します。使わなくなった決まりは、消さずに無効にします。</p>
+                <div id="writing-rules-list" class="writing-rules-list">決まりを読み込み中...</div>
+                <details class="writing-rules-add">
+                    <summary>決まりを追加する</summary>
+                    <form id="writing-rule-form" class="writing-rules-form">
+                        <label>対象
+                            <select id="writing-rule-target">
+                                <option value="共通">共通</option>
+                                <option value="note記事">note記事</option>
+                                <option value="SNS投稿">SNS投稿</option>
+                            </select>
+                        </label>
+                        <label>決まり<textarea id="writing-rule-text" rows="2" maxlength="500" placeholder="例：「やったこと」と「これからやること」を分けて書く"></textarea></label>
+                        <label>きっかけ（任意）<textarea id="writing-rule-reason" rows="2" maxlength="1000" placeholder="例：2日しか試していないのに「1週間試した」と書いた"></textarea></label>
+                        <label>きっかけの種類
+                            <select id="writing-rule-source">
+                                <option value="本人">本人のダメ出し</option>
+                                <option value="AIの指摘">AIの指摘</option>
+                            </select>
+                        </label>
+                        <button id="writing-rule-add" type="submit" class="secondary-button">決まりに追加する</button>
+                    </form>
+                </details>
+                <p id="writing-rules-status" class="writing-rules-status" role="status" aria-live="polite"></p>
+            </section>
         </section>
     </main>
 
-        <script src="/app.js?v=20261122-1"></script>
+        <script src="/app.js?v=20261124-1"></script>
         <script src="/talk-visual.js?v=20261119-1"></script>
 </body>
 

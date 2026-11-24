@@ -1927,3 +1927,26 @@ body.demo-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
     .talk-panel *, .talk-panel *::before, .talk-panel *::after { transition: none !important; animation: none !important; }
 }
+/* 書き方の決まり（タスク管理画面） */
+.writing-rules { display: grid; gap: 12px; margin-top: 28px; padding-top: 20px; border-top: 1px solid #2a2a31; }
+.writing-rules h3 { margin: 0; color: #f5f5f7; }
+.writing-rules-note { margin: 0; color: #9b9ba5; font-size: 14px; line-height: 1.6; }
+.writing-rules-list { display: grid; gap: 10px; }
+.writing-rules-empty { color: #9b9ba5; margin: 0; }
+.writing-rules-empty.is-error { color: #ff9aa7; }
+.writing-rule { display: grid; gap: 8px; min-width: 0; background: #101014; border: 1px solid #33333a; border-left: 3px solid #e0bd49; border-radius: 9px; padding: 12px 14px; }
+.writing-rule.is-inactive { border-left-color: #4b4b55; opacity: 0.7; }
+.writing-rule-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.writing-rule-badge { background: #24242b; border: 1px solid #4b4b55; border-radius: 999px; color: #e0bd49; font-size: 12px; padding: 3px 10px; white-space: nowrap; }
+.writing-rule-badge.is-source { color: #8dccff; }
+.writing-rule-badge.is-off { color: #9b9ba5; }
+.writing-rule-text { margin: 0; color: #f5f5f7; font-size: 15px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.writing-rule-reason { margin: 0; color: #9b9ba5; font-size: 13px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.writing-rule-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.writing-rule-actions button { margin: 0; padding: 6px 12px; font-size: 13px; }
+.writing-rules-add summary { color: #c7c7cf; cursor: pointer; width: fit-content; }
+.writing-rules-form { display: grid; gap: 12px; margin-top: 12px; min-width: 0; }
+.writing-rules-form label { display: grid; gap: 6px; color: #c7c7cf; font-size: 14px; min-width: 0; }
+.writing-rules-form select, .writing-rules-form textarea { background: #101014; color: #f5f5f7; border: 1px solid #414149; border-radius: 9px; padding: 10px 12px; font: inherit; color-scheme: dark; width: 100%; box-sizing: border-box; }
+.writing-rules-form button { width: fit-content; margin: 0; }
+.writing-rules-status { min-height: 22px; margin: 0; color: #75f39d; }

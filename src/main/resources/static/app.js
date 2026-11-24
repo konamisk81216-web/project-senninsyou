@@ -4179,3 +4179,226 @@ opportunityForm.addEventListener("submit", async event => {
         button.disabled = false;
     }
 });
+
+// ===== 書き方の決まり（タスク管理画面） =====
+// 本人のダメ出しやAIの指摘を、次の下書きで守る決まりとして残す。消さずに、使わない決まりは無効にする。
+// 失敗はサーバーが失敗の状態と {error, errorCode} で返す。読めなかったときは「決まりがない」とは出さない。
+const writingRulesList = document.getElementById("writing-rules-list");
+const writingRulesStatus = document.getElementById("writing-rules-status");
+const WRITING_RULE_TARGETS = ["共通", "note記事", "SNS投稿"];
+
+// 失敗の応答から、画面に出す文を作る。JSON でなくても解析エラーにしない。
+async function writingRuleErrorMessage(response) {
+    const text = await response.text().catch(() => "");
+    try {
+        const body = JSON.parse(text);
+        if (body && typeof body.error === "string") return body.error;
+    } catch (error) {
+        // JSON でない失敗（古いサーバー・途中の中継など）。
+    }
+    return `保存先の応答が正しくありませんでした（HTTP ${response.status}）。`;
+}
+
+async function writingRuleRequest(url, method, body) {
+    const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+    });
+    if (!response.ok) throw new Error(await writingRuleErrorMessage(response));
+}
+
+async function loadWritingRules() {
+    if (!writingRulesList) return;
+    try {
+        const response = await fetch("/api/writing-rules");
+        if (!response.ok) throw new Error(await writingRuleErrorMessage(response));
+        const rules = await response.json();
+        if (!Array.isArray(rules)) throw new Error("決まりの一覧の形が正しくありませんでした。");
+        renderWritingRules(rules);
+    } catch (error) {
+        writingRulesList.replaceChildren();
+        const failed = document.createElement("p");
+        failed.className = "writing-rules-empty is-error";
+        failed.textContent = "書き方の決まりを読み込めませんでした。";
+        writingRulesList.appendChild(failed);
+        console.error(error);
+    }
+}
+
+function renderWritingRules(rules) {
+    writingRulesList.replaceChildren();
+    if (rules.length === 0) {
+        const empty = document.createElement("p");
+        empty.className = "writing-rules-empty";
+        empty.textContent = "まだ決まりはありません。ダメ出しやAIの指摘を受けたら、ここに残してください。";
+        writingRulesList.appendChild(empty);
+        return;
+    }
+    rules.forEach(rule => writingRulesList.appendChild(writingRuleCard(rule)));
+}
+
+function writingRuleCard(rule) {
+    const card = document.createElement("article");
+    card.className = "writing-rule";
+    card.dataset.ruleId = String(rule.id);
+    card.classList.toggle("is-inactive", !rule.active);
+
+    const badges = document.createElement("div");
+    badges.className = "writing-rule-badges";
+    const target = document.createElement("span");
+    target.className = "writing-rule-badge";
+    target.textContent = rule.target;
+    const source = document.createElement("span");
+    source.className = "writing-rule-badge is-source";
+    source.textContent = rule.source === "AIの指摘" ? "AIの指摘" : "本人のダメ出し";
+    badges.append(target, source);
+    if (!rule.active) {
+        const off = document.createElement("span");
+        off.className = "writing-rule-badge is-off";
+        off.textContent = "無効";
+        badges.appendChild(off);
+    }
+
+    const text = document.createElement("p");
+    text.className = "writing-rule-text";
+    text.textContent = rule.rule;
+    card.append(badges, text);
+
+    if (rule.reason) {
+        const reason = document.createElement("p");
+        reason.className = "writing-rule-reason";
+        reason.textContent = `きっかけ：${rule.reason}`;
+        card.appendChild(reason);
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "writing-rule-actions";
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.className = "secondary-button";
+    edit.textContent = "✎ 編集";
+    edit.addEventListener("click", () => openWritingRuleEditor(card, rule));
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "secondary-button";
+    toggle.textContent = rule.active ? "無効にする" : "有効に戻す";
+    toggle.addEventListener("click", async () => {
+        toggle.disabled = true;
+        try {
+            await writingRuleRequest(`/api/writing-rules/${rule.id}/active`, "PUT", { active: !rule.active });
+            writingRulesStatus.textContent = rule.active ? "決まりを無効にしました。" : "決まりを有効に戻しました。";
+            await loadWritingRules();
+        } catch (error) {
+            writingRulesStatus.textContent = error.message;
+            toggle.disabled = false;
+            console.error(error);
+        }
+    });
+    actions.append(edit, toggle);
+    card.appendChild(actions);
+    return card;
+}
+
+function openWritingRuleEditor(card, rule) {
+    if (card.querySelector(".writing-rule-edit")) return;
+    const form = document.createElement("form");
+    form.className = "writing-rule-edit writing-rules-form";
+
+    const targetLabel = document.createElement("label");
+    targetLabel.textContent = "対象";
+    const target = document.createElement("select");
+    WRITING_RULE_TARGETS.forEach(value => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = value;
+        target.appendChild(option);
+    });
+    target.value = rule.target;
+    targetLabel.appendChild(target);
+
+    const ruleLabel = document.createElement("label");
+    ruleLabel.textContent = "決まり";
+    const ruleText = document.createElement("textarea");
+    ruleText.rows = 2;
+    ruleText.maxLength = 500;
+    ruleText.value = rule.rule;
+    ruleLabel.appendChild(ruleText);
+
+    const reasonLabel = document.createElement("label");
+    reasonLabel.textContent = "きっかけ（任意）";
+    const reason = document.createElement("textarea");
+    reason.rows = 2;
+    reason.maxLength = 1000;
+    reason.value = rule.reason ?? "";
+    reasonLabel.appendChild(reason);
+
+    const buttons = document.createElement("div");
+    buttons.className = "writing-rule-actions";
+    const save = document.createElement("button");
+    save.type = "submit";
+    save.textContent = "保存する";
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "secondary-button";
+    cancel.textContent = "やめる";
+    cancel.addEventListener("click", () => form.remove());
+    buttons.append(save, cancel);
+
+    form.append(targetLabel, ruleLabel, reasonLabel, buttons);
+    form.addEventListener("submit", async event => {
+        event.preventDefault();
+        if (!ruleText.value.trim()) {
+            writingRulesStatus.textContent = "決まりを入力してください。";
+            return;
+        }
+        if (save.disabled) return;   // 保存を待っている間は、二重に送らない
+        save.disabled = true;
+        try {
+            await writingRuleRequest(`/api/writing-rules/${rule.id}`, "PUT",
+                { target: target.value, rule: ruleText.value.trim(), reason: reason.value.trim() });
+            writingRulesStatus.textContent = "決まりを直しました。";
+            await loadWritingRules();
+        } catch (error) {
+            // 失敗したときは、入力した内容を残す。
+            writingRulesStatus.textContent = error.message;
+            save.disabled = false;
+            console.error(error);
+        }
+    });
+    card.appendChild(form);
+    ruleText.focus();
+}
+
+document.getElementById("writing-rule-form")?.addEventListener("submit", async event => {
+    event.preventDefault();
+    const button = document.getElementById("writing-rule-add");
+    const ruleText = document.getElementById("writing-rule-text");
+    const reason = document.getElementById("writing-rule-reason");
+    if (!ruleText.value.trim()) {
+        writingRulesStatus.textContent = "決まりを入力してください。";
+        return;
+    }
+    if (button.disabled) return;   // 保存を待っている間は、二重に追加しない
+    button.disabled = true;
+    try {
+        await writingRuleRequest("/api/writing-rules", "POST", {
+            target: document.getElementById("writing-rule-target").value,
+            rule: ruleText.value.trim(),
+            reason: reason.value.trim(),
+            source: document.getElementById("writing-rule-source").value
+        });
+        ruleText.value = "";
+        reason.value = "";
+        writingRulesStatus.textContent = "決まりに追加しました。";
+        await loadWritingRules();
+    } catch (error) {
+        // 失敗したときは、入力した内容を残す。自動でやり直さない。
+        writingRulesStatus.textContent = error.message;
+        console.error(error);
+    } finally {
+        button.disabled = false;
+    }
+});
+
+loadWritingRules();

@@ -475,6 +475,26 @@ public class AIService {
                         interviewNotes.isBlank() ? "（今回の取材はありません）" : interviewNotes);
     }
 
+    static final String ANSWER_FORMAT_HEADING = "===== 返答形式 =====";
+
+    // 書き方の決まり（本人のダメ出しやAIの指摘から残したもの）を、返答形式の直前に足す。決まりがなければ指示文は変えない。
+    static String withWritingRules(String prompt, String rulesText) {
+        if (rulesText == null || rulesText.isBlank()) {
+            return prompt;
+        }
+        int at = prompt.indexOf(ANSWER_FORMAT_HEADING);
+        if (at < 0 || at != prompt.lastIndexOf(ANSWER_FORMAT_HEADING)) {
+            throw new IllegalStateException("返答形式の見出しが1つだけの指示文にしか、書き方の決まりを足せません。");
+        }
+        String section = """
+                ===== 書き方の決まり（本人のダメ出しやAIの指摘から残したもの） =====
+                次の決まりを守ってください。ただし、上の条件と食い違うときは、上の条件を優先してください。
+                %s
+
+                """.formatted(rulesText.strip());
+        return prompt.substring(0, at) + section + prompt.substring(at);
+    }
+
     public String buildPostPrompt(
             String situation,
             String note,

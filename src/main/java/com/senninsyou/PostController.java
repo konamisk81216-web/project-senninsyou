@@ -16,6 +16,7 @@ public class PostController {
     private final TaskRepository taskRepository;
     private final AuthorFactRepository authorFactRepository;
     private final AiActivityRepository activityRepository;
+    private final WritingRuleRepository writingRuleRepository;
     private final RevenueContextService revenueContextService = new RevenueContextService();
 
     public PostController() {
@@ -42,6 +43,7 @@ public class PostController {
         taskRepository = new TaskRepository(jdbcUrl, credentials[0], credentials[1]);
         authorFactRepository = new AuthorFactRepository(jdbcUrl, credentials[0], credentials[1]);
         activityRepository = new AiActivityRepository(jdbcUrl, credentials[0], credentials[1]);
+        writingRuleRepository = new WritingRuleRepository(jdbcUrl, credentials[0], credentials[1]);
     }
 
     @GetMapping
@@ -70,8 +72,11 @@ public class PostController {
                         authorFactRepository.getAllFacts().size());
 
         long activityId = activityRepository.start("発信AI", "投稿案を作る");
+        // 書き方の決まり（SNS投稿と共通）を足す。読めなくても投稿案づくりは止めない。
         AIService.WriterAiResponse response = aiService.askWriter(
-                aiService.buildPostPrompt(situation, note, repository.buildRecentPostsText()));
+                AIService.withWritingRules(
+                        aiService.buildPostPrompt(situation, note, repository.buildRecentPostsText()),
+                        writingRuleRepository.activeRulesTextOrEmpty("SNS投稿")));
         if (response.errorCode() != null) {
             activityRepository.finish(activityId, "失敗", response.errorCode());
             return Map.of("errorCode", response.errorCode());
