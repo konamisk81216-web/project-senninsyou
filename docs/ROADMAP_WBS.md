@@ -531,7 +531,7 @@ L-1 の根拠の読み取り：本物の PostgreSQL での検証と、作業時�
 - 残っていること：保存の失敗（NOT_SAVED・UNKNOWN）は、サーバーの標準出力に出るだけで、画面にも実行ログにも出ない（今回はUIと実行ログを変えない指示のため、そのまま）
 - **未確認**：試験の独立再実行、本番での動作（本番の conversations 表が database/010 と同じか、本番DB（Neon）での動き）、永続性・障害復旧、ACID全体、本物のOpenAIでの動き、CI（未push）。0行になる状況は試験用のトリガーで作ったもので、本番で起きる条件は確かめていない
 
-3つの変更の統合（保存通知・送信エラー応答・診断ログ。統合ブランチ work/three-integration、作業フォルダ C:\Development\senninsyou-integration。main 95853ce から作成。2026-11-22、未コミット・未push・main未反映・本番未反映）：
+3つの変更の統合（保存通知・送信エラー応答・診断ログ。統合ブランチ work/three-integration、作業フォルダ C:\Development\senninsyou-integration。main 95853ce から作成。2026-11-22。2026-11-24 にコミット 920f785・push・CI成功。main への統合（本番へのデプロイ）は本人の承認により、この記録を含むコミットで行う。本番での動作は未確認）：
 - 元の3つの作業フォルダ（senninsyou-save-notice・senninsyou-command-error・senninsyou-ai-diagnostics）は変えていない。統合の前後で、未コミットの変更（5・6・3ファイル）の SHA-256 が一致することを確認した
 - 合わせ方：片方だけが変えたファイル（style.css、試験5つ、AIService、AiFailureDiagnostics）は、元のフォルダからそのまま複製（バイト単位で一致を確認）。両方が変えた3ファイル（AIController・app.js・index.html）は、95853ce を基準に3方向で合わせた
   - ぶつかったのは3か所で、どれも隣り合った追加だった。AIController は保存結果の項目名（CONVERSATION_SAVE）と失敗の例外（CommandFailedException）・その処理、app.js は保存の案内の関数と失敗の応答を読む関数で、両方を残した
@@ -549,6 +549,7 @@ L-1 の根拠の読み取り：本物の PostgreSQL での検証と、作業時�
 - 診断ログの確認範囲：サーバー側だけの変更なので、画面の試験の対象外。Java の試験（AiFailureDiagnosticsTest 8件。認証エラー・利用制限・利用枠の不足・サーバーエラー・接続失敗を見分け、APIキー・認証ヘッダー・会話の本文・エラーメッセージを出さない。知らないエラーコードと種別は「（既知でない値）」）で確認した。本物のアプリでの確認では、DBにつながらない段階で止まるため、AIの呼び出しも診断の行も通っていない
 - 記録（リポジトリの外）：C:\Development\tmp-shots\three-integration-logs（0-origin-*：元の3フォルダの状態とハッシュ、1-compile.log、2-normal-tests.log、3-combined-mock.txt・3-combined-mock-pc-raw.txt・3-combined-mock-extra-raw.txt・shot-360-not-saved.jpg、4-repo-browser-tests-integrated.txt、5-repo-browser-tests-base-95853ce.txt、6-package.log、7-real-app-browser.txt、8-hashes-code.txt）。試験のサイトは three-integration-site・three-integration-base-site、実行の道具は run-three-integration-tests.ps1
 - 作業中の手違い（記録として残す）：画面の試験のサイトを最初に tmp-shots\integration-site に作り、11/18 の統合ブランチ（work/ui-integration）の試験用の4ファイル（app.js・index.html・style.css・talk-visual.js）を上書きした。当時の記録（integration-logs\browser-tests.txt）で、その4ファイルは senninsyou-ui-integration のファイルと同じだったので、そこから戻した（fa033be のコミットは試験より後のため、完全に同じかは**推測**）。試験はすべて新しいフォルダでやり直した
+- CI（2026-11-24、本人の承認で work/three-integration だけを通常の push）：GitHub Actions「Test only (no deploy)」#24、コミット 920f785、成功（52秒）。https://github.com/konamisk81216-web/project-senninsyou/actions/runs/45339005158 。デプロイのワークフローは動いていない。警告2件（Node.js 20 と setup-java v4 が古いという案内。今回の変更とは関係ない）。CIの中で流れた試験の件数は、ログの閲覧にサインインが必要なため**未確認**（CIは mvn -B test を実行するので手元と同じ190件と**推測**）
 - Codexのレビュー（統合後。2026-11-24に本人から完了の報告を受けた）：追加のコード修正の指摘なし。Javaの試験190件・画面の試験242項目などのログ、コード11ファイルのハッシュ、jar の中の画面4ファイルが作業フォルダと一致することを確認済み。全体の試験の独立再実行と本番での確認は、このレビューには含まれない
 - **未確認**：全体の試験の独立再実行、本番での動作（本物のOpenAI・本番DB（Neon）での保存の結果と失敗の応答、診断の行が実際の失敗の原因を示すか）、本番でAI将軍の返答を取得できなかった原因、実DBの試験（今回は流していない）、スマートフォン実機での表示、本物の音声認識・読み上げ、CI（未push）
 
