@@ -790,6 +790,61 @@ restoreConversation();
 // AI将軍の返答を待っている間は true。
 let commandInFlight = false;
 
+// 相談の会話記録の保存の結果を、会話欄（直前の会話）に知らせる。
+// サーバーが返す保存の部品の実際の結果（conversationSave）だけを見る。AIの文章からは判断しない。
+// SAVED だけを保存済みとし、NOT_SAVED 以外（UNKNOWN・欠落・知らない値）はすべて「確認できなかった」と出す。
+// 知らせるだけで、AIの呼び直しや保存のやり直しはしない。
+const CONVERSATION_SAVE_NOTICES = {
+    NOT_SAVED: "返答は表示できましたが、会話履歴を保存できませんでした。",
+    UNKNOWN: "返答は表示できましたが、会話履歴の保存結果を確認できませんでした。"
+};
+
+function showConversationSaveNotice(saveResult) {
+    const notice = document.getElementById("conversation-save-notice");
+    if (!notice) return;
+    if (saveResult === "SAVED") {
+        hideConversationSaveNotice();
+        return;
+    }
+    notice.textContent = saveResult === "NOT_SAVED"
+        ? CONVERSATION_SAVE_NOTICES.NOT_SAVED
+        : CONVERSATION_SAVE_NOTICES.UNKNOWN;
+    notice.dataset.saveResult = saveResult === "NOT_SAVED" ? "NOT_SAVED" : "UNKNOWN";
+    notice.hidden = false;
+}
+
+function hideConversationSaveNotice() {
+    const notice = document.getElementById("conversation-save-notice");
+    if (!notice) return;
+    notice.hidden = true;
+    notice.textContent = "";
+    delete notice.dataset.saveResult;
+}
+
+// 相談の失敗の応答から、記録用の説明を作る。本文は一度だけ読み、JSON でなくても解析エラーにしない。
+async function commandErrorMessage(response) {
+    const text = await response.text().catch(() => "");
+    try {
+        const body = JSON.parse(text);
+        if (body && typeof body.error === "string") return `${body.error}（${body.errorCode ?? "HTTP " + response.status}）`;
+    } catch (error) {
+        // JSON でない失敗の応答（古いサーバー・途中の中継など）。下で状態と本文の先頭を残す。
+    }
+    return `HTTP ${response.status}${text ? "：" + text.slice(0, 200) : ""}`;
+}
+
+// 成功の応答を返答として読む。JSON の形でなければ、解析エラーのまま投げず、送信の失敗として扱える説明にする。
+async function readCommandAnswer(response) {
+    const text = await response.text();
+    try {
+        const data = JSON.parse(text);
+        if (data && typeof data === "object" && !Array.isArray(data)) return data;
+    } catch (error) {
+        // 下で失敗にする。
+    }
+    throw new Error("AI将軍の返答をJSONとして読めませんでした：" + text.slice(0, 200));
+}
+
 async function sendCommand(mode = "discuss", options = {}) {
     // 返答を待っている間は、どの経路（音声・Enter・ボタン）からも次の送信を受け付けない。
     // 1つの発言が二重に送られ、AI将軍への依頼と会話記録が重複するのを防ぐ。
@@ -817,6 +872,8 @@ async function sendCommand(mode = "discuss", options = {}) {
     commandButton.textContent = "考え中...";
     status.textContent = mode === "propose" ? "タスク案を整理しています..." : "新しい返答を作成中です。下は前回の会話です。";
     status.hidden = false;
+    // 前の往復の保存の案内は、新しく送るときに消す（今回の結果だけを出す。送信に失敗したときも出さない）。
+    hideConversationSaveNotice();
     setVoiceState("thinking", "AI将軍が考えています。");
     setDemoSubtitle(command, "考えています...");
     document.getElementById("ai-response").classList.add("is-thinking");
@@ -833,8 +890,9 @@ async function sendCommand(mode = "discuss", options = {}) {
             })
         });
 
-        if (!response.ok) throw new Error(await response.text());
-        const data = await response.json();
+        // 失敗はサーバーが失敗の状態と {error, errorCode} で返す。成功のときだけ、返答として読む。
+        if (!response.ok) throw new Error(await commandErrorMessage(response));
+        const data = await readCommandAnswer(response);
 
         const aiResponse = document.getElementById("ai-response");
         aiResponse.querySelectorAll(".ai-result").forEach(element => element.remove());
@@ -854,6 +912,8 @@ async function sendCommand(mode = "discuss", options = {}) {
         }
         renderActionApproval(aiResponse, data);
         setDemoSubtitle(null, answer);
+        // 返答を表示できた後に、会話記録の保存の結果を知らせる。タスク案の整理は今回の対象外（結果を推測しない）。
+        if (mode !== "propose") showConversationSaveNotice(data.conversationSave);
         loadCommandCenter();
         // AIへ渡す会話の続きには、サーバーが保存したのと同じ本文（話者名つき）を使う。
         conversation.push({role: "利用者", text: command}, {role: "AI将軍", text: answer});

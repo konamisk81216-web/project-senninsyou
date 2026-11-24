@@ -149,7 +149,8 @@ class GeneralSpeakerTest {
     void 相談で完了していない返答は_話者が正しくても失敗() {
         responseStatus = "incomplete";
         body = answer("ハル", "価格を決めましょう。", "", "", "");
-        assertEquals("AI将軍から有効な返答を受け取れませんでした。", controller.command(request("discuss")));
+        assertEquals("AI将軍から有効な返答を受け取れませんでした。",
+                assertThrows(AIController.CommandFailedException.class, () -> controller.command(request("discuss"))).getMessage());
         assertEquals(List.of("start", "finish 失敗 返答を受け取れませんでした"), activities);
         assertEquals(List.of(), conversations);
         assertEquals(1, requests.size());
@@ -159,7 +160,8 @@ class GeneralSpeakerTest {
     void タスク案の整理で完了していない返答は失敗() {
         responseStatus = "incomplete";
         body = proposeAnswer();
-        assertEquals("AI将軍から有効な返答を受け取れませんでした。", controller.command(request("propose")));
+        assertEquals("AI将軍から有効な返答を受け取れませんでした。",
+                assertThrows(AIController.CommandFailedException.class, () -> controller.command(request("propose"))).getMessage());
         assertEquals(List.of("start", "finish 失敗 返答を受け取れませんでした"), activities);
         assertEquals(1, requests.size());
     }

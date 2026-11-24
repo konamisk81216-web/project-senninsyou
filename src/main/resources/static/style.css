@@ -1838,6 +1838,8 @@ body.demo-open { overflow: hidden; }
 .talk-panel .quick-command { min-height: 36px; padding: 6px 12px; font-size: 13px; border-radius: var(--tk-radius); background: var(--tk-surface); }
 .talk-panel .talk-messages { margin-top: 18px; }
 .talk-panel .command-status { margin: 0 0 8px; font-size: 14px; color: var(--tk-champagne); }
+/* 会話記録の保存の案内（返答は表示できたが、保存できなかった・結果を確認できなかった）。hidden のときは出さない。 */
+.talk-panel .conversation-save-notice { margin: 10px 0 0; padding: 8px 12px; border-left: 3px solid var(--tk-champagne); border-radius: 0 var(--tk-radius) var(--tk-radius) 0; background: var(--tk-approval-bg); color: var(--tk-champagne); font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
 #talk-sub-ai.is-clamped { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; line-clamp: 6; overflow: hidden; }
 .talk-panel .conversation-actions { margin-top: 10px; }
 .talk-panel .conversation-actions:not(:has(> :not([hidden]))) { display: none; }

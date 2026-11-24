@@ -154,12 +154,12 @@ class GeneralAnswerFailureTest {
         assertFailedWithoutAnswer();
     }
 
-    // 失敗の返答は画面で JSON として読めないので、操作の承認カードは出ない（app.js の sendCommand は例外として扱う）。
+    // 失敗は返答として返さず、失敗の応答（502 と {error, errorCode}）にする。操作の提案は返らないので、承認カードは出ない。
     private void assertFailedWithoutAnswer() {
-        String result = controller.command(request());
+        AIController.CommandFailedException error =
+                assertThrows(AIController.CommandFailedException.class, () -> controller.command(request()));
 
-        assertEquals("AI将軍から有効な返答を受け取れませんでした。", result);
-        assertFalse(result.contains("action"), "操作の提案を含まない");
+        assertEquals("AI将軍から有効な返答を受け取れませんでした。", error.getMessage());
         assertEquals(List.of("start", "finish 失敗"), activities);
         assertEquals(List.of(), conversations, "失敗した相談は会話記録に残さない");
     }

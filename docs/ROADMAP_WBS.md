@@ -531,6 +531,27 @@ L-1 の根拠の読み取り：本物の PostgreSQL での検証と、作業時�
 - 残っていること：保存の失敗（NOT_SAVED・UNKNOWN）は、サーバーの標準出力に出るだけで、画面にも実行ログにも出ない（今回はUIと実行ログを変えない指示のため、そのまま）
 - **未確認**：試験の独立再実行、本番での動作（本番の conversations 表が database/010 と同じか、本番DB（Neon）での動き）、永続性・障害復旧、ACID全体、本物のOpenAIでの動き、CI（未push）。0行になる状況は試験用のトリガーで作ったもので、本番で起きる条件は確かめていない
 
+3つの変更の統合（保存通知・送信エラー応答・診断ログ。統合ブランチ work/three-integration、作業フォルダ C:\Development\senninsyou-integration。main 95853ce から作成。2026-11-22、未コミット・未push・main未反映・本番未反映）：
+- 元の3つの作業フォルダ（senninsyou-save-notice・senninsyou-command-error・senninsyou-ai-diagnostics）は変えていない。統合の前後で、未コミットの変更（5・6・3ファイル）の SHA-256 が一致することを確認した
+- 合わせ方：片方だけが変えたファイル（style.css、試験5つ、AIService、AiFailureDiagnostics）は、元のフォルダからそのまま複製（バイト単位で一致を確認）。両方が変えた3ファイル（AIController・app.js・index.html）は、95853ce を基準に3方向で合わせた
+  - ぶつかったのは3か所で、どれも隣り合った追加だった。AIController は保存結果の項目名（CONVERSATION_SAVE）と失敗の例外（CommandFailedException）・その処理、app.js は保存の案内の関数と失敗の応答を読む関数で、両方を残した
+  - index.html の app.js の版は、統合後の内容がどちらの版（20261121-1・20261121-2）とも違うため、新しく 20261122-1 にした。style.css は保存通知の版（20261121-1）と同じ内容なので、版もそのまま
+  - 両方の変更の行がすべて統合後に残っていることを、差分で確認した。git diff --check は問題なし、改行は CRLF のまま
+- 最終の版での結果（11ファイル。試験のあとファイルは変えていない）：
+  - mvn clean compile：成功（11/22 21:58）
+  - 通常のJavaの試験（mvn test、DBなし・OpenAIなし。AIは 127.0.0.1 の偽のサーバー）：190件合格、失敗0・エラー0・スキップ0（11/22 21:59、19クラス）。内訳は 95853ce の168件に、保存通知の8件（ConversationExchangeSaveTest が20件→28件）、送信エラー応答の6件（CommandFailureResponseTest）、診断の8件（AiFailureDiagnosticsTest）を足したもの。実DBの試験は含まれない
+  - リポジトリの画面の模擬試験（src/test/js の12本、ヘッドレスChrome 1280x900。各試験がページの中で通信・音声・マイクを偽物に差し替える）：統合後 242件合格、失敗0・結果なし0（11/22 22:06〜22:14）。比較のため 95853ce の画面でも同じ12本を流し、242件合格（22:14〜22:24）。件数は同じで、新しい不合格はない
+  - 保存通知と送信エラー応答を組み合わせた模擬試験（リポジトリの外の試験専用ファイル。/api/ の応答をページの中の偽物が返す）：14件合格。PC（ヘッドレスChrome、実際の幅1262）、390x844、360x800（組み込みブラウザ）の3つで、どれも14件合格・横のはみ出し0
+    - 確かめたこと：SAVED は案内なし。NOT_SAVED・UNKNOWN・欠落・知らない値は、それぞれの案内を出す。案内が出た後に送信が失敗したとき（503 の JSON DB_UNAVAILABLE、502 の JSON AI_NO_ANSWER・AI_BAD_FORMAT、502 の HTML、200 の文章）は、送信中に前の案内を消し、失敗の後も案内を出さない。送信の失敗として扱い、SyntaxError なし、入力した文は残る、要求は1回（二重送信・自動の再送なし）、送信ボタンが戻る。タスク案の整理は案内を出さず、整理の失敗も送信の失敗として扱う
+    - 同じ試験を 95853ce の画面で流すと、案内の欄がないため最初で例外になる（試験が統合後の動きを見ていることの確認）
+    - ヘッドレスChromeは幅500未満にできず、390・360の指定は幅504になった。そのため390・360は組み込みブラウザで確認した
+  - 本物のアプリ（統合後のファイルで作った jar。DBは 127.0.0.1:1 のダミー、OpenAIのキーなし）：会話画面から1回送り、503・application/json・{error, errorCode=DB_UNAVAILABLE}、要求1回、SyntaxError なし、送信の失敗として扱う、入力した文が残る、保存の案内は出ない、を確認。画面は app.js?v=20261122-1 を読み込んだ。jar は試験を省いて作った（同じファイルで直前に通常の試験を流したため）
+- 診断ログの確認範囲：サーバー側だけの変更なので、画面の試験の対象外。Java の試験（AiFailureDiagnosticsTest 8件。認証エラー・利用制限・利用枠の不足・サーバーエラー・接続失敗を見分け、APIキー・認証ヘッダー・会話の本文・エラーメッセージを出さない。知らないエラーコードと種別は「（既知でない値）」）で確認した。本物のアプリでの確認では、DBにつながらない段階で止まるため、AIの呼び出しも診断の行も通っていない
+- 記録（リポジトリの外）：C:\Development\tmp-shots\three-integration-logs（0-origin-*：元の3フォルダの状態とハッシュ、1-compile.log、2-normal-tests.log、3-combined-mock.txt・3-combined-mock-pc-raw.txt・3-combined-mock-extra-raw.txt・shot-360-not-saved.jpg、4-repo-browser-tests-integrated.txt、5-repo-browser-tests-base-95853ce.txt、6-package.log、7-real-app-browser.txt、8-hashes-code.txt）。試験のサイトは three-integration-site・three-integration-base-site、実行の道具は run-three-integration-tests.ps1
+- 作業中の手違い（記録として残す）：画面の試験のサイトを最初に tmp-shots\integration-site に作り、11/18 の統合ブランチ（work/ui-integration）の試験用の4ファイル（app.js・index.html・style.css・talk-visual.js）を上書きした。当時の記録（integration-logs\browser-tests.txt）で、その4ファイルは senninsyou-ui-integration のファイルと同じだったので、そこから戻した（fa033be のコミットは試験より後のため、完全に同じかは**推測**）。試験はすべて新しいフォルダでやり直した
+- Codexのレビュー（統合後。2026-11-24に本人から完了の報告を受けた）：追加のコード修正の指摘なし。Javaの試験190件・画面の試験242項目などのログ、コード11ファイルのハッシュ、jar の中の画面4ファイルが作業フォルダと一致することを確認済み。全体の試験の独立再実行と本番での確認は、このレビューには含まれない
+- **未確認**：全体の試験の独立再実行、本番での動作（本物のOpenAI・本番DB（Neon）での保存の結果と失敗の応答、診断の行が実際の失敗の原因を示すか）、本番でAI将軍の返答を取得できなかった原因、実DBの試験（今回は流していない）、スマートフォン実機での表示、本物の音声認識・読み上げ、CI（未push）
+
 ### 1-3. JARVIS型の作業分解
 
 | # | 作業 | 状態（根拠） |

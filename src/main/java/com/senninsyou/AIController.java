@@ -12,6 +12,9 @@ import jakarta.annotation.PreDestroy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -100,7 +103,8 @@ public class AIController {
         String taskStatus = repository.getAllTasksAsText();
 
         if (taskStatus.equals("データベース接続に失敗しています。")) {
-            return "AI将軍を起動できません。データベース接続を確認してください。";
+            throw new CommandFailedException(HttpStatus.SERVICE_UNAVAILABLE, "DB_UNAVAILABLE",
+                    "AI将軍を起動できません。データベース接続を確認してください。", null);
         }
 
         String revenueStatus = revenueContextService.buildContext();
@@ -119,7 +123,8 @@ public class AIController {
 
         if (response == null || response.isBlank()) {
             activityRepository.finish(activityId, "失敗", "返答を受け取れませんでした");
-            return "AI将軍から有効な返答を受け取れませんでした。";
+            throw new CommandFailedException(HttpStatus.BAD_GATEWAY, "AI_NO_ANSWER",
+                    "AI将軍から有効な返答を受け取れませんでした。", null);
         }
 
         ObjectNode result;
@@ -142,10 +147,10 @@ public class AIController {
         } catch (SpeakerMismatchException e) {
             // 状態は今までどおり「失敗」。理由は詳細欄で見分ける。
             activityRepository.finish(activityId, "失敗", "話者と発言の組み合わせが正しくありませんでした");
-            throw new IllegalStateException("AI将軍の返答形式が正しくありません。", e);
+            throw new CommandFailedException(HttpStatus.BAD_GATEWAY, "AI_BAD_FORMAT", "AI将軍の返答形式が正しくありません。", e);
         } catch (Exception e) {
             activityRepository.finish(activityId, "失敗", "返答の形式が正しくありませんでした");
-            throw new IllegalStateException("AI将軍の返答形式が正しくありません。", e);
+            throw new CommandFailedException(HttpStatus.BAD_GATEWAY, "AI_BAD_FORMAT", "AI将軍の返答形式が正しくありません。", e);
         }
 
         // 返答の検証が終わってから保存する（保存は返答形式の判定の外。保存の失敗を返答形式のエラーにしない）。
@@ -154,19 +159,64 @@ public class AIController {
         return result.toString();
     }
 
-    // 会話記録の保存。失敗しても返答はそのまま返す。AIの呼び直しも、保存のやり直しもしない。
-    // ・相談：利用者の発言と、AI将軍として実際に話した内容（話者つき）を、1つのトランザクションで2件まとめて保存する
-    // ・タスク案の整理：今までどおり、AI将軍の要約1件だけ
-    private void saveConversation(String command, ObjectNode result, boolean propose) {
-        try {
-            if (propose) {
-                conversationRepository.add("AI将軍", result.path("summary").asText(""));
-            } else {
-                conversationRepository.addExchange(command, spokenText(result));
-            }
-        } catch (RuntimeException e) {
-            System.out.println("会話の保存に失敗しました。");
+    // 相談の返答に付ける、会話記録の保存の結果（SAVED・NOT_SAVED・UNKNOWN）。画面はこの値だけで案内を出す。
+    static final String CONVERSATION_SAVE = "conversationSave";
+
+    // 相談（/api/ai/command）の失敗。画面が JSON として読めるよう、失敗の状態と {error, errorCode} で返す。
+    // 以前は失敗の文章を 200 のまま返していて、画面が JSON として読もうとして解析エラーになっていた。
+    // 返答形式の失敗は今までどおり IllegalStateException の仲間として扱う。AIの呼び直しはしない。
+    static class CommandFailedException extends IllegalStateException {
+        private final HttpStatus status;
+        private final String errorCode;
+
+        CommandFailedException(HttpStatus status, String errorCode, String message, Throwable cause) {
+            super(message, cause);
+            this.status = status;
+            this.errorCode = errorCode;
         }
+    }
+
+    @ExceptionHandler(CommandFailedException.class)
+    ResponseEntity<Map<String, String>> commandFailed(CommandFailedException e) {
+        Map<String, String> body = new LinkedHashMap<>();
+        body.put("error", e.getMessage());
+        body.put("errorCode", e.errorCode);
+        return ResponseEntity.status(e.status).contentType(MediaType.APPLICATION_JSON).body(body);
+    }
+
+    // 会話記録の保存。失敗しても返答はそのまま返す。AIの呼び直しも、保存のやり直しもしない。
+    // ・相談：利用者の発言と、AI将軍として実際に話した内容（話者つき）を、1つのトランザクションで2件まとめて保存する。
+    //   保存の部品が返した実際の結果を conversationSave に入れる。結果が分からないとき（例外・値なし）は UNKNOWN。
+    // ・タスク案の整理：今までどおり、AI将軍の要約1件だけ。今回は保存の結果を返さない（推測もしない）
+    // AIの返答の文に同じ名前の項目があっても使わない（先に消し、相談のときだけ実際の結果で入れ直す）。
+    private void saveConversation(String command, ObjectNode result, boolean propose) {
+        result.remove(CONVERSATION_SAVE);
+        if (propose) {
+            try {
+                conversationRepository.add("AI将軍", result.path("summary").asText(""));
+            } catch (RuntimeException e) {
+                System.out.println("会話の保存に失敗しました。");
+            }
+            return;
+        }
+        String spoken;
+        try {
+            spoken = spokenText(result);
+        } catch (RuntimeException e) {
+            // 保存を始める前なので、何も書いていない。
+            System.out.println("会話の保存に失敗しました。");
+            result.put(CONVERSATION_SAVE, ConversationRepository.ExchangeSave.NOT_SAVED.name());
+            return;
+        }
+        ConversationRepository.ExchangeSave saved;
+        try {
+            saved = conversationRepository.addExchange(command, spoken);
+        } catch (RuntimeException e) {
+            // 保存の途中で何が起きたか分からないので、保存されなかったとは言い切らない。
+            System.out.println("会話の保存に失敗しました。");
+            saved = ConversationRepository.ExchangeSave.UNKNOWN;
+        }
+        result.put(CONVERSATION_SAVE, (saved == null ? ConversationRepository.ExchangeSave.UNKNOWN : saved).name());
     }
 
     // 話者と発言・操作の組み合わせ。speakerReason は補足なので、空でもここでは見ない。

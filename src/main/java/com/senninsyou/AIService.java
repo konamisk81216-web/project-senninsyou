@@ -696,6 +696,8 @@ public class AIService {
 
         System.out.println("AI将軍との通信に失敗しました。");
         System.out.println("ネット接続やAPI設定を確認してください。");
+        // 原因を見分けるための診断（例外の種類・HTTPの状態・エラーコードだけ。メッセージ・本文・キーは出さない）。
+        System.out.println("AI将軍との通信の診断：" + AiFailureDiagnostics.describe(e));
 
         return null;
         }

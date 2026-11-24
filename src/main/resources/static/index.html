@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project 千人将 | ダッシュボード</title>
 
-    <link rel="stylesheet" href="/style.css?v=20261119-1">
+    <link rel="stylesheet" href="/style.css?v=20261121-1">
 </head>
 
 <body>
@@ -415,6 +415,8 @@
                         <!-- 長い返答は、文はそのままで表示だけを短くしている。押すと全文を出す。 -->
                         <button id="talk-sub-more" class="talk-text-action" type="button" aria-expanded="false" hidden>全文を表示</button>
                         <button id="talk-replay" class="talk-text-action" type="button" hidden>🔊 返答をもう一度聞く</button>
+                        <!-- 相談の会話記録を保存できなかった・保存の結果を確認できなかったときだけ出す（app.js がサーバーの保存の結果で出す）。 -->
+                        <p id="conversation-save-notice" class="conversation-save-notice" role="status" hidden></p>
                     </section>
                     <div class="conversation-actions">
                         <button id="continue-conversation-button" class="secondary-button" type="button" hidden>続きを相談する ↑</button>
@@ -778,7 +780,7 @@
         </section>
     </main>
 
-        <script src="/app.js?v=20261119-1"></script>
+        <script src="/app.js?v=20261122-1"></script>
         <script src="/talk-visual.js?v=20261119-1"></script>
 </body>
 

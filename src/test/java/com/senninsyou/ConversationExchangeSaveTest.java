@@ -307,10 +307,106 @@ class ConversationExchangeSaveTest {
         assertEquals(List.of("start", "finish 完了 "), activities);
     }
 
-    private String controllerPropose() {
-        body = "{\"summary\":\"タスク案です。\",\"revenueInsight\":\"\",\"performanceDecision\":\"\",\"marketOpportunity\":\"\","
+    // ===== 画面へ返す保存の結果（conversationSave）。保存の部品が返した実際の値だけを返す =====
+
+    @Test
+    void 保存できたら返答に保存済みSAVEDを付ける() {
+        body = answer("両方", "小さく売ります。", "決済は手作業で始めます。", "");
+        assertEquals("SAVED", saveResult(controller.command(request("discuss"))));
+        assertEquals(1, count("ai:request"));
+        assertEquals(1, count("db:commit"));
+    }
+
+    @Test
+    void 二件目のINSERTに失敗したらNOT_SAVEDを付け_AIも保存も一回だけ() {
+        failOnInsert = 2;
+        body = answer("ハル", "価格を決めましょう。", "", "");
+        String result = controller.command(request("discuss"));
+        assertEquals("NOT_SAVED", saveResult(result));
+        assertTrue(result.contains("\"haruText\":\"価格を決めましょう。\""), "返答はそのまま返る");
+        assertEquals(1, count("ai:request"));
+        assertEquals(1, count("db:open"));
+        assertEquals(List.of("start", "finish 完了 "), activities, "実行ログは今までどおり");
+    }
+
+    @Test
+    void 接続できなければNOT_SAVEDを付ける() {
+        failOnOpen = true;
+        body = answer("ガク", "", "まず計測を入れます。", "");
+        assertEquals("NOT_SAVED", saveResult(controller.command(request("discuss"))));
+        assertEquals(List.of("ai:request", "db:open"), events);
+    }
+
+    @Test
+    void 確定の結果が分からなければUNKNOWNを付け_保存済みとは言わない() {
+        failOnCommit = true;
+        body = answer("確認", "", "", "売上と作業のどちらを優先しますか？");
+        assertEquals("UNKNOWN", saveResult(controller.command(request("discuss"))));
+        assertEquals(1, count("ai:request"));
+        assertEquals(1, count("db:commit"));
+    }
+
+    @Test
+    void 保存の部品が例外を投げたらUNKNOWNを付ける() throws Exception {
+        set(controller, "conversationRepository", new ConversationRepository(this::open) {
+            @Override public ExchangeSave addExchange(String userMessage, String aiMessage) {
+                throw new IllegalStateException("テスト用の想定外の例外");
+            }
+        });
+        body = answer("ハル", "価格を決めましょう。", "", "");
+        assertEquals("UNKNOWN", saveResult(controller.command(request("discuss"))));
+        assertEquals(List.of("start", "finish 完了 "), activities);
+    }
+
+    @Test
+    void 保存の部品が結果を返さなければUNKNOWNを付ける() throws Exception {
+        set(controller, "conversationRepository", new ConversationRepository(this::open) {
+            @Override public ExchangeSave addExchange(String userMessage, String aiMessage) {
+                return null;
+            }
+        });
+        body = answer("ハル", "価格を決めましょう。", "", "");
+        assertEquals("UNKNOWN", saveResult(controller.command(request("discuss"))));
+    }
+
+    @Test
+    void AIの返答の文に保存済みと書かれていても_実際の保存の結果で上書きする() {
+        failOnInsert = 1;
+        body = withSaveField(answer("ハル", "価格を決めましょう。", "", ""), "SAVED");
+        assertEquals("NOT_SAVED", saveResult(controller.command(request("discuss"))));
+    }
+
+    @Test
+    void タスク案の整理には保存の結果を付けず_AIの文の値も消す() throws Exception {
+        body = withSaveField(proposeAnswer(), "SAVED");
+        String result = controller.command(request("propose"));
+        assertTrue(new com.fasterxml.jackson.databind.ObjectMapper().readTree(result).path(AIController.CONVERSATION_SAVE).isMissingNode(),
+                "タスク案の整理は今回の対象外。保存の結果を推測しない");
+        assertEquals(List.of("ai:request", "db:open", "db:insert AI将軍：タスク案です。", "db:close"), events);
+    }
+
+    private static String saveResult(String result) {
+        try {
+            com.fasterxml.jackson.databind.JsonNode node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(result);
+            assertTrue(node.has(AIController.CONVERSATION_SAVE), "相談の返答には保存の結果が必ず付く");
+            return node.get(AIController.CONVERSATION_SAVE).asText();
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static String withSaveField(String json, String value) {
+        return json.substring(0, json.lastIndexOf('}')) + ",\"" + AIController.CONVERSATION_SAVE + "\":\"" + value + "\"}";
+    }
+
+    private static String proposeAnswer() {
+        return "{\"summary\":\"タスク案です。\",\"revenueInsight\":\"\",\"performanceDecision\":\"\",\"marketOpportunity\":\"\","
                 + "\"nextTask\":\"採点を終える\",\"priority\":\"中\",\"assignedAgent\":\"品質管理AI\",\"action\":\"\","
                 + "\"actionLabel\":\"\",\"actionTheme\":\"\",\"actionAudience\":\"\"}";
+    }
+
+    private String controllerPropose() {
+        body = proposeAnswer();
         return controller.command(request("propose"));
     }
 
