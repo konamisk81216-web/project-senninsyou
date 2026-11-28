@@ -553,7 +553,7 @@ L-1 の根拠の読み取り：本物の PostgreSQL での検証と、作業時�
 - Codexのレビュー（統合後。2026-11-24に本人から完了の報告を受けた）：追加のコード修正の指摘なし。Javaの試験190件・画面の試験242項目などのログ、コード11ファイルのハッシュ、jar の中の画面4ファイルが作業フォルダと一致することを確認済み。全体の試験の独立再実行と本番での確認は、このレビューには含まれない
 - **未確認**：全体の試験の独立再実行、本番での動作（本物のOpenAI・本番DB（Neon）での保存の結果と失敗の応答、診断の行が実際の失敗の原因を示すか）、本番でAI将軍の返答を取得できなかった原因、実DBの試験（今回は流していない）、スマートフォン実機での表示、本物の音声認識・読み上げ、CI（未push）
 
-書き方の決まり（作業ブランチ work/writing-rules、作業フォルダ C:\Development\senninsyou-writing-rules。main e064eb7 から作成。2026-11-24、未コミット・未push・main未反映・本番未反映・本番DB未適用）：
+書き方の決まり（作業ブランチ work/writing-rules、作業フォルダ C:\Development\senninsyou-writing-rules。main e064eb7 から作成。2026-11-24。2026-11-25 にコミット 61e5ff6、2026-11-28 に push・CI成功。main未反映・本番未反映・本番DB未適用）：
 - きっかけ：本人が共有したnote記事（AIどうしの確認と複数SNSの発信を回す仕組み）。記事の仕組みのうち、本人が選んだ「指摘を書き方の決まりに残す」だけを作った。AIどうしの確認、1週間分の発信の予定は作っていない。記事にある「AIが自動で予約投稿する」部分は、承認の線引き（公開・投稿はAIの操作に入れない）に合わせて作らない
 - 1つ目の段（保存と画面）：
   - 新しい表 writing_rules（database/013。対象＝共通・note記事・SNS投稿、決まり、きっかけ、きっかけの種類＝本人・AIの指摘、有効かどうか、作成・更新日時）
@@ -570,9 +570,11 @@ L-1 の根拠の読み取り：本物の PostgreSQL での検証と、作業時�
   - 配線を外した版（決まりを渡さない）で WritingRulePromptTest を流すと、8件中3件（記事・投稿案・読めないとき）が不合格になることを確認し、元に戻してハッシュの一致を確かめた
   - 画面の模擬試験：既存の12本と新しい writing-rules（14件）の13本で、256件中254件合格（11/24 15:51）。不合格の2件は writer-edited-draft の W8・W9。同じファイルで2回流し直すと、2回とも9件すべて合格した。時間の判定によるたまたまの不合格と**推測**（原因は未確認）
   - writing-rules の画面試験は、390x844 でも14件合格、横のはみ出し0
+  - 実DBの試験 WritingRulePostgresIT（2026-11-28、本人の承認で実施）：PostgreSQL 17.12、127.0.0.1:55432 の試験専用DB（senninsyou_nextmove_it）で4件合格、失敗0・エラー0・スキップ0。表は database/013 をそのまま流して作った。確かめたこと：追加で番号が返り既定で有効・一覧は有効を先に新しい順、編集と有効無効の切り替えは1行だけ変えて更新日時を進める・ない番号は false、知らない対象や種類は表の制約で保存されず失敗した編集で値は変わらない、定義は2回流しても失敗しない。パスワードは試験専用のパスワードファイルから環境変数へ渡し、画面と記録には出していない。試験のあとDBは停止（待ち受けなし、postgres のプロセス0）
+- CI（2026-11-28、本人の承認で work/writing-rules だけを通常の push）：GitHub Actions「Test only (no deploy)」#26、コミット 61e5ff6、成功。https://github.com/konamisk81216-web/project-senninsyou/actions/runs/46113581055 。デプロイのワークフローは動いていない。CIの中で流れた試験の件数は、ログの閲覧にサインインが必要なため**未確認**
 - 記録（リポジトリの外）：C:\Development\tmp-shots\writing-rules-logs（1-compile.log、2-normal-tests.log、3-browser-tests.txt、4-writer-edited-draft-rerun.txt、5-step2-related.log、6-mutation-*、7-final-compile.log、8-final-normal-tests.log、shot-390-writing-rules.jpg）。試験のサイトは writing-rules-site、実行の道具は run-writing-rules-tests.ps1
 - 本番に出す前に必要なこと：本番DBへの database/013 の適用（本人の承認が必要）。適用しないまま出すと、決まりの欄は「読み込めませんでした」になり、下書きは決まりなしで作られる（ほかの機能は止まらない）
-- **未確認**：実DBの試験 WritingRulePostgresIT（書いたが流していない。試験専用DBの接続情報の扱いを確かめる途中で止めた）、試験の独立再実行、本物のOpenAIが決まりを守るか、本番での動作、スマートフォン実機、CI（未push）
+- **未確認**：試験の独立再実行、本番DBへの database/013 の適用、本物のOpenAIが決まりを守るか、本番での動作、スマートフォン実機
 
 ### 1-3. JARVIS型の作業分解
 
